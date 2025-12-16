@@ -16,6 +16,7 @@
         <KeyBinding Key="O" Modifiers="Ctrl" Command="{Binding LoadConfigCommand}"/>
         <KeyBinding Key="N" Modifiers="Ctrl" Command="{Binding AddPlcCommand}"/>
         <KeyBinding Key="F5" Command="{Binding RefreshCommand}"/>
+        <KeyBinding Key="L" Modifiers="Ctrl" Command="{Binding ToggleLogPanelCommand}"/>
     </Window.InputBindings>
 
     <Grid>
@@ -23,6 +24,8 @@
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto" MinHeight="0"/>
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
@@ -53,6 +56,9 @@
             </MenuItem>
             <MenuItem Header="_View">
                 <MenuItem Header="_Refresh" Command="{Binding RefreshCommand}" InputGestureText="F5"/>
+                <Separator/>
+                <MenuItem Header="_Toggle Log Panel" Command="{Binding ToggleLogPanelCommand}" InputGestureText="Ctrl+L"/>
+                <MenuItem Header="_Clear Logs" Command="{Binding ClearLogsCommand}"/>
             </MenuItem>
             <MenuItem Header="_Help">
                 <MenuItem Header="_About" Command="{Binding AboutCommand}"/>
@@ -335,8 +341,84 @@
             </Grid>
         </Grid>
 
+        <!-- Log Panel Splitter -->
+        <GridSplitter Grid.Row="3" Height="4"
+                      HorizontalAlignment="Stretch"
+                      VerticalAlignment="Center"
+                      Background="#E0E0E0"
+                      Visibility="{Binding IsLogPanelVisible, Converter={StaticResource BoolToVis}}"/>
+
+        <!-- Log Panel -->
+        <Border Grid.Row="4" Style="{StaticResource CardBorder}"
+                Margin="8,0,8,8"
+                MaxHeight="250" MinHeight="100"
+                Visibility="{Binding IsLogPanelVisible, Converter={StaticResource BoolToVis}}">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+
+                <!-- Log Panel Header -->
+                <Grid Grid.Row="0" Margin="0,0,0,8">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="Logs"
+                                   FontSize="14" FontWeight="SemiBold"
+                                   Foreground="{StaticResource TextPrimaryBrush}"
+                                   VerticalAlignment="Center"/>
+                        <TextBlock Text="{Binding LogEntries.Count, StringFormat=' ({0} entries)'}"
+                                   FontSize="12"
+                                   Foreground="{StaticResource TextSecondaryBrush}"
+                                   VerticalAlignment="Center"
+                                   Margin="4,0,0,0"/>
+                    </StackPanel>
+
+                    <StackPanel Grid.Column="1" Orientation="Horizontal">
+                        <Button Command="{Binding ClearLogsCommand}"
+                                ToolTip="Clear Logs"
+                                Padding="8,4"
+                                Margin="0,0,4,0">
+                            <TextBlock Text="Clear"/>
+                        </Button>
+                        <Button Command="{Binding ToggleLogPanelCommand}"
+                                ToolTip="Hide Log Panel (Ctrl+L)"
+                                Padding="8,4">
+                            <TextBlock Text="✕"/>
+                        </Button>
+                    </StackPanel>
+                </Grid>
+
+                <!-- Log List -->
+                <ListBox Grid.Row="1"
+                         ItemsSource="{Binding LogEntries}"
+                         BorderThickness="1"
+                         BorderBrush="#E0E0E0"
+                         Background="#FAFAFA"
+                         FontFamily="Consolas"
+                         FontSize="11"
+                         ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                         ScrollViewer.VerticalScrollBarVisibility="Auto"
+                         VirtualizingPanel.IsVirtualizing="True"
+                         VirtualizingPanel.VirtualizationMode="Recycling"
+                         x:Name="LogListBox">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding DisplayText}"
+                                       Foreground="{Binding LevelColor, Converter={StaticResource StringToBrush}}"
+                                       TextWrapping="NoWrap"/>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+            </Grid>
+        </Border>
+
         <!-- Status Bar -->
-        <StatusBar Grid.Row="3" Background="White" Padding="8,4">
+        <StatusBar Grid.Row="5" Background="White" Padding="8,4">
             <StatusBarItem>
                 <TextBlock Text="{Binding StatusMessage}" Foreground="{StaticResource TextSecondaryBrush}"/>
             </StatusBarItem>
@@ -359,7 +441,7 @@
         </StatusBar>
 
         <!-- Busy Overlay -->
-        <Grid Grid.RowSpan="4" 
+        <Grid Grid.RowSpan="6"
               Background="#80000000"
               Visibility="{Binding IsBusy, Converter={StaticResource BoolToVis}, FallbackValue=Collapsed}">
             <Border Background="White" 

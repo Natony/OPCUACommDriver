@@ -1,6 +1,8 @@
+using System.Collections.ObjectModel;
 using System.Windows;
 using Microsoft.Extensions.DependencyInjection;
 using OpcUaCommunicationEngine.Interfaces;
+using OpcUaCommunicationEngine.Models;
 using OpcUaCommunicationEngine.Services;
 using OpcUaCommunicationEngine.Services.OpcUa;
 using OpcUaCommunicationEngine.ViewModels;
@@ -23,7 +25,7 @@ public partial class App : Application
     {
         base.OnStartup(e);
 
-        // Setup Logging
+        // Setup initial logging (file and console only)
         Log.Logger = new LoggerConfiguration()
             .MinimumLevel.Debug()
             .WriteTo.Console()
@@ -49,7 +51,22 @@ public partial class App : Application
             // Create and show main window
             var mainWindow = _serviceProvider.GetRequiredService<MainWindow>();
             var mainViewModel = _serviceProvider.GetRequiredService<MainViewModel>();
-            
+
+            // Reconfigure logger to include UI sink
+            Log.Logger = new LoggerConfiguration()
+                .MinimumLevel.Debug()
+                .WriteTo.Console()
+                .WriteTo.Debug()
+                .WriteTo.File(
+                    path: "Logs/app-.log",
+                    rollingInterval: RollingInterval.Day,
+                    retainedFileCountLimit: 7,
+                    outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss.fff} [{Level:u3}] {Message:lj}{NewLine}{Exception}")
+                .WriteTo.UiSink(mainViewModel.LogEntries, maxEntries: 500)
+                .CreateLogger();
+
+            Log.Information("UI Log sink configured");
+
             mainWindow.DataContext = mainViewModel;
             mainWindow.Show();
 

@@ -5,6 +5,7 @@ using OpcUaCommunicationEngine.Interfaces;
 using OpcUaCommunicationEngine.Models;
 using OpcUaCommunicationEngine.Services.OpcUa;
 using Serilog;
+using Serilog.Events;
 
 namespace OpcUaCommunicationEngine.ViewModels;
 
@@ -25,10 +26,25 @@ public class MainViewModel : ViewModelBase
     private bool _isConnected;
     private int _connectedPlcCount;
     private int _totalPlcCount;
+    private bool _isLogPanelVisible = true;
 
     #region Properties
 
     public ObservableCollection<PlcDevice> PlcDevices { get; } = new();
+
+    /// <summary>
+    /// Collection log entries để hiển thị trên UI
+    /// </summary>
+    public ObservableCollection<LogEntry> LogEntries { get; } = new();
+
+    /// <summary>
+    /// Log panel visibility
+    /// </summary>
+    public bool IsLogPanelVisible
+    {
+        get => _isLogPanelVisible;
+        set => SetProperty(ref _isLogPanelVisible, value);
+    }
 
     public PlcDevice? SelectedPlc
     {
@@ -122,6 +138,8 @@ public class MainViewModel : ViewModelBase
     public ICommand BrowseServerCommand { get; }
     public ICommand ExitCommand { get; }
     public ICommand AboutCommand { get; }
+    public ICommand ToggleLogPanelCommand { get; }
+    public ICommand ClearLogsCommand { get; }
 
     #endregion
 
@@ -163,6 +181,8 @@ public class MainViewModel : ViewModelBase
         BrowseServerCommand = new AsyncRelayCommand(BrowseServerAsync, () => HasSelectedPlc);
         ExitCommand = new RelayCommand(Exit);
         AboutCommand = new RelayCommand(ShowAbout);
+        ToggleLogPanelCommand = new RelayCommand(ToggleLogPanel);
+        ClearLogsCommand = new RelayCommand(ClearLogs);
 
         _logger.Debug("MainViewModel constructor completed");
     }
@@ -764,6 +784,17 @@ public class MainViewModel : ViewModelBase
             "About",
             System.Windows.MessageBoxButton.OK,
             System.Windows.MessageBoxImage.Information);
+    }
+
+    private void ToggleLogPanel()
+    {
+        IsLogPanelVisible = !IsLogPanelVisible;
+    }
+
+    private void ClearLogs()
+    {
+        LogEntries.Clear();
+        _logger.Information("Log cleared");
     }
 
     #endregion

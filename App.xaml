@@ -9,6 +9,7 @@
             <helpers:ConnectionStateToBrushConverter x:Key="StateToBrush"/>
             <helpers:QualityToBrushConverter x:Key="QualityToBrush"/>
             <helpers:NullToVisibilityConverter x:Key="NullToVis"/>
+            <helpers:StringToBrushConverter x:Key="StringToBrush"/>
             
             <!-- Colors -->
             <Color x:Key="PrimaryColor">#0078D4</Color>
