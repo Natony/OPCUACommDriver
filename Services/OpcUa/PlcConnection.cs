@@ -91,7 +91,7 @@ public class PlcConnection : IPlcConnection
     public async Task<bool> ConnectAsync(CancellationToken cancellationToken = default)
     {
         if (_disposed) throw new ObjectDisposedException(nameof(PlcConnection));
-        
+
         if (IsConnected)
         {
             _logger.Warning("Already connected to {PlcName}", _device.Name);
@@ -106,13 +106,11 @@ public class PlcConnection : IPlcConnection
             // Initialize OPC UA Application Configuration
             _appConfig = await CreateApplicationConfigurationAsync();
 
-            // Discover endpoint
-            var selectedEndpoint = CoreClientUtils.SelectEndpoint(
-                _device.EndpointUrl, 
-                _device.SecurityPolicy != OpcUaSecurityPolicy.None);
+            // Discover and select endpoint with proper error handling
+            var selectedEndpoint = await SelectEndpointAsync(_device.EndpointUrl, cancellationToken);
 
-            _logger.Debug("Selected endpoint: {Endpoint}, Security: {Security}", 
-                selectedEndpoint.EndpointUrl, 
+            _logger.Debug("Selected endpoint: {Endpoint}, Security: {Security}",
+                selectedEndpoint.EndpointUrl,
                 selectedEndpoint.SecurityPolicyUri);
 
             // Create endpoint configuration
@@ -791,6 +789,146 @@ public class PlcConnection : IPlcConnection
     #endregion
 
     #region Helper Methods
+
+    /// <summary>
+    /// Select endpoint with proper error handling and security matching
+    /// </summary>
+    private async Task<EndpointDescription> SelectEndpointAsync(string endpointUrl, CancellationToken cancellationToken)
+    {
+        EndpointDescriptionCollection? endpoints = null;
+
+        // First, try to discover endpoints without requiring security (useSecurity = false)
+        // This avoids BadSecureChannelClosed errors during discovery phase
+        try
+        {
+            _logger.Debug("Discovering endpoints from {Endpoint}...", endpointUrl);
+
+            // Use discovery client to get available endpoints
+            using var discoveryClient = DiscoveryClient.Create(new Uri(endpointUrl), EndpointConfiguration.Create());
+            endpoints = await Task.Run(() => discoveryClient.GetEndpoints(null), cancellationToken);
+
+            _logger.Debug("Found {Count} endpoints from {Endpoint}", endpoints.Count, endpointUrl);
+        }
+        catch (Exception ex)
+        {
+            _logger.Warning(ex, "Failed to discover endpoints using DiscoveryClient, trying CoreClientUtils...");
+
+            // Fallback: try CoreClientUtils with useSecurity = false to avoid BadSecureChannelClosed
+            try
+            {
+                var endpoint = CoreClientUtils.SelectEndpoint(endpointUrl, useSecurity: false);
+                _logger.Debug("Selected endpoint using CoreClientUtils fallback: {Endpoint}", endpoint.EndpointUrl);
+                return endpoint;
+            }
+            catch (Exception fallbackEx)
+            {
+                _logger.Error(fallbackEx, "Failed to select endpoint from {EndpointUrl}", endpointUrl);
+                throw new InvalidOperationException(
+                    $"Cannot discover endpoints from {endpointUrl}. " +
+                    $"Ensure the OPC UA server is running and accessible. " +
+                    $"Original error: {ex.Message}", ex);
+            }
+        }
+
+        if (endpoints == null || endpoints.Count == 0)
+        {
+            throw new InvalidOperationException($"No endpoints discovered from {endpointUrl}");
+        }
+
+        // Select the best matching endpoint based on security settings
+        return SelectBestEndpoint(endpoints);
+    }
+
+    /// <summary>
+    /// Select the best endpoint based on device security configuration
+    /// </summary>
+    private EndpointDescription SelectBestEndpoint(EndpointDescriptionCollection endpoints)
+    {
+        var useSecurity = _device.SecurityPolicy != OpcUaSecurityPolicy.None;
+        var targetSecurityPolicy = GetSecurityPolicyUri(_device.SecurityPolicy);
+        var targetSecurityMode = (MessageSecurityMode)(int)_device.SecurityMode;
+
+        // If no security required, prefer None security endpoint
+        if (!useSecurity)
+        {
+            var noneEndpoint = endpoints
+                .Where(e => e.SecurityMode == MessageSecurityMode.None)
+                .OrderBy(e => e.SecurityLevel)
+                .FirstOrDefault();
+
+            if (noneEndpoint != null)
+            {
+                _logger.Debug("Selected endpoint with no security: {Endpoint}", noneEndpoint.EndpointUrl);
+                return noneEndpoint;
+            }
+
+            // If no "None" security endpoint, return lowest security level
+            _logger.Warning("No endpoint with SecurityMode.None found, using lowest security endpoint");
+            return endpoints.OrderBy(e => e.SecurityLevel).First();
+        }
+
+        // Try to match exact security policy and mode
+        var exactMatch = endpoints
+            .Where(e => e.SecurityPolicyUri == targetSecurityPolicy &&
+                        e.SecurityMode == targetSecurityMode)
+            .OrderByDescending(e => e.SecurityLevel)
+            .FirstOrDefault();
+
+        if (exactMatch != null)
+        {
+            _logger.Debug("Selected exact match endpoint: Policy={Policy}, Mode={Mode}",
+                exactMatch.SecurityPolicyUri, exactMatch.SecurityMode);
+            return exactMatch;
+        }
+
+        // Try to match security policy only
+        var policyMatch = endpoints
+            .Where(e => e.SecurityPolicyUri == targetSecurityPolicy &&
+                        e.SecurityMode != MessageSecurityMode.None)
+            .OrderByDescending(e => e.SecurityLevel)
+            .FirstOrDefault();
+
+        if (policyMatch != null)
+        {
+            _logger.Debug("Selected policy match endpoint: Policy={Policy}, Mode={Mode}",
+                policyMatch.SecurityPolicyUri, policyMatch.SecurityMode);
+            return policyMatch;
+        }
+
+        // Fallback: select highest security endpoint
+        var highestSecurity = endpoints
+            .Where(e => e.SecurityMode != MessageSecurityMode.None)
+            .OrderByDescending(e => e.SecurityLevel)
+            .FirstOrDefault();
+
+        if (highestSecurity != null)
+        {
+            _logger.Warning("No matching security policy found, using highest security endpoint: {Policy}",
+                highestSecurity.SecurityPolicyUri);
+            return highestSecurity;
+        }
+
+        // Last resort: return first available endpoint
+        _logger.Warning("No secure endpoint found, using first available endpoint");
+        return endpoints.First();
+    }
+
+    /// <summary>
+    /// Convert OpcUaSecurityPolicy enum to security policy URI
+    /// </summary>
+    private static string GetSecurityPolicyUri(OpcUaSecurityPolicy policy)
+    {
+        return policy switch
+        {
+            OpcUaSecurityPolicy.None => SecurityPolicies.None,
+            OpcUaSecurityPolicy.Basic128Rsa15 => SecurityPolicies.Basic128Rsa15,
+            OpcUaSecurityPolicy.Basic256 => SecurityPolicies.Basic256,
+            OpcUaSecurityPolicy.Basic256Sha256 => SecurityPolicies.Basic256Sha256,
+            OpcUaSecurityPolicy.Aes128Sha256RsaOaep => SecurityPolicies.Aes128_Sha256_RsaOaep,
+            OpcUaSecurityPolicy.Aes256Sha256RsaPss => SecurityPolicies.Aes256_Sha256_RsaPss,
+            _ => SecurityPolicies.None
+        };
+    }
 
     private async Task<ApplicationConfiguration> CreateApplicationConfigurationAsync()
     {
