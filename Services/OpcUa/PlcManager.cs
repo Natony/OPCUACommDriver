@@ -12,11 +12,13 @@ namespace OpcUaCommunicationEngine.Services.OpcUa;
 /// </summary>
 public class PlcManager : IPlcManager
 {
-    private readonly ILogger _logger;
     private readonly IConfigurationService _configService;
     private readonly IDataCache _dataCache;
     private readonly ConcurrentDictionary<string, IPlcConnection> _connections = new();
     private bool _disposed;
+
+    // Use Log.Logger directly to ensure UI sink gets the logs after reconfiguration
+    private static ILogger Logger => Log.Logger;
 
     #region Events
 
@@ -41,11 +43,11 @@ public class PlcManager : IPlcManager
         IConfigurationService configService,
         IDataCache dataCache)
     {
-        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _configService = configService ?? throw new ArgumentNullException(nameof(configService));
         _dataCache = dataCache ?? throw new ArgumentNullException(nameof(dataCache));
+        // Note: We use static Logger property instead of injected logger
 
-        _logger.Information("PlcManager initialized");
+        Logger.Information("PlcManager initialized");
     }
 
     #endregion
@@ -54,7 +56,7 @@ public class PlcManager : IPlcManager
 
     public async Task InitializeAsync(CancellationToken cancellationToken = default)
     {
-        _logger.Information("Initializing PlcManager with {Count} PLCs...", 
+        Logger.Information("Initializing PlcManager with {Count} PLCs...", 
             _configService.CurrentConfiguration.PlcDevices.Count);
 
         foreach (var device in _configService.CurrentConfiguration.PlcDevices.Where(d => d.IsEnabled))
@@ -62,7 +64,7 @@ public class PlcManager : IPlcManager
             await AddPlcAsync(device, cancellationToken);
         }
 
-        _logger.Information("PlcManager initialized with {Count} connections", _connections.Count);
+        Logger.Information("PlcManager initialized with {Count} connections", _connections.Count);
     }
 
     public async Task<IPlcConnection?> AddPlcAsync(PlcDevice device, CancellationToken cancellationToken = default)
@@ -71,7 +73,7 @@ public class PlcManager : IPlcManager
 
         if (_connections.ContainsKey(device.Id))
         {
-            _logger.Warning("PLC {Name} already exists", device.Name);
+            Logger.Warning("PLC {Name} already exists", device.Name);
             return _connections[device.Id];
         }
 
@@ -85,13 +87,13 @@ public class PlcManager : IPlcManager
 
             _connections[device.Id] = connection;
             
-            _logger.Information("Added PLC {Name} ({Id})", device.Name, device.Id);
+            Logger.Information("Added PLC {Name} ({Id})", device.Name, device.Id);
             
             return connection;
         }
         catch (Exception ex)
         {
-            _logger.Error(ex, "Error adding PLC {Name}", device.Name);
+            Logger.Error(ex, "Error adding PLC {Name}", device.Name);
             return null;
         }
     }
@@ -107,7 +109,7 @@ public class PlcManager : IPlcManager
             await connection.DisconnectAsync();
             connection.Dispose();
             
-            _logger.Information("Removed PLC {Id}", plcId);
+            Logger.Information("Removed PLC {Id}", plcId);
             return true;
         }
 
@@ -133,7 +135,7 @@ public class PlcManager : IPlcManager
             return await connection.ConnectAsync(cancellationToken);
         }
         
-        _logger.Warning("PLC {Id} not found", plcId);
+        Logger.Warning("PLC {Id} not found", plcId);
         return false;
     }
 
@@ -147,7 +149,7 @@ public class PlcManager : IPlcManager
 
     public async Task<int> ConnectAllAsync(CancellationToken cancellationToken = default)
     {
-        _logger.Information("Connecting to all PLCs...");
+        Logger.Information("Connecting to all PLCs...");
         
         var tasks = _connections.Values
             .Where(c => !c.IsConnected && c.Device.IsEnabled)
@@ -156,7 +158,7 @@ public class PlcManager : IPlcManager
         var results = await Task.WhenAll(tasks);
         var connectedCount = results.Count(r => r);
         
-        _logger.Information("Connected to {Count}/{Total} PLCs", 
+        Logger.Information("Connected to {Count}/{Total} PLCs", 
             connectedCount, _connections.Count);
         
         return connectedCount;
@@ -164,7 +166,7 @@ public class PlcManager : IPlcManager
 
     public async Task DisconnectAllAsync(CancellationToken cancellationToken = default)
     {
-        _logger.Information("Disconnecting from all PLCs...");
+        Logger.Information("Disconnecting from all PLCs...");
         
         var tasks = _connections.Values
             .Where(c => c.IsConnected)
@@ -172,7 +174,7 @@ public class PlcManager : IPlcManager
 
         await Task.WhenAll(tasks);
         
-        _logger.Information("Disconnected from all PLCs");
+        Logger.Information("Disconnected from all PLCs");
     }
 
     public async Task<bool> ReconnectAsync(string plcId, CancellationToken cancellationToken = default)
@@ -186,7 +188,7 @@ public class PlcManager : IPlcManager
 
     public async Task<int> ReconnectAllAsync(CancellationToken cancellationToken = default)
     {
-        _logger.Information("Reconnecting all PLCs...");
+        Logger.Information("Reconnecting all PLCs...");
         
         await DisconnectAllAsync(cancellationToken);
         return await ConnectAllAsync(cancellationToken);
@@ -200,7 +202,7 @@ public class PlcManager : IPlcManager
         }
         catch (Exception ex)
         {
-            _logger.Error(ex, "Error connecting to {PlcName}", connection.Device.Name);
+            Logger.Error(ex, "Error connecting to {PlcName}", connection.Device.Name);
             return false;
         }
     }
@@ -354,7 +356,7 @@ public class PlcManager : IPlcManager
 
     private void OnConnectionStateChanged(object? sender, ConnectionStateChangedEventArgs e)
     {
-        _logger.Information("PLC {PlcName} state changed: {OldState} -> {NewState}", 
+        Logger.Information("PLC {PlcName} state changed: {OldState} -> {NewState}", 
             e.PlcName, e.OldState, e.NewState);
         
         ConnectionStateChanged?.Invoke(this, e);
@@ -371,7 +373,7 @@ public class PlcManager : IPlcManager
 
     private void OnErrorOccurred(object? sender, PlcErrorEventArgs e)
     {
-        _logger.Warning("Error on PLC {PlcName}: {Error}", e.PlcName, e.ErrorMessage);
+        Logger.Warning("Error on PLC {PlcName}: {Error}", e.PlcName, e.ErrorMessage);
         
         ErrorOccurred?.Invoke(this, e);
     }
@@ -385,7 +387,7 @@ public class PlcManager : IPlcManager
         if (_disposed) return;
         _disposed = true;
 
-        _logger.Information("Disposing PlcManager...");
+        Logger.Information("Disposing PlcManager...");
 
         foreach (var connection in _connections.Values)
         {
@@ -398,7 +400,7 @@ public class PlcManager : IPlcManager
 
         _connections.Clear();
 
-        _logger.Information("PlcManager disposed");
+        Logger.Information("PlcManager disposed");
         
         GC.SuppressFinalize(this);
     }
