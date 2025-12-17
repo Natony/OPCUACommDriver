@@ -101,7 +101,10 @@ public class PlcConnection : IPlcConnection
         try
         {
             ConnectionState = PlcConnectionState.Connecting;
-            _logger.Information("Connecting to {PlcName} at {Endpoint}...", _device.Name, _device.EndpointUrl);
+            _logger.Information("═══════════════════════════════════════════════════════════");
+            _logger.Information("Connecting to PLC: {PlcName}", _device.Name);
+            _logger.Information("Target Endpoint: {Endpoint}", _device.EndpointUrl);
+            _logger.Information("Security Policy: {Policy}, Mode: {Mode}", _device.SecurityPolicy, _device.SecurityMode);
 
             // Initialize OPC UA Application Configuration
             _appConfig = await CreateApplicationConfigurationAsync();
@@ -109,15 +112,17 @@ public class PlcConnection : IPlcConnection
             // Discover and select endpoint with proper error handling
             var selectedEndpoint = await SelectEndpointAsync(_device.EndpointUrl, cancellationToken);
 
-            _logger.Debug("Selected endpoint: {Endpoint}, Security: {Security}",
-                selectedEndpoint.EndpointUrl,
-                selectedEndpoint.SecurityPolicyUri);
+            _logger.Information("Selected Endpoint: {Endpoint}", selectedEndpoint.EndpointUrl);
+            _logger.Information("  → Security Policy: {Policy}", selectedEndpoint.SecurityPolicyUri);
+            _logger.Information("  → Security Mode: {Mode}", selectedEndpoint.SecurityMode);
+            _logger.Information("  → Transport Profile: {Profile}", selectedEndpoint.TransportProfileUri);
 
             // Create endpoint configuration
             var endpointConfig = EndpointConfiguration.Create(_appConfig);
             var endpoint = new ConfiguredEndpoint(null, selectedEndpoint, endpointConfig);
 
             // Create session
+            _logger.Information("Creating OPC UA Session...");
             _session = await Session.Create(
                 _appConfig,
                 endpoint,
@@ -136,9 +141,12 @@ public class PlcConnection : IPlcConnection
             ConnectionState = PlcConnectionState.Connected;
             LastConnectedTime = DateTime.Now;
             LastError = null;
-            
-            _logger.Information("Connected to {PlcName}. SessionId: {SessionId}", 
-                _device.Name, _session.SessionId);
+
+            _logger.Information("✓ Connected successfully to {PlcName}", _device.Name);
+            _logger.Information("  → Session ID: {SessionId}", _session.SessionId);
+            _logger.Information("  → Session Name: {SessionName}", _session.SessionName);
+            _logger.Information("  → Server URI: {ServerUri}", _session.Endpoint.Server.ApplicationUri);
+            _logger.Information("═══════════════════════════════════════════════════════════");
 
             // Create default subscriptions if configured
             if (_device.SubscriptionGroups.Any())
@@ -181,7 +189,9 @@ public class PlcConnection : IPlcConnection
             if (_session != null)
             {
                 ConnectionState = PlcConnectionState.Disconnecting;
-                _logger.Information("Disconnecting from {PlcName}...", _device.Name);
+                _logger.Information("═══════════════════════════════════════════════════════════");
+                _logger.Information("Disconnecting from PLC: {PlcName}", _device.Name);
+                _logger.Information("  → Session ID: {SessionId}", _session.SessionId);
 
                 // Remove subscriptions
                 foreach (var subscription in _subscriptions.Values)
@@ -208,7 +218,8 @@ public class PlcConnection : IPlcConnection
                 _session.Dispose();
                 _session = null;
 
-                _logger.Information("Disconnected from {PlcName}", _device.Name);
+                _logger.Information("✓ Disconnected from {PlcName}", _device.Name);
+                _logger.Information("═══════════════════════════════════════════════════════════");
             }
 
             ConnectionState = PlcConnectionState.Disconnected;
@@ -452,10 +463,17 @@ public class PlcConnection : IPlcConnection
             };
 
             var tags = _device.Tags.Where(t => t.SubscriptionGroupId == group.Id && t.IsEnabled).ToList();
-            
+
+            _logger.Information("Creating subscription group: {GroupName} (Interval: {Interval}ms)",
+                group.Name, group.PublishingInterval);
+
             if (!tags.Any())
             {
-                _logger.Debug("No enabled tags for subscription {GroupName}", group.Name);
+                _logger.Warning("  → No enabled tags for subscription {GroupName}", group.Name);
+            }
+            else
+            {
+                _logger.Information("  → Subscribing to {Count} tag(s):", tags.Count);
             }
 
             foreach (var tag in tags)
@@ -472,8 +490,11 @@ public class PlcConnection : IPlcConnection
 
                 monitoredItem.Notification += MonitoredItem_Notification;
                 subscription.AddItem(monitoredItem);
-                
+
                 _monitoredItemMapping[monitoredItem.ClientHandle] = (tag.Id, tag.NodeId);
+
+                _logger.Information("     • {TagName} → NodeId: {NodeId} (ScanRate: {Rate}ms)",
+                    tag.Name, tag.NodeId, tag.ScanRate);
             }
 
             _session.AddSubscription(subscription);
@@ -482,11 +503,20 @@ public class PlcConnection : IPlcConnection
             if (subscription.MonitoredItemCount > 0)
             {
                 await subscription.ApplyChangesAsync(cancellationToken);
+
+                // Log status of each monitored item
+                _logger.Information("  → Monitored items status:");
+                foreach (var item in subscription.MonitoredItems)
+                {
+                    var status = item.Status?.Error?.StatusCode.ToString() ?? "Good";
+                    var statusSymbol = StatusCode.IsGood(item.Status?.Error?.StatusCode ?? StatusCodes.Good) ? "✓" : "✗";
+                    _logger.Information("     {Symbol} {Name}: {Status}", statusSymbol, item.DisplayName, status);
+                }
             }
 
             _subscriptions[group.Id] = subscription;
-            
-            _logger.Information("Created subscription {GroupName} with {Count} monitored items", 
+
+            _logger.Information("✓ Subscription {GroupName} created with {Count} monitored items",
                 group.Name, subscription.MonitoredItemCount);
 
             return true;
@@ -754,12 +784,13 @@ public class PlcConnection : IPlcConnection
             {
                 if (_monitoredItemMapping.TryGetValue(monitoredItem.ClientHandle, out var mapping))
                 {
+                    var quality = MapStatusCode(notification.Value.StatusCode);
                     var tagValue = new TagValue
                     {
                         TagId = mapping.TagId,
                         NodeId = mapping.NodeId,
                         Value = notification.Value.Value,
-                        Quality = MapStatusCode(notification.Value.StatusCode),
+                        Quality = quality,
                         SourceTimestamp = notification.Value.SourceTimestamp,
                         ServerTimestamp = notification.Value.ServerTimestamp
                     };
@@ -767,6 +798,15 @@ public class PlcConnection : IPlcConnection
                     var tag = _device.Tags.FirstOrDefault(t => t.Id == mapping.TagId);
                     if (tag != null)
                     {
+                        // Log value change (Debug level to avoid flooding)
+                        var qualitySymbol = quality == TagQuality.Good ? "●" : quality == TagQuality.Bad ? "✗" : "?";
+                        _logger.Debug("[{PlcName}] {TagName} ({NodeId}) = {Value} [{Quality}]",
+                            _device.Name,
+                            tag.Name,
+                            mapping.NodeId,
+                            notification.Value.Value ?? "null",
+                            qualitySymbol);
+
                         tag.UpdateValue(tagValue.Value, tagValue.Quality, tagValue.SourceTimestamp);
                     }
 
@@ -801,13 +841,22 @@ public class PlcConnection : IPlcConnection
         // This avoids BadSecureChannelClosed errors during discovery phase
         try
         {
-            _logger.Debug("Discovering endpoints from {Endpoint}...", endpointUrl);
+            _logger.Information("Discovering available endpoints from {Endpoint}...", endpointUrl);
 
             // Use discovery client to get available endpoints
             using var discoveryClient = DiscoveryClient.Create(new Uri(endpointUrl), EndpointConfiguration.Create());
             endpoints = await Task.Run(() => discoveryClient.GetEndpoints(null), cancellationToken);
 
-            _logger.Debug("Found {Count} endpoints from {Endpoint}", endpoints.Count, endpointUrl);
+            _logger.Information("Found {Count} available endpoint(s):", endpoints.Count);
+            var index = 1;
+            foreach (var ep in endpoints)
+            {
+                _logger.Information("  [{Index}] {Url}", index, ep.EndpointUrl);
+                _logger.Information("      Security: {Policy} / {Mode}",
+                    ep.SecurityPolicyUri?.Split('#').LastOrDefault() ?? "None",
+                    ep.SecurityMode);
+                index++;
+            }
         }
         catch (Exception ex)
         {
