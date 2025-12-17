@@ -25,7 +25,7 @@
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
             <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto" MinHeight="0"/>
+            <RowDefinition Height="180"/>
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
@@ -351,7 +351,6 @@
         <!-- Log Panel -->
         <Border Grid.Row="4" Style="{StaticResource CardBorder}"
                 Margin="8,0,8,8"
-                MaxHeight="250" MinHeight="100"
                 Visibility="{Binding IsLogPanelVisible, Converter={StaticResource BoolToVis}}">
             <Grid>
                 <Grid.RowDefinitions>
