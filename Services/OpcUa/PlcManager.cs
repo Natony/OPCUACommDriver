@@ -79,7 +79,7 @@ public class PlcManager : IPlcManager
 
         try
         {
-            var connection = new PlcConnection(device, _logger);
+            var connection = new PlcConnection(device, Log.Logger);
             
             connection.ConnectionStateChanged += OnConnectionStateChanged;
             connection.TagValueChanged += OnTagValueChanged;
