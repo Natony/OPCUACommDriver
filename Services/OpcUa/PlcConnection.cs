@@ -22,6 +22,8 @@ public class PlcConnection : IPlcConnection
     private PlcConnectionState _connectionState = PlcConnectionState.Disconnected;
     private CancellationTokenSource? _reconnectCts;
     private bool _disposed;
+    private bool _isDisconnecting; // Flag to prevent keep-alive from triggering reconnect during disconnect
+    private bool _isReconnecting;  // Flag to prevent multiple reconnect loops
 
     // Subscriptions management
     private readonly ConcurrentDictionary<string, Subscription> _subscriptions = new();
@@ -170,8 +172,9 @@ public class PlcConnection : IPlcConnection
             
             RaiseError(ex.Message, ex, isCritical: true);
 
-            // Start auto-reconnect if enabled
-            if (_device.AutoReconnect)
+            // Only start auto-reconnect if not already in reconnect loop
+            // This prevents nested reconnect loops
+            if (_device.AutoReconnect && !_isReconnecting && !_isDisconnecting)
             {
                 StartAutoReconnect();
             }
@@ -183,10 +186,13 @@ public class PlcConnection : IPlcConnection
     public async Task DisconnectAsync()
     {
         if (_disposed) return;
+        if (_isDisconnecting) return; // Prevent re-entry
+
+        _isDisconnecting = true;
 
         try
         {
-            // Stop auto-reconnect
+            // Stop auto-reconnect FIRST
             StopAutoReconnect();
 
             if (_session != null)
@@ -196,29 +202,47 @@ public class PlcConnection : IPlcConnection
                 Logger.Information("Disconnecting from PLC: {PlcName}", _device.Name);
                 Logger.Information("  → Session ID: {SessionId}", _session.SessionId);
 
+                // Unsubscribe events FIRST to prevent keep-alive from triggering reconnect
+                try
+                {
+                    _session.KeepAlive -= Session_KeepAlive;
+                    _session.Notification -= Session_Notification;
+                    _session.PublishError -= Session_PublishError;
+                }
+                catch { /* Ignore */ }
+
                 // Remove subscriptions
                 foreach (var subscription in _subscriptions.Values)
                 {
                     try
                     {
-                        _session.RemoveSubscription(subscription);
+                        subscription.Delete(true);
                     }
                     catch (Exception ex)
                     {
-                        Logger.Warning(ex, "Error removing subscription during disconnect");
+                        Logger.Debug("Error removing subscription during disconnect: {Error}", ex.Message);
                     }
                 }
                 _subscriptions.Clear();
                 _monitoredItemMapping.Clear();
 
-                // Unsubscribe events
-                _session.KeepAlive -= Session_KeepAlive;
-                _session.Notification -= Session_Notification;
-                _session.PublishError -= Session_PublishError;
+                // Close session with timeout
+                try
+                {
+                    using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+                    await _session.CloseAsync(cts.Token);
+                }
+                catch (Exception ex)
+                {
+                    Logger.Debug("Error closing session: {Error}", ex.Message);
+                }
 
-                // Close session
-                await _session.CloseAsync();
-                _session.Dispose();
+                try
+                {
+                    _session.Dispose();
+                }
+                catch { /* Ignore */ }
+
                 _session = null;
 
                 Logger.Information("✓ Disconnected from {PlcName}", _device.Name);
@@ -232,6 +256,11 @@ public class PlcConnection : IPlcConnection
         {
             Logger.Error(ex, "Error disconnecting from {PlcName}", _device.Name);
             ConnectionState = PlcConnectionState.Disconnected;
+            _session = null;
+        }
+        finally
+        {
+            _isDisconnecting = false;
         }
     }
 
@@ -746,23 +775,27 @@ public class PlcConnection : IPlcConnection
 
     private void Session_KeepAlive(ISession session, KeepAliveEventArgs e)
     {
+        // Ignore keep-alive events during disconnect
+        if (_isDisconnecting || _disposed)
+        {
+            return;
+        }
+
         if (e.Status != null && ServiceResult.IsNotGood(e.Status))
         {
             Logger.Warning("Keep-alive failed for {PlcName}: {Status}", _device.Name, e.Status);
-            
-            if (ConnectionState == PlcConnectionState.Connected)
+
+            // Only trigger reconnect if we're actually connected (not already reconnecting or disconnecting)
+            if (ConnectionState == PlcConnectionState.Connected && _device.AutoReconnect && !_isReconnecting)
             {
                 ConnectionState = PlcConnectionState.Reconnecting;
-                
-                if (_device.AutoReconnect)
-                {
-                    StartAutoReconnect();
-                }
+                StartAutoReconnect();
             }
         }
         else
         {
-            if (ConnectionState == PlcConnectionState.Reconnecting)
+            // Keep-alive succeeded
+            if (ConnectionState == PlcConnectionState.Reconnecting && !_isReconnecting)
             {
                 ConnectionState = PlcConnectionState.Connected;
             }
@@ -1070,65 +1103,120 @@ public class PlcConnection : IPlcConnection
 
     private void StartAutoReconnect()
     {
-        if (_reconnectCts != null) return;
+        lock (_lock)
+        {
+            // Prevent multiple reconnect loops
+            if (_isReconnecting || _reconnectCts != null || _isDisconnecting || _disposed)
+            {
+                return;
+            }
 
-        _reconnectCts = new CancellationTokenSource();
+            _isReconnecting = true;
+            _reconnectCts = new CancellationTokenSource();
+        }
+
         _ = AutoReconnectLoopAsync(_reconnectCts.Token);
     }
 
     private void StopAutoReconnect()
     {
-        _reconnectCts?.Cancel();
-        _reconnectCts?.Dispose();
-        _reconnectCts = null;
+        lock (_lock)
+        {
+            _isReconnecting = false;
+
+            if (_reconnectCts != null)
+            {
+                try
+                {
+                    _reconnectCts.Cancel();
+                    _reconnectCts.Dispose();
+                }
+                catch { /* Ignore */ }
+                _reconnectCts = null;
+            }
+        }
     }
 
     private async Task AutoReconnectLoopAsync(CancellationToken cancellationToken)
     {
         var retryCount = 0;
-        var maxRetries = _device.MaxReconnectAttempts > 0 ? _device.MaxReconnectAttempts : int.MaxValue;
+        var maxRetries = _device.MaxReconnectAttempts > 0 ? _device.MaxReconnectAttempts : 10;
+        var baseDelay = Math.Max(_device.ReconnectInterval, 5000); // Minimum 5 seconds
 
-        while (!cancellationToken.IsCancellationRequested && retryCount < maxRetries)
+        Logger.Information("Starting auto-reconnect for {PlcName} (max {MaxRetries} attempts, interval {Interval}ms)",
+            _device.Name, maxRetries, baseDelay);
+
+        try
         {
-            try
+            while (!cancellationToken.IsCancellationRequested && retryCount < maxRetries && _isReconnecting)
             {
-                await Task.Delay(_device.ReconnectInterval, cancellationToken);
-
-                if (cancellationToken.IsCancellationRequested) break;
-
-                Logger.Information("Auto-reconnect attempt {Attempt} for {PlcName}...", 
-                    retryCount + 1, _device.Name);
-
-                ConnectionState = PlcConnectionState.Reconnecting;
-
-                var connected = await ConnectAsync(cancellationToken);
-                if (connected)
+                try
                 {
-                    Logger.Information("Auto-reconnect successful for {PlcName}", _device.Name);
-                    _reconnectCts = null;
-                    return;
+                    // Exponential backoff with max 30 seconds
+                    var delay = Math.Min(baseDelay * (int)Math.Pow(1.5, retryCount), 30000);
+                    Logger.Debug("Waiting {Delay}ms before reconnect attempt...", delay);
+
+                    await Task.Delay(delay, cancellationToken);
+
+                    if (cancellationToken.IsCancellationRequested || !_isReconnecting) break;
+
+                    retryCount++;
+                    Logger.Information("Auto-reconnect attempt {Attempt}/{MaxAttempts} for {PlcName}...",
+                        retryCount, maxRetries, _device.Name);
+
+                    ConnectionState = PlcConnectionState.Reconnecting;
+
+                    // Disconnect cleanly first (without triggering new reconnect)
+                    var wasReconnecting = _isReconnecting;
+                    _isReconnecting = false; // Temporarily disable to prevent nested loops
+
+                    if (_session != null)
+                    {
+                        try
+                        {
+                            _session.KeepAlive -= Session_KeepAlive;
+                            _session.Notification -= Session_Notification;
+                            _session.PublishError -= Session_PublishError;
+                            _session.Dispose();
+                        }
+                        catch { /* Ignore */ }
+                        _session = null;
+                    }
+
+                    _isReconnecting = wasReconnecting;
+
+                    // Try to connect
+                    var connected = await ConnectAsync(cancellationToken);
+                    if (connected)
+                    {
+                        Logger.Information("✓ Auto-reconnect successful for {PlcName}", _device.Name);
+                        return;
+                    }
                 }
+                catch (OperationCanceledException)
+                {
+                    break;
+                }
+                catch (Exception ex)
+                {
+                    Logger.Warning("Auto-reconnect error for {PlcName}: {Error}", _device.Name, ex.Message);
+                }
+            }
 
-                retryCount++;
-            }
-            catch (OperationCanceledException)
+            if (retryCount >= maxRetries)
             {
-                break;
-            }
-            catch (Exception ex)
-            {
-                Logger.Warning(ex, "Auto-reconnect error for {PlcName}", _device.Name);
-                retryCount++;
+                Logger.Error("✗ Max reconnect attempts ({MaxRetries}) reached for {PlcName}", maxRetries, _device.Name);
+                ConnectionState = PlcConnectionState.Error;
             }
         }
-
-        if (retryCount >= maxRetries)
+        finally
         {
-            Logger.Error("Max reconnect attempts reached for {PlcName}", _device.Name);
-            ConnectionState = PlcConnectionState.Error;
+            lock (_lock)
+            {
+                _isReconnecting = false;
+                _reconnectCts = null;
+            }
         }
-
-        _reconnectCts = null;
     }
 
     private void RaiseError(string message, Exception? ex = null, bool isCritical = false)
