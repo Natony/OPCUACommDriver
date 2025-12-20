@@ -25,6 +25,10 @@ public class PlcConnection : IPlcConnection
     private bool _isDisconnecting; // Flag to prevent keep-alive from triggering reconnect during disconnect
     private bool _isReconnecting;  // Flag to prevent multiple reconnect loops
 
+    // SessionReconnectHandler for proper OPC UA reconnection handling
+    // This handler manages the two-layer reconnection: Secure Channel + Session
+    private SessionReconnectHandler? _reconnectHandler;
+
     // Subscriptions management
     private readonly ConcurrentDictionary<string, Subscription> _subscriptions = new();
     private readonly ConcurrentDictionary<uint, (string TagId, string NodeId)> _monitoredItemMapping = new();
@@ -192,7 +196,21 @@ public class PlcConnection : IPlcConnection
 
         try
         {
-            // Stop auto-reconnect FIRST
+            // Stop reconnect handler FIRST
+            lock (_lock)
+            {
+                if (_reconnectHandler != null)
+                {
+                    try
+                    {
+                        _reconnectHandler.Dispose();
+                    }
+                    catch { /* Ignore */ }
+                    _reconnectHandler = null;
+                }
+            }
+
+            // Stop auto-reconnect
             StopAutoReconnect();
 
             if (_session != null)
@@ -783,22 +801,121 @@ public class PlcConnection : IPlcConnection
 
         if (e.Status != null && ServiceResult.IsNotGood(e.Status))
         {
-            Logger.Warning("Keep-alive failed for {PlcName}: {Status}", _device.Name, e.Status);
+            Logger.Warning("Keep-alive failed for {PlcName}: {Status} (CurrentState: {State})",
+                _device.Name, e.Status, e.CurrentState);
+
+            // Log additional details for debugging
+            if (e.Status.InnerResult != null)
+            {
+                Logger.Debug("  → Inner status: {InnerStatus}", e.Status.InnerResult);
+            }
+
+            // Don't trigger reconnect if already reconnecting or handler is active
+            if (_reconnectHandler != null && _reconnectHandler.IsReconnecting)
+            {
+                Logger.Debug("Reconnect handler already active, skipping...");
+                return;
+            }
 
             // Only trigger reconnect if we're actually connected (not already reconnecting or disconnecting)
             if (ConnectionState == PlcConnectionState.Connected && _device.AutoReconnect && !_isReconnecting)
             {
                 ConnectionState = PlcConnectionState.Reconnecting;
-                StartAutoReconnect();
+
+                // Use SessionReconnectHandler for proper OPC UA reconnection
+                // This handles both Secure Channel and Session layer reconnection
+                lock (_lock)
+                {
+                    if (_reconnectHandler == null)
+                    {
+                        // reconnectPeriod = 10000ms (10 seconds) - time between reconnect attempts
+                        _reconnectHandler = new SessionReconnectHandler(true);
+                        _reconnectHandler.BeginReconnect(
+                            _session,
+                            10000, // 10 seconds between reconnect attempts
+                            SessionReconnectHandler_Complete);
+
+                        Logger.Information("Started SessionReconnectHandler for {PlcName}", _device.Name);
+                    }
+                }
             }
         }
         else
         {
             // Keep-alive succeeded
-            if (ConnectionState == PlcConnectionState.Reconnecting && !_isReconnecting)
+            if (ConnectionState == PlcConnectionState.Reconnecting && _reconnectHandler == null)
             {
                 ConnectionState = PlcConnectionState.Connected;
             }
+        }
+    }
+
+    /// <summary>
+    /// Callback for SessionReconnectHandler when reconnection completes
+    /// </summary>
+    private void SessionReconnectHandler_Complete(object? sender, EventArgs e)
+    {
+        lock (_lock)
+        {
+            // Ignore callback if disposing or disconnecting
+            if (_disposed || _isDisconnecting)
+            {
+                _reconnectHandler?.Dispose();
+                _reconnectHandler = null;
+                return;
+            }
+
+            if (_reconnectHandler?.Session != null)
+            {
+                // Reconnection successful - update session reference
+                var oldSession = _session;
+                _session = (Session)_reconnectHandler.Session;
+
+                Logger.Information("✓ SessionReconnectHandler completed for {PlcName}", _device.Name);
+                Logger.Information("  → New Session ID: {SessionId}", _session?.SessionId);
+
+                // Dispose old session if different
+                if (oldSession != null && oldSession != _session)
+                {
+                    try
+                    {
+                        oldSession.KeepAlive -= Session_KeepAlive;
+                        oldSession.Notification -= Session_Notification;
+                        oldSession.PublishError -= Session_PublishError;
+                        oldSession.Dispose();
+                    }
+                    catch { /* Ignore */ }
+                }
+
+                // Re-attach event handlers if new session
+                if (_session != null && _session != oldSession)
+                {
+                    _session.KeepAlive += Session_KeepAlive;
+                    _session.Notification += Session_Notification;
+                    _session.PublishError += Session_PublishError;
+                }
+
+                ConnectionState = PlcConnectionState.Connected;
+                LastConnectedTime = DateTime.Now;
+            }
+            else
+            {
+                Logger.Warning("SessionReconnectHandler failed for {PlcName}", _device.Name);
+
+                // Fall back to manual auto-reconnect
+                if (_device.AutoReconnect && !_isReconnecting)
+                {
+                    StartAutoReconnect();
+                }
+                else
+                {
+                    ConnectionState = PlcConnectionState.Error;
+                }
+            }
+
+            // Dispose the handler
+            _reconnectHandler?.Dispose();
+            _reconnectHandler = null;
         }
     }
 
@@ -926,6 +1043,8 @@ public class PlcConnection : IPlcConnection
 
     /// <summary>
     /// Select the best endpoint based on device security configuration
+    /// NOTE: For S7-1200/1500, prefer No Security to avoid slow Secure Channel renewal issues
+    /// (S7-1200 takes 6-14 seconds for renewal with Basic256Sha256, causing BadTimeout errors)
     /// </summary>
     private EndpointDescription SelectBestEndpoint(EndpointDescriptionCollection endpoints)
     {
@@ -933,7 +1052,8 @@ public class PlcConnection : IPlcConnection
         var targetSecurityPolicy = GetSecurityPolicyUri(_device.SecurityPolicy);
         var targetSecurityMode = (MessageSecurityMode)(int)_device.SecurityMode;
 
-        // If no security required, prefer None security endpoint
+        // PRIORITY 1: If no security required OR for better S7-1200 stability, prefer None security endpoint
+        // This avoids the slow Secure Channel renewal problem with Siemens PLCs
         if (!useSecurity)
         {
             var noneEndpoint = endpoints
@@ -943,16 +1063,18 @@ public class PlcConnection : IPlcConnection
 
             if (noneEndpoint != null)
             {
-                Logger.Debug("Selected endpoint with no security: {Endpoint}", noneEndpoint.EndpointUrl);
+                Logger.Information("Selected No Security endpoint (recommended for S7-1200/1500 stability)");
+                Logger.Debug("  → Endpoint: {Endpoint}", noneEndpoint.EndpointUrl);
                 return noneEndpoint;
             }
 
             // If no "None" security endpoint, return lowest security level
             Logger.Warning("No endpoint with SecurityMode.None found, using lowest security endpoint");
+            Logger.Warning("⚠ For S7-1200/1500, this may cause connection stability issues");
             return endpoints.OrderBy(e => e.SecurityLevel).First();
         }
 
-        // Try to match exact security policy and mode
+        // PRIORITY 2: Try to match exact security policy and mode
         var exactMatch = endpoints
             .Where(e => e.SecurityPolicyUri == targetSecurityPolicy &&
                         e.SecurityMode == targetSecurityMode)
@@ -961,12 +1083,21 @@ public class PlcConnection : IPlcConnection
 
         if (exactMatch != null)
         {
-            Logger.Debug("Selected exact match endpoint: Policy={Policy}, Mode={Mode}",
-                exactMatch.SecurityPolicyUri, exactMatch.SecurityMode);
+            Logger.Information("Selected exact match endpoint: Policy={Policy}, Mode={Mode}",
+                exactMatch.SecurityPolicyUri?.Split('#').LastOrDefault() ?? "None",
+                exactMatch.SecurityMode);
+
+            // Warn about potential S7-1200 issues with security
+            if (targetSecurityPolicy.Contains("Basic256Sha256"))
+            {
+                Logger.Warning("⚠ Using Basic256Sha256 with S7-1200 may cause slow Secure Channel renewal (6-14s)");
+                Logger.Warning("  Consider using No Security for better stability");
+            }
+
             return exactMatch;
         }
 
-        // Try to match security policy only
+        // PRIORITY 3: Try to match security policy only
         var policyMatch = endpoints
             .Where(e => e.SecurityPolicyUri == targetSecurityPolicy &&
                         e.SecurityMode != MessageSecurityMode.None)
@@ -975,26 +1106,44 @@ public class PlcConnection : IPlcConnection
 
         if (policyMatch != null)
         {
-            Logger.Debug("Selected policy match endpoint: Policy={Policy}, Mode={Mode}",
-                policyMatch.SecurityPolicyUri, policyMatch.SecurityMode);
+            Logger.Information("Selected policy match endpoint: Policy={Policy}, Mode={Mode}",
+                policyMatch.SecurityPolicyUri?.Split('#').LastOrDefault() ?? "None",
+                policyMatch.SecurityMode);
             return policyMatch;
         }
 
-        // Fallback: select highest security endpoint
-        var highestSecurity = endpoints
-            .Where(e => e.SecurityMode != MessageSecurityMode.None)
-            .OrderByDescending(e => e.SecurityLevel)
+        // PRIORITY 4: Fallback - prefer lighter security for S7-1200 compatibility
+        // Basic128Rsa15 and Basic256 are faster than Basic256Sha256
+        var lighterSecurity = endpoints
+            .Where(e => e.SecurityMode != MessageSecurityMode.None &&
+                        (e.SecurityPolicyUri?.Contains("Basic128") == true ||
+                         e.SecurityPolicyUri?.Contains("Basic256") == true &&
+                         !e.SecurityPolicyUri.Contains("Sha256")))
+            .OrderBy(e => e.SecurityLevel)
             .FirstOrDefault();
 
-        if (highestSecurity != null)
+        if (lighterSecurity != null)
         {
-            Logger.Warning("No matching security policy found, using highest security endpoint: {Policy}",
-                highestSecurity.SecurityPolicyUri);
-            return highestSecurity;
+            Logger.Information("Selected lighter security endpoint for S7-1200 compatibility: {Policy}",
+                lighterSecurity.SecurityPolicyUri?.Split('#').LastOrDefault() ?? "None");
+            return lighterSecurity;
+        }
+
+        // PRIORITY 5: Select any secure endpoint (may have slow renewal on S7-1200)
+        var anySecure = endpoints
+            .Where(e => e.SecurityMode != MessageSecurityMode.None)
+            .OrderBy(e => e.SecurityLevel) // Prefer lower security for speed
+            .FirstOrDefault();
+
+        if (anySecure != null)
+        {
+            Logger.Warning("Using secure endpoint: {Policy} (may be slow on S7-1200)",
+                anySecure.SecurityPolicyUri?.Split('#').LastOrDefault() ?? "None");
+            return anySecure;
         }
 
         // Last resort: return first available endpoint
-        Logger.Warning("No secure endpoint found, using first available endpoint");
+        Logger.Warning("No matching endpoint found, using first available");
         return endpoints.First();
     }
 
@@ -1049,8 +1198,18 @@ public class PlcConnection : IPlcConnection
                 AddAppCertToTrustedStore = true
             },
             TransportConfigurations = new TransportConfigurationCollection(),
-            TransportQuotas = new TransportQuotas { OperationTimeout = 15000 },
-            ClientConfiguration = new ClientConfiguration { DefaultSessionTimeout = 60000 }
+            // OperationTimeout = 60000ms: S7-1200 takes 6-14 seconds for Secure Channel renewal with Basic256Sha256
+            // This timeout must be longer than the renewal time to avoid BadTimeout errors
+            TransportQuotas = new TransportQuotas
+            {
+                OperationTimeout = 60000,           // 60 seconds for S7-1200 slow operations
+                SecurityTokenLifetime = 3600000     // 1 hour Secure Channel lifetime
+            },
+            ClientConfiguration = new ClientConfiguration
+            {
+                DefaultSessionTimeout = 120000,     // 2 minutes session timeout
+                MinSubscriptionLifetime = 10000     // 10 seconds minimum subscription lifetime
+            }
         };
 
         await config.Validate(ApplicationType.Client);
@@ -1240,9 +1399,16 @@ public class PlcConnection : IPlcConnection
         if (_disposed) return;
         _disposed = true;
 
+        // Dispose reconnect handler
+        lock (_lock)
+        {
+            _reconnectHandler?.Dispose();
+            _reconnectHandler = null;
+        }
+
         StopAutoReconnect();
         DisconnectAsync().GetAwaiter().GetResult();
-        
+
         GC.SuppressFinalize(this);
     }
 
