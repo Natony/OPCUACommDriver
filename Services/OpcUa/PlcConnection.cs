@@ -593,7 +593,7 @@ public class PlcConnection : IPlcConnection
 
                 _session.RemoveSubscription(subscription);
                 subscription.Dispose();
-                
+
                 Logger.Information("Removed subscription {GroupId}", groupId);
                 return true;
             }
@@ -605,6 +605,60 @@ public class PlcConnection : IPlcConnection
             Logger.Error(ex, "Error removing subscription {GroupId}", groupId);
             return false;
         }
+    }
+
+    /// <summary>
+    /// Recreate all subscriptions after reconnection
+    /// Old subscriptions become invalid when session changes, so we need to create new ones
+    /// </summary>
+    private async Task RecreateSubscriptionsAsync()
+    {
+        if (_session == null || !IsConnected)
+        {
+            Logger.Warning("Cannot recreate subscriptions - session not connected");
+            return;
+        }
+
+        Logger.Information("Recreating subscriptions after reconnection...");
+
+        // Clear old subscriptions (they're invalid now)
+        foreach (var kvp in _subscriptions.ToList())
+        {
+            try
+            {
+                // Try to clean up old subscription
+                kvp.Value.Dispose();
+            }
+            catch { /* Ignore - old session is gone */ }
+        }
+        _subscriptions.Clear();
+        _monitoredItemMapping.Clear();
+
+        // Recreate subscriptions from device configuration
+        var enabledGroups = _device.SubscriptionGroups.Where(g => g.IsEnabled).ToList();
+
+        if (!enabledGroups.Any())
+        {
+            Logger.Information("No enabled subscription groups to recreate");
+            return;
+        }
+
+        var successCount = 0;
+        foreach (var group in enabledGroups)
+        {
+            try
+            {
+                var success = await CreateSubscriptionAsync(group);
+                if (success) successCount++;
+            }
+            catch (Exception ex)
+            {
+                Logger.Error(ex, "Failed to recreate subscription {GroupName}", group.Name);
+            }
+        }
+
+        Logger.Information("Recreated {Success}/{Total} subscriptions after reconnection",
+            successCount, enabledGroups.Count);
     }
 
     public async Task<bool> AddTagToSubscriptionAsync(string groupId, TagItem tag, CancellationToken cancellationToken = default)
@@ -897,6 +951,9 @@ public class PlcConnection : IPlcConnection
 
                 ConnectionState = PlcConnectionState.Connected;
                 LastConnectedTime = DateTime.Now;
+
+                // Recreate subscriptions on new session (fire and forget)
+                _ = RecreateSubscriptionsAsync();
             }
             else
             {
@@ -1430,6 +1487,14 @@ public class PlcConnection : IPlcConnection
                         catch { /* Ignore */ }
                         _session = null;
                     }
+
+                    // Clear old subscriptions - they're invalid after session close
+                    foreach (var kvp in _subscriptions.ToList())
+                    {
+                        try { kvp.Value.Dispose(); } catch { }
+                    }
+                    _subscriptions.Clear();
+                    _monitoredItemMapping.Clear();
 
                     _isReconnecting = wasReconnecting;
 
