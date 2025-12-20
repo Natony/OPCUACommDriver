@@ -810,8 +810,8 @@ public class PlcConnection : IPlcConnection
                 Logger.Debug("  → Inner status: {InnerStatus}", e.Status.InnerResult);
             }
 
-            // Don't trigger reconnect if already reconnecting or handler is active
-            if (_reconnectHandler != null && _reconnectHandler.IsReconnecting)
+            // Don't trigger reconnect if handler is already active
+            if (_reconnectHandler != null)
             {
                 Logger.Debug("Reconnect handler already active, skipping...");
                 return;
