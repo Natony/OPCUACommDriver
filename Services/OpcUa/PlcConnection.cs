@@ -989,56 +989,145 @@ public class PlcConnection : IPlcConnection
     private async Task<EndpointDescription> SelectEndpointAsync(string endpointUrl, CancellationToken cancellationToken)
     {
         EndpointDescriptionCollection? endpoints = null;
+        Exception? lastException = null;
 
-        // First, try to discover endpoints without requiring security (useSecurity = false)
-        // This avoids BadSecureChannelClosed errors during discovery phase
-        try
+        // Retry discovery up to 3 times with increasing timeout
+        for (int attempt = 1; attempt <= 3; attempt++)
         {
-            Logger.Information("Discovering available endpoints from {Endpoint}...", endpointUrl);
-
-            // Use discovery client to get available endpoints
-            using var discoveryClient = DiscoveryClient.Create(new Uri(endpointUrl), EndpointConfiguration.Create());
-            endpoints = await Task.Run(() => discoveryClient.GetEndpoints(null), cancellationToken);
-
-            Logger.Information("Found {Count} available endpoint(s):", endpoints.Count);
-            var index = 1;
-            foreach (var ep in endpoints)
+            try
             {
-                Logger.Information("  [{Index}] {Url}", index, ep.EndpointUrl);
-                Logger.Information("      Security: {Policy} / {Mode}",
-                    ep.SecurityPolicyUri?.Split('#').LastOrDefault() ?? "None",
-                    ep.SecurityMode);
-                index++;
+                Logger.Information("Discovering endpoints from {Endpoint}... (attempt {Attempt}/3)", endpointUrl, attempt);
+
+                // Create endpoint configuration with timeout
+                var endpointConfig = EndpointConfiguration.Create();
+                endpointConfig.OperationTimeout = 30000 * attempt; // 30s, 60s, 90s
+
+                // Use discovery client to get available endpoints
+                using var discoveryClient = DiscoveryClient.Create(new Uri(endpointUrl), endpointConfig);
+
+                // Run discovery with timeout
+                using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+                timeoutCts.CancelAfter(TimeSpan.FromSeconds(30 * attempt));
+
+                endpoints = await Task.Run(() => discoveryClient.GetEndpoints(null), timeoutCts.Token);
+
+                if (endpoints != null && endpoints.Count > 0)
+                {
+                    Logger.Information("Found {Count} available endpoint(s):", endpoints.Count);
+                    var index = 1;
+                    foreach (var ep in endpoints)
+                    {
+                        Logger.Information("  [{Index}] {Url}", index, ep.EndpointUrl);
+                        Logger.Information("      Security: {Policy} / {Mode}",
+                            ep.SecurityPolicyUri?.Split('#').LastOrDefault() ?? "None",
+                            ep.SecurityMode);
+                        index++;
+                    }
+                    break; // Success, exit retry loop
+                }
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw; // User cancelled, don't retry
+            }
+            catch (ServiceResultException sre)
+            {
+                lastException = sre;
+                var statusCode = sre.StatusCode;
+
+                // Log specific OPC UA error
+                Logger.Warning("OPC UA Error (attempt {Attempt}): {Status} - {Message}",
+                    attempt, StatusCodes.GetBrowseName(statusCode), sre.Message);
+
+                // Handle specific error codes
+                if (statusCode == StatusCodes.BadNotConnected ||
+                    statusCode == StatusCodes.BadServerNotConnected ||
+                    statusCode == StatusCodes.BadConnectionClosed)
+                {
+                    Logger.Error("Cannot connect to OPC UA server at {Endpoint}", endpointUrl);
+                    Logger.Error("  → Please check:");
+                    Logger.Error("    1. PLC is powered on and running");
+                    Logger.Error("    2. Network connection to PLC is available");
+                    Logger.Error("    3. OPC UA Server is enabled on PLC");
+                    Logger.Error("    4. Firewall is not blocking port 4840");
+
+                    if (attempt < 3)
+                    {
+                        Logger.Information("Retrying in {Delay} seconds...", attempt * 2);
+                        await Task.Delay(TimeSpan.FromSeconds(attempt * 2), cancellationToken);
+                        continue;
+                    }
+                }
+                else if (statusCode == StatusCodes.BadTimeout)
+                {
+                    Logger.Warning("Connection timeout - PLC may be slow or network congested");
+                    if (attempt < 3)
+                    {
+                        Logger.Information("Retrying with longer timeout...");
+                        continue;
+                    }
+                }
+                else if (statusCode == StatusCodes.BadSecureChannelClosed)
+                {
+                    Logger.Warning("Secure channel closed - will try without security");
+                    break; // Try fallback
+                }
+            }
+            catch (Exception ex)
+            {
+                lastException = ex;
+                Logger.Warning("Discovery error (attempt {Attempt}): {Error}", attempt, ex.Message);
+
+                if (attempt < 3)
+                {
+                    await Task.Delay(TimeSpan.FromSeconds(attempt), cancellationToken);
+                }
             }
         }
-        catch (Exception ex)
-        {
-            Logger.Warning(ex, "Failed to discover endpoints using DiscoveryClient, trying CoreClientUtils...");
 
-            // Fallback: try CoreClientUtils with useSecurity = false to avoid BadSecureChannelClosed
+        // If discovery failed, try fallback method
+        if (endpoints == null || endpoints.Count == 0)
+        {
+            Logger.Warning("Discovery client failed, trying CoreClientUtils fallback...");
+
             try
             {
                 var endpoint = CoreClientUtils.SelectEndpoint(endpointUrl, useSecurity: false);
-                Logger.Debug("Selected endpoint using CoreClientUtils fallback: {Endpoint}", endpoint.EndpointUrl);
+                Logger.Information("Selected endpoint using fallback: {Endpoint}", endpoint.EndpointUrl);
                 return endpoint;
             }
             catch (Exception fallbackEx)
             {
-                Logger.Error(fallbackEx, "Failed to select endpoint from {EndpointUrl}", endpointUrl);
-                throw new InvalidOperationException(
-                    $"Cannot discover endpoints from {endpointUrl}. " +
-                    $"Ensure the OPC UA server is running and accessible. " +
-                    $"Original error: {ex.Message}", ex);
-            }
-        }
+                Logger.Error("All connection attempts failed to {Endpoint}", endpointUrl);
 
-        if (endpoints == null || endpoints.Count == 0)
-        {
-            throw new InvalidOperationException($"No endpoints discovered from {endpointUrl}");
+                // Throw user-friendly exception
+                var errorMessage = GetConnectionErrorMessage(endpointUrl, lastException ?? fallbackEx);
+                throw new InvalidOperationException(errorMessage, lastException ?? fallbackEx);
+            }
         }
 
         // Select the best matching endpoint based on security settings
         return SelectBestEndpoint(endpoints);
+    }
+
+    /// <summary>
+    /// Get user-friendly error message for connection failures
+    /// </summary>
+    private string GetConnectionErrorMessage(string endpointUrl, Exception ex)
+    {
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine($"Cannot connect to OPC UA server at {endpointUrl}");
+        sb.AppendLine();
+        sb.AppendLine("Possible causes:");
+        sb.AppendLine("  1. PLC is not powered on or not running");
+        sb.AppendLine("  2. Network connection is unavailable");
+        sb.AppendLine("  3. OPC UA Server is not enabled on PLC");
+        sb.AppendLine("  4. Firewall blocking OPC UA port (default: 4840)");
+        sb.AppendLine("  5. Incorrect endpoint URL");
+        sb.AppendLine();
+        sb.AppendLine($"Technical details: {ex.Message}");
+
+        return sb.ToString();
     }
 
     /// <summary>
