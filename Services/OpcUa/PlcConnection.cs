@@ -855,6 +855,14 @@ public class PlcConnection : IPlcConnection
 
         if (e.Status != null && ServiceResult.IsNotGood(e.Status))
         {
+            // Don't spam logs if reconnect handler is already active
+            if (_reconnectHandler != null)
+            {
+                // Only log at Debug level when handler is active
+                Logger.Debug("Keep-alive check during reconnection: {Status}", e.Status);
+                return;
+            }
+
             Logger.Warning("Keep-alive failed for {PlcName}: {Status} (CurrentState: {State})",
                 _device.Name, e.Status, e.CurrentState);
 
@@ -862,13 +870,6 @@ public class PlcConnection : IPlcConnection
             if (e.Status.InnerResult != null)
             {
                 Logger.Debug("  → Inner status: {InnerStatus}", e.Status.InnerResult);
-            }
-
-            // Don't trigger reconnect if handler is already active
-            if (_reconnectHandler != null)
-            {
-                Logger.Debug("Reconnect handler already active, skipping...");
-                return;
             }
 
             // Only trigger reconnect if we're actually connected (not already reconnecting or disconnecting)
@@ -896,10 +897,27 @@ public class PlcConnection : IPlcConnection
         }
         else
         {
-            // Keep-alive succeeded
-            if (ConnectionState == PlcConnectionState.Reconnecting && _reconnectHandler == null)
+            // Keep-alive succeeded - session is alive!
+            if (ConnectionState == PlcConnectionState.Reconnecting)
             {
+                // Session recovered while reconnect handler was running
+                // Cancel the handler and set state back to Connected
+                lock (_lock)
+                {
+                    if (_reconnectHandler != null)
+                    {
+                        Logger.Information("Keep-alive succeeded - session recovered, cancelling reconnect handler");
+                        try
+                        {
+                            _reconnectHandler.Dispose();
+                        }
+                        catch { /* Ignore */ }
+                        _reconnectHandler = null;
+                    }
+                }
+
                 ConnectionState = PlcConnectionState.Connected;
+                Logger.Information("✓ Connection recovered for {PlcName}", _device.Name);
             }
         }
     }
