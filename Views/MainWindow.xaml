@@ -69,6 +69,8 @@
                 <Separator/>
                 <MenuItem Header="Connect _Selected" Command="{Binding ConnectSelectedCommand}"/>
                 <MenuItem Header="Disconnect S_elected" Command="{Binding DisconnectSelectedCommand}"/>
+                <Separator/>
+                <MenuItem Header="_Browse Server..." Command="{Binding BrowseServerCommand}"/>
             </MenuItem>
             <MenuItem Header="_View">
                 <MenuItem Header="_Refresh" Command="{Binding RefreshCommand}" InputGestureText="F5"/>
@@ -127,6 +129,13 @@
                     <StackPanel Orientation="Horizontal">
                         <TextBlock Text="🔄" FontSize="16" Margin="0,0,4,0"/>
                         <TextBlock Text="Refresh" VerticalAlignment="Center"/>
+                    </StackPanel>
+                </Button>
+                <Separator/>
+                <Button Command="{Binding BrowseServerCommand}" ToolTip="Browse Server Nodes (Connect first)">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="🔍" FontSize="16" Margin="0,0,4,0"/>
+                        <TextBlock Text="Browse Server" VerticalAlignment="Center"/>
                     </StackPanel>
                 </Button>
             </ToolBar>

@@ -700,30 +700,51 @@ public class MainViewModel : ViewModelBase
 
         try
         {
-            IsBusy = true;
-            BusyMessage = "Browsing server...";
-            StatusMessage = "Browsing OPC UA server...";
+            // Get the underlying PlcConnection to access Session
+            if (connection is not Services.OpcUa.PlcConnection plcConnection || plcConnection.Session == null)
+            {
+                System.Windows.MessageBox.Show(
+                    "Cannot access OPC UA session.",
+                    "Error",
+                    System.Windows.MessageBoxButton.OK,
+                    System.Windows.MessageBoxImage.Error);
+                return;
+            }
 
-            var nodes = await _plcManager.BrowseAsync(SelectedPlc.Id);
-            
-            StatusMessage = $"Found {nodes.Count} nodes";
-            
-            var nodeNames = string.Join("\n", nodes.Take(10).Select(n => $"{n.DisplayName} ({n.NodeClass})"));
-            System.Windows.MessageBox.Show(
-                $"Found {nodes.Count} nodes:\n\n{nodeNames}\n...",
-                "Browse Result",
-                System.Windows.MessageBoxButton.OK,
-                System.Windows.MessageBoxImage.Information);
+            StatusMessage = "Opening Browse Server window...";
+
+            // Open Browse Server window
+            var browseWindow = new Views.BrowseServerWindow(plcConnection.Session, SelectedPlc);
+            browseWindow.Owner = System.Windows.Application.Current.MainWindow;
+
+            var result = browseWindow.ShowDialog();
+
+            if (result == true && browseWindow.AddedTags.Any())
+            {
+                // Refresh the tag list
+                OnPropertyChanged(nameof(SelectedPlcTags));
+
+                StatusMessage = $"Added {browseWindow.AddedTags.Count} tags from server browser";
+                _logger.Information("Added {Count} tags from server browser", browseWindow.AddedTags.Count);
+
+                // Mark as unsaved
+                OnPropertyChanged(nameof(WindowTitle));
+                OnPropertyChanged(nameof(HasUnsavedChanges));
+            }
+            else
+            {
+                StatusMessage = "Browse server closed";
+            }
         }
         catch (Exception ex)
         {
             _logger.Error(ex, "Error browsing server");
             StatusMessage = "Error browsing server";
-        }
-        finally
-        {
-            IsBusy = false;
-            BusyMessage = string.Empty;
+            System.Windows.MessageBox.Show(
+                $"Error opening server browser: {ex.Message}",
+                "Error",
+                System.Windows.MessageBoxButton.OK,
+                System.Windows.MessageBoxImage.Error);
         }
     }
 

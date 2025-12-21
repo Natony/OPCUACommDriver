@@ -66,6 +66,11 @@ public class PlcConnection : IPlcConnection
 
     public string? SessionId => _session?.SessionId?.ToString();
 
+    /// <summary>
+    /// Get the underlying OPC UA Session for advanced operations (e.g., browsing)
+    /// </summary>
+    public Session? Session => _session;
+
     public DateTime? LastConnectedTime { get; private set; }
 
     public DateTime? LastDisconnectedTime { get; private set; }
