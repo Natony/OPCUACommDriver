@@ -6,7 +6,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.s7opcuaapp.data.local.PrefsManager
 import com.example.s7opcuaapp.data.model.PlcData
-import com.example.s7opcuaapp.data.repository.OptimizedOPCUARepositoryImpl
+import com.example.s7opcuaapp.data.repository.ApiRepositoryImpl
 import com.example.s7opcuaapp.data.repository.S7Repository
 import com.example.s7opcuaapp.ui.screen.control.ControlUiState
 import com.example.s7opcuaapp.util.ButtonLockConfig
@@ -36,7 +36,7 @@ class ControlViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(ControlUiState())
     val uiState: StateFlow<ControlUiState> = _uiState.asStateFlow()
 
-    private val repoImpl = repository as OptimizedOPCUARepositoryImpl
+    private val repoImpl = repository as ApiRepositoryImpl
     private val functionCodeNodeIndex = 14
 
     // Retry tracking
