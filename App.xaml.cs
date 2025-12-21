@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using System.Windows;
 using Microsoft.Extensions.DependencyInjection;
+using OpcUaCommunicationEngine.Api;
 using OpcUaCommunicationEngine.Interfaces;
 using OpcUaCommunicationEngine.Models;
 using OpcUaCommunicationEngine.Services;
@@ -18,8 +19,10 @@ namespace OpcUaCommunicationEngine;
 public partial class App : Application
 {
     private IServiceProvider? _serviceProvider;
+    private ApiHostService? _apiHostService;
 
     public IServiceProvider ServiceProvider => _serviceProvider ?? throw new InvalidOperationException("ServiceProvider not initialized");
+    public ApiHostService? ApiHost => _apiHostService;
 
     protected override void OnStartup(StartupEventArgs e)
     {
@@ -91,15 +94,36 @@ public partial class App : Application
             await Task.Delay(100);
             await viewModel.InitializeAsync();
             Log.Information("ViewModel initialization completed");
+
+            // Start API server
+            await StartApiServerAsync();
         }
         catch (Exception ex)
         {
             Log.Error(ex, "Error during ViewModel initialization");
-            
+
             await Dispatcher.InvokeAsync(() =>
             {
                 MessageBox.Show($"Error loading configuration:\n{ex.Message}", "Warning", MessageBoxButton.OK, MessageBoxImage.Warning);
             });
+        }
+    }
+
+    private async Task StartApiServerAsync()
+    {
+        try
+        {
+            _apiHostService = _serviceProvider?.GetService<ApiHostService>();
+            if (_apiHostService != null)
+            {
+                await _apiHostService.StartAsync();
+                Log.Information("API Server started successfully at {Url}", _apiHostService.BaseUrl);
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Failed to start API server");
+            // API server failure should not prevent the app from running
         }
     }
 
@@ -134,21 +158,39 @@ public partial class App : Application
 
         // Views
         services.AddTransient<MainWindow>();
-        
+
+        // API Host Service
+        services.AddSingleton<ApiHostService>(sp =>
+        {
+            Log.Debug("Creating ApiHostService...");
+            return new ApiHostService(
+                sp.GetRequiredService<IPlcManager>(),
+                sp.GetRequiredService<ILogger>(),
+                port: 5000);
+        });
+
         Log.Debug("Services configured");
     }
 
     protected override void OnExit(ExitEventArgs e)
     {
         Log.Information("=== Application Shutting Down ===");
-        
+
+        // Stop API server
+        if (_apiHostService != null)
+        {
+            Log.Information("Stopping API server...");
+            _apiHostService.StopAsync().GetAwaiter().GetResult();
+            _apiHostService.Dispose();
+        }
+
         // Dispose PlcManager
         if (_serviceProvider != null)
         {
             var plcManager = _serviceProvider.GetService<IPlcManager>();
             plcManager?.Dispose();
         }
-        
+
         Log.CloseAndFlush();
         base.OnExit(e);
     }
