@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Common attributes -->
+    <attr name="labelText" format="string"/>
+    <attr name="iconOn" format="reference"/>
+    <attr name="iconOff" format="reference"/>
+    <attr name="initialBoolValue" format="boolean"/>
+    <attr name="initialIntValue" format="integer"/>
+    <!-- Aliases for legacy layouts -->
+    <attr name="iconOnDrawable" format="reference"/>
+    <attr name="iconOffDrawable" format="reference"/>
+    <attr name="initialValue" format="string"/>
+
+    <!-- RunPointCardView specific mode attribute -->
+    <attr name="cardMode" format="enum">
+        <enum name="start" value="0"/>
+        <enum name="end" value="1"/>
+        <enum name="actual" value="2"/>
+    </attr>
+
+    <!-- BoolControlItemView -->
+    <declare-styleable name="BoolControlItemView">
+        <attr name="labelText"/>
+        <attr name="iconOn"/>
+        <attr name="iconOff"/>
+        <attr name="initialBoolValue"/>
+        <!-- support legacy attr names -->
+        <attr name="iconOnDrawable"/>
+        <attr name="iconOffDrawable"/>
+        <attr name="initialValue"/>
+    </declare-styleable>
+
+    <!-- IntControlItemView -->
+    <declare-styleable name="IntControlItemView">
+        <attr name="labelText"/>
+        <attr name="iconOn"/>
+        <attr name="iconOff"/>
+        <attr name="initialIntValue"/>
+        <!-- support legacy attr names -->
+        <attr name="iconOnDrawable"/>
+        <attr name="iconOffDrawable"/>
+        <attr name="initialValue"/>
+    </declare-styleable>
+
+    <!-- RunPointCardView -->
+    <declare-styleable name="RunPointCardView">
+        <attr name="titleText" format="string"/>
+        <!-- cardMode controls which point view to render -->
+        <attr name="cardMode"/>
+    </declare-styleable>
+
+    <!-- FunctionSelectorView -->
+    <declare-styleable name="FunctionSelectorView">
+        <attr name="entries" format="reference"/>
+        <attr name="selectedIndex" format="integer"/>
+    </declare-styleable>
+</resources>
