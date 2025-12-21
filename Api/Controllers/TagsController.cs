@@ -42,9 +42,9 @@ public class TagsController : ControllerBase
                         PlcName = connection.Device.Name,
                         Value = tag.Value,
                         Quality = tag.Quality.ToString(),
-                        Timestamp = tag.LastUpdate,
-                        DataType = tag.DataType,
-                        IsWritable = tag.IsWritable
+                        Timestamp = tag.Timestamp,
+                        DataType = tag.DataType.ToString(),
+                        IsWritable = tag.CanWrite
                     });
                 }
             }
@@ -79,9 +79,9 @@ public class TagsController : ControllerBase
                 PlcName = connection.Device.Name,
                 Value = tag.Value,
                 Quality = tag.Quality.ToString(),
-                Timestamp = tag.LastUpdate,
-                DataType = tag.DataType,
-                IsWritable = tag.IsWritable
+                Timestamp = tag.Timestamp,
+                DataType = tag.DataType.ToString(),
+                IsWritable = tag.CanWrite
             }).ToList();
 
             return Ok(ApiResponse<List<TagDto>>.Ok(tags));
@@ -115,9 +115,9 @@ public class TagsController : ControllerBase
                         PlcName = connection.Device.Name,
                         Value = tag.Value,
                         Quality = tag.Quality.ToString(),
-                        Timestamp = tag.LastUpdate,
-                        DataType = tag.DataType,
-                        IsWritable = tag.IsWritable
+                        Timestamp = tag.Timestamp,
+                        DataType = tag.DataType.ToString(),
+                        IsWritable = tag.CanWrite
                     }));
                 }
             }
@@ -271,9 +271,9 @@ public class TagsController : ControllerBase
                             PlcName = connection.Device.Name,
                             Value = tag.Value,
                             Quality = tag.Quality.ToString(),
-                            Timestamp = tag.LastUpdate,
-                            DataType = tag.DataType,
-                            IsWritable = tag.IsWritable
+                            Timestamp = tag.Timestamp,
+                            DataType = tag.DataType.ToString(),
+                            IsWritable = tag.CanWrite
                         });
                     }
                 }
