@@ -406,8 +406,7 @@ public class BrowseServerViewModel : ObservableObject
                 return;
             }
 
-            var count = 0;
-            await AddVariablesRecursiveAsync(SelectedNode, subscriptionGroup.Id, ref count);
+            var count = await AddVariablesRecursiveAsync(SelectedNode, subscriptionGroup.Id);
 
             StatusMessage = $"Added {count} variables";
             _logger.Information("Added {Count} variables from {NodeName}", count, SelectedNode.DisplayName);
@@ -423,8 +422,10 @@ public class BrowseServerViewModel : ObservableObject
         }
     }
 
-    private async Task AddVariablesRecursiveAsync(BrowseNodeItem node, string subscriptionGroupId, ref int count)
+    private async Task<int> AddVariablesRecursiveAsync(BrowseNodeItem node, string subscriptionGroupId)
     {
+        var count = 0;
+
         // Load children if not loaded
         if (!node.ChildrenLoaded && node.HasChildren)
         {
@@ -443,8 +444,10 @@ public class BrowseServerViewModel : ObservableObject
         // Process children
         foreach (var child in node.Children.ToList())
         {
-            await AddVariablesRecursiveAsync(child, subscriptionGroupId, ref count);
+            count += await AddVariablesRecursiveAsync(child, subscriptionGroupId);
         }
+
+        return count;
     }
 
     private void CopyNodeId()
