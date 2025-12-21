@@ -1049,15 +1049,6 @@ public class PlcConnection : IPlcConnection
                     var tag = _device.Tags.FirstOrDefault(t => t.Id == mapping.TagId);
                     if (tag != null)
                     {
-                        // Log value change (Debug level to avoid flooding)
-                        var qualitySymbol = quality == TagQuality.Good ? "●" : quality == TagQuality.Bad ? "✗" : "?";
-                        Logger.Debug("[{PlcName}] {TagName} ({NodeId}) = {Value} [{Quality}]",
-                            _device.Name,
-                            tag.Name,
-                            mapping.NodeId,
-                            notification.Value.Value ?? "null",
-                            qualitySymbol);
-
                         tag.UpdateValue(tagValue.Value, tagValue.Quality, tagValue.SourceTimestamp);
                     }
 
