@@ -528,23 +528,41 @@ public class PlcConnection : IPlcConnection
 
             foreach (var tag in tags)
             {
-                var monitoredItem = new MonitoredItem(subscription.DefaultItem)
+                // Validate NodeId before creating monitored item
+                if (string.IsNullOrWhiteSpace(tag.NodeId))
                 {
-                    DisplayName = tag.Name,
-                    StartNodeId = new NodeId(tag.NodeId),
-                    AttributeId = Attributes.Value,
-                    SamplingInterval = tag.ScanRate,
-                    QueueSize = 1,
-                    DiscardOldest = true
-                };
+                    Logger.Warning("     ✗ {TagName}: Skipped - NodeId is empty", tag.Name);
+                    continue;
+                }
 
-                monitoredItem.Notification += MonitoredItem_Notification;
-                subscription.AddItem(monitoredItem);
+                // Trim whitespace from NodeId
+                var nodeIdStr = tag.NodeId.Trim();
 
-                _monitoredItemMapping[monitoredItem.ClientHandle] = (tag.Id, tag.NodeId);
+                try
+                {
+                    var monitoredItem = new MonitoredItem(subscription.DefaultItem)
+                    {
+                        DisplayName = tag.Name,
+                        StartNodeId = new NodeId(nodeIdStr),
+                        AttributeId = Attributes.Value,
+                        SamplingInterval = tag.ScanRate,
+                        QueueSize = 1,
+                        DiscardOldest = true
+                    };
 
-                Logger.Information("     • {TagName} → NodeId: {NodeId} (ScanRate: {Rate}ms)",
-                    tag.Name, tag.NodeId, tag.ScanRate);
+                    monitoredItem.Notification += MonitoredItem_Notification;
+                    subscription.AddItem(monitoredItem);
+
+                    _monitoredItemMapping[monitoredItem.ClientHandle] = (tag.Id, tag.NodeId);
+
+                    Logger.Information("     • {TagName} → NodeId: {NodeId} (ScanRate: {Rate}ms)",
+                        tag.Name, nodeIdStr, tag.ScanRate);
+                }
+                catch (Exception ex)
+                {
+                    Logger.Error("     ✗ {TagName}: Invalid NodeId '{NodeId}' - {Error}",
+                        tag.Name, nodeIdStr, ex.Message);
+                }
             }
 
             _session.AddSubscription(subscription);
