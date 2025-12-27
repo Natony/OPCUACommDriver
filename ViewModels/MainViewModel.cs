@@ -415,7 +415,17 @@ public class MainViewModel : ViewModelBase
     private void EditPlc()
     {
         if (SelectedPlc == null) return;
-        StatusMessage = $"Editing PLC: {SelectedPlc.Name}";
+
+        var dialog = new Views.EditPlcDialog(SelectedPlc);
+        dialog.Owner = System.Windows.Application.Current.MainWindow;
+
+        if (dialog.ShowDialog() == true)
+        {
+            _configService.MarkAsModified();
+            StatusMessage = $"PLC '{SelectedPlc.Name}' updated";
+            OnPropertyChanged(nameof(WindowTitle));
+            OnPropertyChanged(nameof(HasUnsavedChanges));
+        }
     }
 
     private void DeletePlc()
@@ -486,7 +496,17 @@ public class MainViewModel : ViewModelBase
     private void EditTag()
     {
         if (SelectedTag == null) return;
-        StatusMessage = $"Editing Tag: {SelectedTag.Name}";
+
+        var dialog = new Views.EditTagDialog(SelectedTag);
+        dialog.Owner = System.Windows.Application.Current.MainWindow;
+
+        if (dialog.ShowDialog() == true)
+        {
+            _configService.MarkAsModified();
+            StatusMessage = $"Tag '{SelectedTag.Name}' updated";
+            OnPropertyChanged(nameof(WindowTitle));
+            OnPropertyChanged(nameof(HasUnsavedChanges));
+        }
     }
 
     private void DeleteTag()
@@ -676,11 +696,72 @@ public class MainViewModel : ViewModelBase
     {
         if (SelectedPlc == null || SelectedTag == null) return;
 
-        System.Windows.MessageBox.Show(
-            "Write Tag feature - implement value input dialog.",
-            "Write Tag",
-            System.Windows.MessageBoxButton.OK,
-            System.Windows.MessageBoxImage.Information);
+        // Check if PLC is connected
+        var connection = _plcManager.GetConnection(SelectedPlc.Id);
+        if (connection == null || !connection.IsConnected)
+        {
+            System.Windows.MessageBox.Show(
+                "Please connect to the PLC first.",
+                "Not Connected",
+                System.Windows.MessageBoxButton.OK,
+                System.Windows.MessageBoxImage.Warning);
+            return;
+        }
+
+        // Check if tag is writable
+        if (!SelectedTag.CanWrite)
+        {
+            System.Windows.MessageBox.Show(
+                "This tag is read-only and cannot be written.",
+                "Read-Only Tag",
+                System.Windows.MessageBoxButton.OK,
+                System.Windows.MessageBoxImage.Warning);
+            return;
+        }
+
+        var dialog = new Views.WriteValueDialog(SelectedTag);
+        dialog.Owner = System.Windows.Application.Current.MainWindow;
+
+        if (dialog.ShowDialog() == true && dialog.NewValue != null)
+        {
+            try
+            {
+                StatusMessage = $"Writing to {SelectedTag.Name}...";
+
+                var success = await _plcManager.WriteTagAsync(SelectedPlc.Id, SelectedTag.NodeId, dialog.NewValue);
+
+                if (success)
+                {
+                    StatusMessage = $"Successfully wrote '{dialog.NewValue}' to {SelectedTag.Name}";
+
+                    // Refresh the tag value
+                    var value = await _plcManager.ReadTagAsync(SelectedPlc.Id, SelectedTag.NodeId);
+                    if (value != null)
+                    {
+                        SelectedTag.UpdateValue(value.Value, value.Quality, value.SourceTimestamp);
+                    }
+                }
+                else
+                {
+                    StatusMessage = $"Failed to write to {SelectedTag.Name}";
+                    System.Windows.MessageBox.Show(
+                        $"Failed to write value to {SelectedTag.Name}",
+                        "Write Error",
+                        System.Windows.MessageBoxButton.OK,
+                        System.Windows.MessageBoxImage.Error);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(ex, "Error writing to tag {TagName}", SelectedTag.Name);
+                StatusMessage = $"Error writing to {SelectedTag.Name}";
+                System.Windows.MessageBox.Show(
+                    $"Error writing to {SelectedTag.Name}: {ex.Message}",
+                    "Write Error",
+                    System.Windows.MessageBoxButton.OK,
+                    System.Windows.MessageBoxImage.Error);
+            }
+        }
     }
 
     private async Task BrowseServerAsync()
