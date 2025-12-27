@@ -1,6 +1,7 @@
 using System.Collections.Specialized;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
 using OpcUaCommunicationEngine.Models;
 using OpcUaCommunicationEngine.ViewModels;
 
@@ -103,6 +104,51 @@ public partial class MainWindow : Window
         if (result != MessageBoxResult.Yes) return;
 
         viewModel.DeleteSelectedTags(selectedTags);
+    }
+
+    /// <summary>
+    /// Toggle boolean value quickly
+    /// </summary>
+    private async void ToggleBooleanValue_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is Button button && button.DataContext is TagItem tag)
+        {
+            if (DataContext is MainViewModel viewModel && viewModel.SelectedPlc != null)
+            {
+                // Toggle the boolean value
+                var currentValue = tag.Value as bool? ?? false;
+                var newValue = !currentValue;
+                await viewModel.WriteTagValueAsync(tag, newValue.ToString());
+            }
+        }
+    }
+
+    /// <summary>
+    /// Handle Enter key in value TextBox to submit
+    /// </summary>
+    private async void ValueTextBox_KeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.Enter)
+        {
+            if (sender is TextBox textBox && textBox.DataContext is TagItem tag)
+            {
+                if (DataContext is MainViewModel viewModel && viewModel.SelectedPlc != null)
+                {
+                    var newValue = textBox.Text;
+                    await viewModel.WriteTagValueAsync(tag, newValue);
+
+                    // Exit edit mode
+                    TagsDataGrid.CommitEdit();
+                    e.Handled = true;
+                }
+            }
+        }
+        else if (e.Key == Key.Escape)
+        {
+            // Cancel edit mode
+            TagsDataGrid.CancelEdit();
+            e.Handled = true;
+        }
     }
 
     protected override void OnClosing(System.ComponentModel.CancelEventArgs e)
