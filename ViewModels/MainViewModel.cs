@@ -527,7 +527,32 @@ public class MainViewModel : ViewModelBase
         SelectedTag = null;
 
         StatusMessage = $"Deleted Tag: {tagName}";
-        
+
+        OnPropertyChanged(nameof(WindowTitle));
+        OnPropertyChanged(nameof(HasUnsavedChanges));
+    }
+
+    /// <summary>
+    /// Delete multiple selected tags
+    /// </summary>
+    public void DeleteSelectedTags(IEnumerable<TagItem> tagsToDelete)
+    {
+        if (SelectedPlc == null) return;
+
+        var tagsList = tagsToDelete.ToList();
+        var count = tagsList.Count;
+
+        foreach (var tag in tagsList)
+        {
+            SelectedPlc.Tags.Remove(tag);
+        }
+
+        _configService.MarkAsModified();
+        SelectedTag = null;
+
+        StatusMessage = $"Deleted {count} tag(s)";
+        _logger.Information("Deleted {Count} tags from PLC {PlcName}", count, SelectedPlc.Name);
+
         OnPropertyChanged(nameof(WindowTitle));
         OnPropertyChanged(nameof(HasUnsavedChanges));
     }
@@ -762,6 +787,114 @@ public class MainViewModel : ViewModelBase
                     System.Windows.MessageBoxImage.Error);
             }
         }
+    }
+
+    /// <summary>
+    /// Write a string value to a tag (for inline editing)
+    /// </summary>
+    public async Task WriteTagValueAsync(TagItem tag, string valueString)
+    {
+        if (SelectedPlc == null || tag == null) return;
+
+        var connection = _plcManager.GetConnection(SelectedPlc.Id);
+        if (connection == null || !connection.IsConnected)
+        {
+            System.Windows.MessageBox.Show(
+                "Please connect to the PLC first.",
+                "Not Connected",
+                System.Windows.MessageBoxButton.OK,
+                System.Windows.MessageBoxImage.Warning);
+            return;
+        }
+
+        if (!tag.CanWrite)
+        {
+            System.Windows.MessageBox.Show(
+                "This tag is read-only and cannot be written.",
+                "Read-Only Tag",
+                System.Windows.MessageBoxButton.OK,
+                System.Windows.MessageBoxImage.Warning);
+            return;
+        }
+
+        try
+        {
+            // Parse the value based on tag data type
+            object? parsedValue = ParseValue(valueString, tag.DataType);
+
+            if (parsedValue == null)
+            {
+                System.Windows.MessageBox.Show(
+                    $"Could not parse '{valueString}' as {tag.DataType}",
+                    "Parse Error",
+                    System.Windows.MessageBoxButton.OK,
+                    System.Windows.MessageBoxImage.Warning);
+                return;
+            }
+
+            StatusMessage = $"Writing to {tag.Name}...";
+
+            var success = await _plcManager.WriteTagAsync(SelectedPlc.Id, tag.NodeId, parsedValue);
+
+            if (success)
+            {
+                StatusMessage = $"Successfully wrote '{parsedValue}' to {tag.Name}";
+
+                // Refresh the tag value
+                var value = await _plcManager.ReadTagAsync(SelectedPlc.Id, tag.NodeId);
+                if (value != null)
+                {
+                    tag.UpdateValue(value.Value, value.Quality, value.SourceTimestamp);
+                }
+            }
+            else
+            {
+                StatusMessage = $"Failed to write to {tag.Name}";
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.Error(ex, "Error writing to tag {TagName}", tag.Name);
+            StatusMessage = $"Error writing to {tag.Name}: {ex.Message}";
+        }
+    }
+
+    private object? ParseValue(string input, Enums.TagDataType dataType)
+    {
+        if (string.IsNullOrWhiteSpace(input)) return null;
+
+        try
+        {
+            return dataType switch
+            {
+                Enums.TagDataType.Boolean => input.Equals("true", StringComparison.OrdinalIgnoreCase) || input == "1",
+                Enums.TagDataType.SByte => sbyte.Parse(input),
+                Enums.TagDataType.Byte => byte.Parse(input),
+                Enums.TagDataType.Int16 => short.Parse(input),
+                Enums.TagDataType.UInt16 => ushort.Parse(input),
+                Enums.TagDataType.Int32 => int.Parse(input),
+                Enums.TagDataType.UInt32 => uint.Parse(input),
+                Enums.TagDataType.Int64 => long.Parse(input),
+                Enums.TagDataType.UInt64 => ulong.Parse(input),
+                Enums.TagDataType.Float => float.Parse(input),
+                Enums.TagDataType.Double => double.Parse(input),
+                Enums.TagDataType.String => input,
+                Enums.TagDataType.DateTime => DateTime.Parse(input),
+                _ => TryParseUnknown(input)
+            };
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private object TryParseUnknown(string input)
+    {
+        if (bool.TryParse(input, out var boolVal)) return boolVal;
+        if (int.TryParse(input, out var intVal)) return intVal;
+        if (double.TryParse(input, out var dblVal)) return dblVal;
+        return input;
     }
 
     private async Task BrowseServerAsync()

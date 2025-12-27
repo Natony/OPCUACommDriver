@@ -243,7 +243,7 @@
                         <!-- Tag Toolbar -->
                         <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,8"
                                     Visibility="{Binding HasSelectedPlc, Converter={StaticResource BoolToVis}}">
-                            <Button Command="{Binding AddTagCommand}" 
+                            <Button Command="{Binding AddTagCommand}"
                                     Style="{StaticResource PrimaryButton}"
                                     Margin="0,0,8,0">
                                 <StackPanel Orientation="Horizontal">
@@ -259,12 +259,31 @@
                                     <TextBlock Text="Delete"/>
                                 </StackPanel>
                             </Button>
+                            <Button x:Name="DeleteSelectedTagsButton"
+                                    Click="DeleteSelectedTags_Click"
+                                    Padding="12,8"
+                                    Margin="0,0,8,0">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="🗑️" Margin="0,0,4,0"/>
+                                    <TextBlock Text="Delete Selected"/>
+                                </StackPanel>
+                            </Button>
+                            <Separator Margin="8,0"/>
+                            <Button Command="{Binding WriteTagCommand}"
+                                    Padding="12,8">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="✏️" Margin="0,0,4,0"/>
+                                    <TextBlock Text="Write Value"/>
+                                </StackPanel>
+                            </Button>
                         </StackPanel>
 
                         <!-- Tag DataGrid -->
                         <DataGrid Grid.Row="2"
+                                  x:Name="TagsDataGrid"
                                   ItemsSource="{Binding SelectedPlcTags}"
                                   SelectedItem="{Binding SelectedTag}"
+                                  SelectionMode="Extended"
                                   Visibility="{Binding HasSelectedPlc, Converter={StaticResource BoolToVis}}"
                                   CanUserAddRows="False"
                                   CanUserDeleteRows="False"
@@ -280,11 +299,42 @@
                                                     Binding="{Binding NodeId, UpdateSourceTrigger=PropertyChanged}"
                                                     Width="180"/>
 
-                                <!-- Read-only Value -->
-                                <DataGridTextColumn Header="Value"
-                                                    Binding="{Binding DisplayValue}"
-                                                    Width="100"
-                                                    IsReadOnly="True"/>
+                                <!-- Editable Value with Write button -->
+                                <DataGridTemplateColumn Header="Value" Width="150">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock Grid.Column="0" Text="{Binding DisplayValue}"
+                                                           VerticalAlignment="Center" Margin="2,0"/>
+                                                <Button Grid.Column="1" Content="W" Width="22" Height="20"
+                                                        ToolTip="Write value to tag"
+                                                        Click="WriteTagButton_Click"
+                                                        Visibility="{Binding CanWrite, Converter={StaticResource BoolToVis}}"
+                                                        Margin="2,0"/>
+                                            </Grid>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                    <DataGridTemplateColumn.CellEditingTemplate>
+                                        <DataTemplate>
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                </Grid.ColumnDefinitions>
+                                                <TextBox Grid.Column="0" x:Name="ValueTextBox"
+                                                         Text="{Binding DisplayValue}"
+                                                         VerticalAlignment="Center"/>
+                                                <Button Grid.Column="1" Content="OK" Width="30" Height="20"
+                                                        Click="WriteValueInline_Click"
+                                                        Margin="2,0"/>
+                                            </Grid>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellEditingTemplate>
+                                </DataGridTemplateColumn>
 
                                 <!-- Read-only Quality -->
                                 <DataGridTextColumn Header="Quality"
