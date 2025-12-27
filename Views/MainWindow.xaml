@@ -326,7 +326,7 @@
                                                     <ColumnDefinition Width="Auto"/>
                                                 </Grid.ColumnDefinitions>
                                                 <TextBox Grid.Column="0" x:Name="ValueTextBox"
-                                                         Text="{Binding DisplayValue}"
+                                                         Text="{Binding DisplayValue, Mode=OneWay}"
                                                          VerticalAlignment="Center"/>
                                                 <Button Grid.Column="1" Content="OK" Width="30" Height="20"
                                                         Click="WriteValueInline_Click"
