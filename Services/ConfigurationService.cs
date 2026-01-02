@@ -22,6 +22,7 @@ public class ConfigurationService : IConfigurationService
 
     public AppConfiguration CurrentConfiguration => _currentConfiguration;
     public bool HasUnsavedChanges => _hasUnsavedChanges;
+    public string? CurrentFilePath => _currentFilePath;
 
     public ConfigurationService(ILogger logger, string? defaultConfigPath = null)
     {
