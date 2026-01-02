@@ -1,0 +1,22 @@
+2026-01-02 09:48:55.916 [INF] === Application Starting ===
+2026-01-02 09:48:55.967 [DBG] Configuring services...
+2026-01-02 09:48:55.969 [DBG] Services configured
+2026-01-02 09:48:55.976 [INF] Services configured successfully
+2026-01-02 09:48:56.330 [DBG] Creating ConfigurationService...
+2026-01-02 09:48:56.337 [INF] ConfigurationService initialized. Default path: C:\Users\user\source\repos\Natony\OPCUACommDriver\bin\Debug\net8.0-windows\Configurations\plc_config.json
+2026-01-02 09:48:56.341 [DBG] Creating PlcManager...
+2026-01-02 09:48:56.344 [INF] PlcManager initialized
+2026-01-02 09:48:56.347 [DBG] MainViewModel constructor starting...
+2026-01-02 09:48:56.349 [DBG] MainViewModel constructor completed
+2026-01-02 09:48:57.038 [INF] InitializeAsync starting...
+2026-01-02 09:48:57.056 [INF] Loading configuration from C:\Users\user\source\repos\Natony\OPCUACommDriver\bin\Debug\net8.0-windows\Configurations\plc_config.json
+2026-01-02 09:48:57.299 [INF] Loaded configuration with 0 PLCs
+2026-01-02 09:48:57.310 [INF] InitializeAsync completed. PLCs: 0
+2026-01-02 09:48:58.394 [INF] API Server started on http://localhost:5000
+2026-01-02 09:48:58.395 [INF] Swagger UI available at http://localhost:5000/index.html
+2026-01-02 09:48:58.398 [INF] SignalR Hub available at http://localhost:5000/hubs/plc
+2026-01-02 09:49:03.231 [INF] AddPlc called
+2026-01-02 09:49:41.916 [INF] Added 46 tags from server browser
+2026-01-02 09:52:43.923 [INF] Client connected to PlcHub: jqwQvTIJsj7PMlxMLipv7w
+2026-01-02 09:52:43.980 [DBG] Client jqwQvTIJsj7PMlxMLipv7w subscribed to all PLCs
+2026-01-02 09:52:43.993 [DBG] Client jqwQvTIJsj7PMlxMLipv7w subscribed to PLC 3a93c749-8ef1-44be-8188-d11131e24937

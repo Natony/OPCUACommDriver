@@ -1,0 +1,68 @@
+2025-12-31 21:05:06.616 [INF] UI Log sink configured
+2025-12-31 21:05:07.025 [INF] MainWindow shown
+2025-12-31 21:05:07.028 [INF] Starting ViewModel initialization...
+2025-12-31 21:05:07.291 [INF] Initializing PlcManager with 0 PLCs...
+2025-12-31 21:05:07.293 [INF] PlcManager initialized with 0 connections
+2025-12-31 21:05:07.298 [INF] ViewModel initialization completed
+2025-12-31 21:05:07.300 [DBG] Creating ApiHostService...
+2025-12-31 21:05:08.083 [INF] API Server started successfully at http://localhost:5000
+2025-12-31 21:06:08.526 [DBG] PlcConnection created for New PLC 1 (opc.tcp://localhost:4840)
+2025-12-31 21:06:08.530 [INF] Added PLC New PLC 1 (37d18487-4a34-4a20-a90d-17f12921e473)
+2025-12-31 21:06:29.443 [INF] Connecting to all PLCs...
+2025-12-31 21:06:29.450 [INF] PLC New PLC 1 state changed: "Disconnected" -> "Connecting"
+2025-12-31 21:06:29.455 [INF] ═══════════════════════════════════════════════════════════
+2025-12-31 21:06:29.458 [INF] Connecting to PLC: New PLC 1
+2025-12-31 21:06:29.460 [INF] Target Endpoint: opc.tcp://192.168.137.1:4840
+2025-12-31 21:06:29.462 [INF] Security Policy: "None", Mode: "None"
+2025-12-31 21:06:29.551 [INF] Discovering endpoints from opc.tcp://192.168.137.1:4840... (attempt 1/3)
+2025-12-31 21:06:29.724 [INF] Found 5 available endpoint(s):
+2025-12-31 21:06:29.727 [INF]   [1] opc.tcp://192.168.137.1:4840/
+2025-12-31 21:06:29.730 [INF]       Security: None / "None"
+2025-12-31 21:06:29.732 [INF]   [2] opc.tcp://192.168.137.1:4840/
+2025-12-31 21:06:29.734 [INF]       Security: Basic128Rsa15 / "Sign"
+2025-12-31 21:06:29.737 [INF]   [3] opc.tcp://192.168.137.1:4840/
+2025-12-31 21:06:29.738 [INF]       Security: Basic128Rsa15 / "SignAndEncrypt"
+2025-12-31 21:06:29.741 [INF]   [4] opc.tcp://192.168.137.1:4840/
+2025-12-31 21:06:29.743 [INF]       Security: Basic256 / "Sign"
+2025-12-31 21:06:29.745 [INF]   [5] opc.tcp://192.168.137.1:4840/
+2025-12-31 21:06:29.747 [INF]       Security: Basic256 / "SignAndEncrypt"
+2025-12-31 21:06:29.757 [INF] Selected No Security endpoint (recommended for S7-1200/1500 stability)
+2025-12-31 21:06:29.760 [DBG]   → Endpoint: opc.tcp://192.168.137.1:4840/
+2025-12-31 21:06:29.763 [INF] Selected Endpoint: opc.tcp://192.168.137.1:4840/
+2025-12-31 21:06:29.765 [INF]   → Security Policy: http://opcfoundation.org/UA/SecurityPolicy#None
+2025-12-31 21:06:29.767 [INF]   → Security Mode: "None"
+2025-12-31 21:06:29.769 [INF]   → Transport Profile: http://opcfoundation.org/UA-Profile/Transport/uatcp-uasc-uabinary
+2025-12-31 21:06:29.771 [INF] Creating OPC UA Session...
+2025-12-31 21:06:29.851 [INF] PLC New PLC 1 state changed: "Connecting" -> "Error"
+2025-12-31 21:06:29.854 [ERR] Failed to connect to New PLC 1: BadSecureChannelClosed
+Opc.Ua.ServiceResultException: BadSecureChannelClosed
+   at Opc.Ua.Bindings.ChannelAsyncOperation`1.EndAsync(Int32 timeout, Boolean throwOnError, CancellationToken ct)
+   at Opc.Ua.Bindings.UaSCUaBinaryClientChannel.EndSendRequestAsync(IAsyncResult result, CancellationToken ct)
+   at Opc.Ua.SessionClient.CreateSessionAsync(RequestHeader requestHeader, ApplicationDescription clientDescription, String serverUri, String endpointUrl, String sessionName, Byte[] clientNonce, Byte[] clientCertificate, Double requestedSessionTimeout, UInt32 maxResponseMessageSize, CancellationToken ct)
+   at Opc.Ua.Client.Session.OpenAsync(String sessionName, UInt32 sessionTimeout, IUserIdentity identity, IList`1 preferredLocales, Boolean checkDomain, CancellationToken ct)
+   at Opc.Ua.Client.Session.Create(ISessionInstantiator sessionInstantiator, ApplicationConfiguration configuration, ITransportWaitingConnection connection, ConfiguredEndpoint endpoint, Boolean updateBeforeConnect, Boolean checkDomain, String sessionName, UInt32 sessionTimeout, IUserIdentity identity, IList`1 preferredLocales, CancellationToken ct)
+   at OpcUaCommunicationEngine.Services.OpcUa.PlcConnection.ConnectAsync(CancellationToken cancellationToken) in C:\Users\user\source\repos\Natony\OPCUACommDriver\Services\OpcUa\PlcConnection.cs:line 140
+2025-12-31 21:06:29.893 [WRN] Error on PLC New PLC 1: BadSecureChannelClosed
+2025-12-31 21:06:29.897 [INF] Starting auto-reconnect for New PLC 1 (max 10 attempts, interval 5000ms)
+2025-12-31 21:06:29.899 [DBG] Waiting 5000ms before reconnect attempt...
+2025-12-31 21:06:29.903 [INF] Connected to 0/1 PLCs
+2025-12-31 21:06:33.728 [INF] === Application Shutting Down ===
+2025-12-31 21:06:33.731 [INF] Stopping API server...
+2025-12-31 21:07:18.311 [INF] === Application Starting ===
+2025-12-31 21:07:18.366 [DBG] Configuring services...
+2025-12-31 21:07:18.368 [DBG] Services configured
+2025-12-31 21:07:18.376 [INF] Services configured successfully
+2025-12-31 21:07:18.663 [DBG] Creating ConfigurationService...
+2025-12-31 21:07:18.670 [INF] ConfigurationService initialized. Default path: C:\Users\user\source\repos\Natony\OPCUACommDriver\bin\Debug\net8.0-windows\Configurations\plc_config.json
+2025-12-31 21:07:18.674 [DBG] Creating PlcManager...
+2025-12-31 21:07:18.676 [INF] PlcManager initialized
+2025-12-31 21:07:18.679 [DBG] MainViewModel constructor starting...
+2025-12-31 21:07:18.681 [DBG] MainViewModel constructor completed
+2025-12-31 21:07:19.207 [INF] InitializeAsync starting...
+2025-12-31 21:07:19.216 [INF] Loading configuration from C:\Users\user\source\repos\Natony\OPCUACommDriver\bin\Debug\net8.0-windows\Configurations\plc_config.json
+2025-12-31 21:07:19.332 [INF] Loaded configuration with 0 PLCs
+2025-12-31 21:07:19.342 [INF] InitializeAsync completed. PLCs: 0
+2025-12-31 21:07:20.089 [INF] API Server started on http://localhost:5000
+2025-12-31 21:07:20.090 [INF] Swagger UI available at http://localhost:5000/index.html
+2025-12-31 21:07:20.092 [INF] SignalR Hub available at http://localhost:5000/hubs/plc
+2025-12-31 21:07:20.904 [INF] AddPlc called

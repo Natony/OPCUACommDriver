@@ -1,0 +1,213 @@
+2025-12-31 20:50:36.417 [INF] UI Log sink configured
+2025-12-31 20:50:36.848 [INF] MainWindow shown
+2025-12-31 20:50:36.852 [INF] Starting ViewModel initialization...
+2025-12-31 20:50:37.098 [INF] Initializing PlcManager with 0 PLCs...
+2025-12-31 20:50:37.100 [INF] PlcManager initialized with 0 connections
+2025-12-31 20:50:37.105 [INF] ViewModel initialization completed
+2025-12-31 20:50:37.108 [DBG] Creating ApiHostService...
+2025-12-31 20:50:37.899 [INF] API Server started successfully at http://localhost:5000
+2025-12-31 20:50:38.751 [DBG] PlcConnection created for New PLC 1 (opc.tcp://localhost:4840)
+2025-12-31 20:50:38.755 [INF] Added PLC New PLC 1 (e06f0fda-8b74-4e7a-8c72-0ae51006a1a5)
+2025-12-31 20:50:42.834 [INF] Connecting to all PLCs...
+2025-12-31 20:50:42.841 [INF] PLC New PLC 1 state changed: "Disconnected" -> "Connecting"
+2025-12-31 20:50:42.846 [INF] ═══════════════════════════════════════════════════════════
+2025-12-31 20:50:42.848 [INF] Connecting to PLC: New PLC 1
+2025-12-31 20:50:42.850 [INF] Target Endpoint: opc.tcp://192.168.137.1:4840
+2025-12-31 20:50:42.852 [INF] Security Policy: "None", Mode: "None"
+2025-12-31 20:50:42.868 [INF] ═══════════════════════════════════════════════════════════
+2025-12-31 20:50:42.870 [INF] Connecting to PLC: New PLC 1
+2025-12-31 20:50:42.874 [INF] Target Endpoint: opc.tcp://192.168.137.1:4840
+2025-12-31 20:50:42.877 [INF] Security Policy: "None", Mode: "None"
+2025-12-31 20:50:42.957 [INF] Discovering endpoints from opc.tcp://192.168.137.1:4840... (attempt 1/3)
+2025-12-31 20:50:42.957 [INF] Discovering endpoints from opc.tcp://192.168.137.1:4840... (attempt 1/3)
+2025-12-31 20:50:43.172 [INF] Found 5 available endpoint(s):
+2025-12-31 20:50:43.175 [INF] Found 5 available endpoint(s):
+2025-12-31 20:50:43.176 [INF]   [1] opc.tcp://192.168.137.1:4840/
+2025-12-31 20:50:43.177 [INF]   [1] opc.tcp://192.168.137.1:4840/
+2025-12-31 20:50:43.179 [INF]       Security: None / "None"
+2025-12-31 20:50:43.181 [INF]       Security: None / "None"
+2025-12-31 20:50:43.182 [INF]   [2] opc.tcp://192.168.137.1:4840/
+2025-12-31 20:50:43.183 [INF]   [2] opc.tcp://192.168.137.1:4840/
+2025-12-31 20:50:43.185 [INF]       Security: Basic128Rsa15 / "Sign"
+2025-12-31 20:50:43.187 [INF]       Security: Basic128Rsa15 / "Sign"
+2025-12-31 20:50:43.188 [INF]   [3] opc.tcp://192.168.137.1:4840/
+2025-12-31 20:50:43.190 [INF]   [3] opc.tcp://192.168.137.1:4840/
+2025-12-31 20:50:43.191 [INF]       Security: Basic128Rsa15 / "SignAndEncrypt"
+2025-12-31 20:50:43.193 [INF]       Security: Basic128Rsa15 / "SignAndEncrypt"
+2025-12-31 20:50:43.194 [INF]   [4] opc.tcp://192.168.137.1:4840/
+2025-12-31 20:50:43.196 [INF]   [4] opc.tcp://192.168.137.1:4840/
+2025-12-31 20:50:43.197 [INF]       Security: Basic256 / "Sign"
+2025-12-31 20:50:43.200 [INF]       Security: Basic256 / "Sign"
+2025-12-31 20:50:43.200 [INF]   [5] opc.tcp://192.168.137.1:4840/
+2025-12-31 20:50:43.202 [INF]   [5] opc.tcp://192.168.137.1:4840/
+2025-12-31 20:50:43.204 [INF]       Security: Basic256 / "SignAndEncrypt"
+2025-12-31 20:50:43.206 [INF]       Security: Basic256 / "SignAndEncrypt"
+2025-12-31 20:50:43.213 [INF] Selected No Security endpoint (recommended for S7-1200/1500 stability)
+2025-12-31 20:50:43.213 [INF] Selected No Security endpoint (recommended for S7-1200/1500 stability)
+2025-12-31 20:50:43.217 [DBG]   → Endpoint: opc.tcp://192.168.137.1:4840/
+2025-12-31 20:50:43.219 [DBG]   → Endpoint: opc.tcp://192.168.137.1:4840/
+2025-12-31 20:50:43.222 [INF] Selected Endpoint: opc.tcp://192.168.137.1:4840/
+2025-12-31 20:50:43.222 [INF] Selected Endpoint: opc.tcp://192.168.137.1:4840/
+2025-12-31 20:50:43.224 [INF]   → Security Policy: http://opcfoundation.org/UA/SecurityPolicy#None
+2025-12-31 20:50:43.225 [INF]   → Security Policy: http://opcfoundation.org/UA/SecurityPolicy#None
+2025-12-31 20:50:43.227 [INF]   → Security Mode: "None"
+2025-12-31 20:50:43.229 [INF]   → Security Mode: "None"
+2025-12-31 20:50:43.230 [INF]   → Transport Profile: http://opcfoundation.org/UA-Profile/Transport/uatcp-uasc-uabinary
+2025-12-31 20:50:43.231 [INF]   → Transport Profile: http://opcfoundation.org/UA-Profile/Transport/uatcp-uasc-uabinary
+2025-12-31 20:50:43.234 [INF] Creating OPC UA Session...
+2025-12-31 20:50:43.234 [INF] Creating OPC UA Session...
+2025-12-31 20:50:43.323 [INF] PLC New PLC 1 state changed: "Connecting" -> "Error"
+2025-12-31 20:50:43.326 [ERR] Failed to connect to New PLC 1: BadSecureChannelClosed
+Opc.Ua.ServiceResultException: BadSecureChannelClosed
+   at Opc.Ua.Bindings.ChannelAsyncOperation`1.EndAsync(Int32 timeout, Boolean throwOnError, CancellationToken ct)
+   at Opc.Ua.Bindings.UaSCUaBinaryClientChannel.EndSendRequestAsync(IAsyncResult result, CancellationToken ct)
+   at Opc.Ua.SessionClient.CreateSessionAsync(RequestHeader requestHeader, ApplicationDescription clientDescription, String serverUri, String endpointUrl, String sessionName, Byte[] clientNonce, Byte[] clientCertificate, Double requestedSessionTimeout, UInt32 maxResponseMessageSize, CancellationToken ct)
+   at Opc.Ua.Client.Session.OpenAsync(String sessionName, UInt32 sessionTimeout, IUserIdentity identity, IList`1 preferredLocales, Boolean checkDomain, CancellationToken ct)
+   at Opc.Ua.Client.Session.Create(ISessionInstantiator sessionInstantiator, ApplicationConfiguration configuration, ITransportWaitingConnection connection, ConfiguredEndpoint endpoint, Boolean updateBeforeConnect, Boolean checkDomain, String sessionName, UInt32 sessionTimeout, IUserIdentity identity, IList`1 preferredLocales, CancellationToken ct)
+   at OpcUaCommunicationEngine.Services.OpcUa.PlcConnection.ConnectAsync(CancellationToken cancellationToken) in C:\Users\user\source\repos\Natony\OPCUACommDriver\Services\OpcUa\PlcConnection.cs:line 140
+2025-12-31 20:50:43.370 [ERR] Failed to connect to New PLC 1: BadSecureChannelClosed
+Opc.Ua.ServiceResultException: BadSecureChannelClosed
+   at Opc.Ua.Bindings.ChannelAsyncOperation`1.EndAsync(Int32 timeout, Boolean throwOnError, CancellationToken ct)
+   at Opc.Ua.Bindings.UaSCUaBinaryClientChannel.EndSendRequestAsync(IAsyncResult result, CancellationToken ct)
+   at Opc.Ua.SessionClient.CreateSessionAsync(RequestHeader requestHeader, ApplicationDescription clientDescription, String serverUri, String endpointUrl, String sessionName, Byte[] clientNonce, Byte[] clientCertificate, Double requestedSessionTimeout, UInt32 maxResponseMessageSize, CancellationToken ct)
+   at Opc.Ua.Client.Session.OpenAsync(String sessionName, UInt32 sessionTimeout, IUserIdentity identity, IList`1 preferredLocales, Boolean checkDomain, CancellationToken ct)
+   at Opc.Ua.Client.Session.Create(ISessionInstantiator sessionInstantiator, ApplicationConfiguration configuration, ITransportWaitingConnection connection, ConfiguredEndpoint endpoint, Boolean updateBeforeConnect, Boolean checkDomain, String sessionName, UInt32 sessionTimeout, IUserIdentity identity, IList`1 preferredLocales, CancellationToken ct)
+   at OpcUaCommunicationEngine.Services.OpcUa.PlcConnection.ConnectAsync(CancellationToken cancellationToken) in C:\Users\user\source\repos\Natony\OPCUACommDriver\Services\OpcUa\PlcConnection.cs:line 140
+2025-12-31 20:50:43.410 [WRN] Error on PLC New PLC 1: BadSecureChannelClosed
+2025-12-31 20:50:43.410 [WRN] Error on PLC New PLC 1: BadSecureChannelClosed
+2025-12-31 20:50:43.416 [INF] Starting auto-reconnect for New PLC 1 (max 10 attempts, interval 5000ms)
+2025-12-31 20:50:43.420 [DBG] Waiting 5000ms before reconnect attempt...
+2025-12-31 20:50:43.424 [INF] Connected to 0/1 PLCs
+2025-12-31 20:50:48.423 [INF] Auto-reconnect attempt 1/10 for New PLC 1...
+2025-12-31 20:50:48.427 [INF] PLC New PLC 1 state changed: "Error" -> "Reconnecting"
+2025-12-31 20:50:48.431 [INF] PLC New PLC 1 state changed: "Reconnecting" -> "Connecting"
+2025-12-31 20:50:48.434 [INF] ═══════════════════════════════════════════════════════════
+2025-12-31 20:50:48.437 [INF] Connecting to PLC: New PLC 1
+2025-12-31 20:50:48.439 [INF] Target Endpoint: opc.tcp://192.168.137.1:4840
+2025-12-31 20:50:48.441 [INF] Security Policy: "None", Mode: "None"
+2025-12-31 20:50:48.460 [INF] Discovering endpoints from opc.tcp://192.168.137.1:4840... (attempt 1/3)
+2025-12-31 20:50:48.589 [INF] Found 5 available endpoint(s):
+2025-12-31 20:50:48.591 [INF]   [1] opc.tcp://192.168.137.1:4840/
+2025-12-31 20:50:48.594 [INF]       Security: None / "None"
+2025-12-31 20:50:48.596 [INF]   [2] opc.tcp://192.168.137.1:4840/
+2025-12-31 20:50:48.597 [INF]       Security: Basic128Rsa15 / "Sign"
+2025-12-31 20:50:48.599 [INF]   [3] opc.tcp://192.168.137.1:4840/
+2025-12-31 20:50:48.601 [INF]       Security: Basic128Rsa15 / "SignAndEncrypt"
+2025-12-31 20:50:48.603 [INF]   [4] opc.tcp://192.168.137.1:4840/
+2025-12-31 20:50:48.605 [INF]       Security: Basic256 / "Sign"
+2025-12-31 20:50:48.607 [INF]   [5] opc.tcp://192.168.137.1:4840/
+2025-12-31 20:50:48.609 [INF]       Security: Basic256 / "SignAndEncrypt"
+2025-12-31 20:50:48.611 [INF] Selected No Security endpoint (recommended for S7-1200/1500 stability)
+2025-12-31 20:50:48.613 [DBG]   → Endpoint: opc.tcp://192.168.137.1:4840/
+2025-12-31 20:50:48.615 [INF] Selected Endpoint: opc.tcp://192.168.137.1:4840/
+2025-12-31 20:50:48.617 [INF]   → Security Policy: http://opcfoundation.org/UA/SecurityPolicy#None
+2025-12-31 20:50:48.618 [INF]   → Security Mode: "None"
+2025-12-31 20:50:48.620 [INF]   → Transport Profile: http://opcfoundation.org/UA-Profile/Transport/uatcp-uasc-uabinary
+2025-12-31 20:50:48.622 [INF] Creating OPC UA Session...
+2025-12-31 20:50:48.665 [INF] PLC New PLC 1 state changed: "Connecting" -> "Error"
+2025-12-31 20:50:48.668 [ERR] Failed to connect to New PLC 1: BadSecureChannelClosed
+Opc.Ua.ServiceResultException: BadSecureChannelClosed
+   at Opc.Ua.Bindings.ChannelAsyncOperation`1.EndAsync(Int32 timeout, Boolean throwOnError, CancellationToken ct)
+   at Opc.Ua.Bindings.UaSCUaBinaryClientChannel.EndSendRequestAsync(IAsyncResult result, CancellationToken ct)
+   at Opc.Ua.SessionClient.CreateSessionAsync(RequestHeader requestHeader, ApplicationDescription clientDescription, String serverUri, String endpointUrl, String sessionName, Byte[] clientNonce, Byte[] clientCertificate, Double requestedSessionTimeout, UInt32 maxResponseMessageSize, CancellationToken ct)
+   at Opc.Ua.Client.Session.OpenAsync(String sessionName, UInt32 sessionTimeout, IUserIdentity identity, IList`1 preferredLocales, Boolean checkDomain, CancellationToken ct)
+   at Opc.Ua.Client.Session.Create(ISessionInstantiator sessionInstantiator, ApplicationConfiguration configuration, ITransportWaitingConnection connection, ConfiguredEndpoint endpoint, Boolean updateBeforeConnect, Boolean checkDomain, String sessionName, UInt32 sessionTimeout, IUserIdentity identity, IList`1 preferredLocales, CancellationToken ct)
+   at OpcUaCommunicationEngine.Services.OpcUa.PlcConnection.ConnectAsync(CancellationToken cancellationToken) in C:\Users\user\source\repos\Natony\OPCUACommDriver\Services\OpcUa\PlcConnection.cs:line 140
+2025-12-31 20:50:48.672 [WRN] Error on PLC New PLC 1: BadSecureChannelClosed
+2025-12-31 20:50:48.674 [DBG] Waiting 5000ms before reconnect attempt...
+2025-12-31 20:50:53.677 [INF] Auto-reconnect attempt 2/10 for New PLC 1...
+2025-12-31 20:50:53.679 [INF] PLC New PLC 1 state changed: "Error" -> "Reconnecting"
+2025-12-31 20:50:53.681 [INF] PLC New PLC 1 state changed: "Reconnecting" -> "Connecting"
+2025-12-31 20:50:53.684 [INF] ═══════════════════════════════════════════════════════════
+2025-12-31 20:50:53.686 [INF] Connecting to PLC: New PLC 1
+2025-12-31 20:50:53.688 [INF] Target Endpoint: opc.tcp://192.168.137.1:4840
+2025-12-31 20:50:53.690 [INF] Security Policy: "None", Mode: "None"
+2025-12-31 20:50:53.705 [INF] Discovering endpoints from opc.tcp://192.168.137.1:4840... (attempt 1/3)
+2025-12-31 20:50:53.712 [INF] Found 5 available endpoint(s):
+2025-12-31 20:50:53.714 [INF]   [1] opc.tcp://192.168.137.1:4840/
+2025-12-31 20:50:53.716 [INF]       Security: None / "None"
+2025-12-31 20:50:53.718 [INF]   [2] opc.tcp://192.168.137.1:4840/
+2025-12-31 20:50:53.721 [INF]       Security: Basic128Rsa15 / "Sign"
+2025-12-31 20:50:53.724 [INF]   [3] opc.tcp://192.168.137.1:4840/
+2025-12-31 20:50:53.730 [INF]       Security: Basic128Rsa15 / "SignAndEncrypt"
+2025-12-31 20:50:53.732 [INF]   [4] opc.tcp://192.168.137.1:4840/
+2025-12-31 20:50:53.738 [INF]       Security: Basic256 / "Sign"
+2025-12-31 20:50:53.744 [INF]   [5] opc.tcp://192.168.137.1:4840/
+2025-12-31 20:50:53.747 [INF]       Security: Basic256 / "SignAndEncrypt"
+2025-12-31 20:50:53.750 [INF] Selected No Security endpoint (recommended for S7-1200/1500 stability)
+2025-12-31 20:50:53.752 [DBG]   → Endpoint: opc.tcp://192.168.137.1:4840/
+2025-12-31 20:50:53.754 [INF] Selected Endpoint: opc.tcp://192.168.137.1:4840/
+2025-12-31 20:50:53.756 [INF]   → Security Policy: http://opcfoundation.org/UA/SecurityPolicy#None
+2025-12-31 20:50:53.758 [INF]   → Security Mode: "None"
+2025-12-31 20:50:53.760 [INF]   → Transport Profile: http://opcfoundation.org/UA-Profile/Transport/uatcp-uasc-uabinary
+2025-12-31 20:50:53.761 [INF] Creating OPC UA Session...
+2025-12-31 20:50:53.808 [INF] PLC New PLC 1 state changed: "Connecting" -> "Error"
+2025-12-31 20:50:53.810 [ERR] Failed to connect to New PLC 1: BadSecureChannelClosed
+Opc.Ua.ServiceResultException: BadSecureChannelClosed
+   at Opc.Ua.Bindings.ChannelAsyncOperation`1.EndAsync(Int32 timeout, Boolean throwOnError, CancellationToken ct)
+   at Opc.Ua.Bindings.UaSCUaBinaryClientChannel.EndSendRequestAsync(IAsyncResult result, CancellationToken ct)
+   at Opc.Ua.SessionClient.CreateSessionAsync(RequestHeader requestHeader, ApplicationDescription clientDescription, String serverUri, String endpointUrl, String sessionName, Byte[] clientNonce, Byte[] clientCertificate, Double requestedSessionTimeout, UInt32 maxResponseMessageSize, CancellationToken ct)
+   at Opc.Ua.Client.Session.OpenAsync(String sessionName, UInt32 sessionTimeout, IUserIdentity identity, IList`1 preferredLocales, Boolean checkDomain, CancellationToken ct)
+   at Opc.Ua.Client.Session.Create(ISessionInstantiator sessionInstantiator, ApplicationConfiguration configuration, ITransportWaitingConnection connection, ConfiguredEndpoint endpoint, Boolean updateBeforeConnect, Boolean checkDomain, String sessionName, UInt32 sessionTimeout, IUserIdentity identity, IList`1 preferredLocales, CancellationToken ct)
+   at OpcUaCommunicationEngine.Services.OpcUa.PlcConnection.ConnectAsync(CancellationToken cancellationToken) in C:\Users\user\source\repos\Natony\OPCUACommDriver\Services\OpcUa\PlcConnection.cs:line 140
+2025-12-31 20:50:53.814 [WRN] Error on PLC New PLC 1: BadSecureChannelClosed
+2025-12-31 20:50:53.817 [DBG] Waiting 10000ms before reconnect attempt...
+2025-12-31 20:50:58.233 [INF] Connecting to all PLCs...
+2025-12-31 20:50:58.236 [INF] PLC New PLC 1 state changed: "Error" -> "Connecting"
+2025-12-31 20:50:58.239 [INF] ═══════════════════════════════════════════════════════════
+2025-12-31 20:50:58.241 [INF] Connecting to PLC: New PLC 1
+2025-12-31 20:50:58.244 [INF] Target Endpoint: opc.tcp://192.168.137.1:4840
+2025-12-31 20:50:58.246 [INF] Security Policy: "None", Mode: "None"
+2025-12-31 20:50:58.262 [INF] Discovering endpoints from opc.tcp://192.168.137.1:4840... (attempt 1/3)
+2025-12-31 20:50:58.583 [INF] Found 5 available endpoint(s):
+2025-12-31 20:50:58.586 [INF]   [1] opc.tcp://192.168.137.1:4840/
+2025-12-31 20:50:58.588 [INF]       Security: None / "None"
+2025-12-31 20:50:58.591 [INF]   [2] opc.tcp://192.168.137.1:4840/
+2025-12-31 20:50:58.592 [INF]       Security: Basic128Rsa15 / "Sign"
+2025-12-31 20:50:58.594 [INF]   [3] opc.tcp://192.168.137.1:4840/
+2025-12-31 20:50:58.596 [INF]       Security: Basic128Rsa15 / "SignAndEncrypt"
+2025-12-31 20:50:58.597 [INF]   [4] opc.tcp://192.168.137.1:4840/
+2025-12-31 20:50:58.603 [INF]       Security: Basic256 / "Sign"
+2025-12-31 20:50:58.606 [INF]   [5] opc.tcp://192.168.137.1:4840/
+2025-12-31 20:50:58.608 [INF]       Security: Basic256 / "SignAndEncrypt"
+2025-12-31 20:50:58.610 [INF] Selected No Security endpoint (recommended for S7-1200/1500 stability)
+2025-12-31 20:50:58.612 [DBG]   → Endpoint: opc.tcp://192.168.137.1:4840/
+2025-12-31 20:50:58.613 [INF] Selected Endpoint: opc.tcp://192.168.137.1:4840/
+2025-12-31 20:50:58.615 [INF]   → Security Policy: http://opcfoundation.org/UA/SecurityPolicy#None
+2025-12-31 20:50:58.618 [INF]   → Security Mode: "None"
+2025-12-31 20:50:58.620 [INF]   → Transport Profile: http://opcfoundation.org/UA-Profile/Transport/uatcp-uasc-uabinary
+2025-12-31 20:50:58.622 [INF] Creating OPC UA Session...
+2025-12-31 20:50:58.656 [INF] PLC New PLC 1 state changed: "Connecting" -> "Error"
+2025-12-31 20:50:58.659 [ERR] Failed to connect to New PLC 1: BadSecureChannelClosed
+Opc.Ua.ServiceResultException: BadSecureChannelClosed
+   at Opc.Ua.Bindings.ChannelAsyncOperation`1.EndAsync(Int32 timeout, Boolean throwOnError, CancellationToken ct)
+   at Opc.Ua.Bindings.UaSCUaBinaryClientChannel.EndSendRequestAsync(IAsyncResult result, CancellationToken ct)
+   at Opc.Ua.SessionClient.CreateSessionAsync(RequestHeader requestHeader, ApplicationDescription clientDescription, String serverUri, String endpointUrl, String sessionName, Byte[] clientNonce, Byte[] clientCertificate, Double requestedSessionTimeout, UInt32 maxResponseMessageSize, CancellationToken ct)
+   at Opc.Ua.Client.Session.OpenAsync(String sessionName, UInt32 sessionTimeout, IUserIdentity identity, IList`1 preferredLocales, Boolean checkDomain, CancellationToken ct)
+   at Opc.Ua.Client.Session.Create(ISessionInstantiator sessionInstantiator, ApplicationConfiguration configuration, ITransportWaitingConnection connection, ConfiguredEndpoint endpoint, Boolean updateBeforeConnect, Boolean checkDomain, String sessionName, UInt32 sessionTimeout, IUserIdentity identity, IList`1 preferredLocales, CancellationToken ct)
+   at OpcUaCommunicationEngine.Services.OpcUa.PlcConnection.ConnectAsync(CancellationToken cancellationToken) in C:\Users\user\source\repos\Natony\OPCUACommDriver\Services\OpcUa\PlcConnection.cs:line 140
+2025-12-31 20:50:58.662 [WRN] Error on PLC New PLC 1: BadSecureChannelClosed
+2025-12-31 20:50:58.665 [INF] Connected to 0/1 PLCs
+2025-12-31 20:51:01.291 [INF] === Application Shutting Down ===
+2025-12-31 20:51:01.294 [INF] Stopping API server...
+2025-12-31 20:51:16.719 [INF] === Application Starting ===
+2025-12-31 20:51:16.784 [DBG] Configuring services...
+2025-12-31 20:51:16.786 [DBG] Services configured
+2025-12-31 20:51:16.793 [INF] Services configured successfully
+2025-12-31 20:51:17.082 [DBG] Creating ConfigurationService...
+2025-12-31 20:51:17.087 [INF] ConfigurationService initialized. Default path: C:\Users\user\source\repos\Natony\OPCUACommDriver\bin\Debug\net8.0-windows\Configurations\plc_config.json
+2025-12-31 20:51:17.091 [DBG] Creating PlcManager...
+2025-12-31 20:51:17.094 [INF] PlcManager initialized
+2025-12-31 20:51:17.096 [DBG] MainViewModel constructor starting...
+2025-12-31 20:51:17.098 [DBG] MainViewModel constructor completed
+2025-12-31 20:51:17.687 [INF] InitializeAsync starting...
+2025-12-31 20:51:17.703 [INF] Loading configuration from C:\Users\user\source\repos\Natony\OPCUACommDriver\bin\Debug\net8.0-windows\Configurations\plc_config.json
+2025-12-31 20:51:17.842 [INF] Loaded configuration with 0 PLCs
+2025-12-31 20:51:17.849 [INF] InitializeAsync completed. PLCs: 0
+2025-12-31 20:51:18.602 [INF] API Server started on http://localhost:5000
+2025-12-31 20:51:18.604 [INF] Swagger UI available at http://localhost:5000/index.html
+2025-12-31 20:51:18.606 [INF] SignalR Hub available at http://localhost:5000/hubs/plc
+2025-12-31 20:51:20.980 [INF] Client connected to PlcHub: kZxkzMg49chuMrWTJmbbdg
+2025-12-31 20:51:21.010 [DBG] Client kZxkzMg49chuMrWTJmbbdg subscribed to all PLCs
+2025-12-31 20:51:22.731 [INF] Client disconnected from PlcHub: kZxkzMg49chuMrWTJmbbdg
+2025-12-31 20:51:25.529 [INF] AddPlc called
