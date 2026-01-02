@@ -413,6 +413,27 @@ public class PlcConnection : IPlcConnection
             // Convert JsonElement to native type if needed
             var convertedValue = ConvertJsonElement(value);
 
+            // Read the node's data type to ensure proper type conversion
+            var nodeToRead = new ReadValueId
+            {
+                NodeId = new NodeId(nodeId),
+                AttributeId = Attributes.DataType
+            };
+
+            _session.Read(
+                null,
+                0,
+                TimestampsToReturn.Neither,
+                new ReadValueIdCollection { nodeToRead },
+                out DataValueCollection dataTypeResults,
+                out DiagnosticInfoCollection _);
+
+            if (dataTypeResults.Count > 0 && StatusCode.IsGood(dataTypeResults[0].StatusCode))
+            {
+                var dataTypeNodeId = dataTypeResults[0].Value as NodeId;
+                convertedValue = ConvertToExpectedType(convertedValue, dataTypeNodeId);
+            }
+
             var nodesToWrite = new WriteValueCollection
             {
                 new WriteValue
@@ -442,6 +463,43 @@ public class PlcConnection : IPlcConnection
         {
             Logger.Error(ex, "Error writing to tag {NodeId} on {PlcName}", nodeId, _device.Name);
             return false;
+        }
+    }
+
+    /// <summary>
+    /// Convert value to the expected OPC UA data type
+    /// </summary>
+    private object ConvertToExpectedType(object value, NodeId? dataTypeNodeId)
+    {
+        if (dataTypeNodeId == null) return value;
+
+        // OPC UA built-in type identifiers
+        var typeId = dataTypeNodeId.Identifier as uint? ?? 0;
+
+        try
+        {
+            return typeId switch
+            {
+                1 => Convert.ToBoolean(value),      // Boolean
+                2 => Convert.ToSByte(value),        // SByte
+                3 => Convert.ToByte(value),         // Byte
+                4 => Convert.ToInt16(value),        // Int16
+                5 => Convert.ToUInt16(value),       // UInt16
+                6 => Convert.ToInt32(value),        // Int32
+                7 => Convert.ToUInt32(value),       // UInt32
+                8 => Convert.ToInt64(value),        // Int64
+                9 => Convert.ToUInt64(value),       // UInt64
+                10 => Convert.ToSingle(value),      // Float
+                11 => Convert.ToDouble(value),      // Double
+                12 => Convert.ToString(value) ?? string.Empty, // String
+                13 => Convert.ToDateTime(value),    // DateTime
+                _ => value
+            };
+        }
+        catch (Exception ex)
+        {
+            Logger.Warning("Failed to convert value to type {TypeId}: {Error}", typeId, ex.Message);
+            return value;
         }
     }
 
