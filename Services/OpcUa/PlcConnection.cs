@@ -410,13 +410,16 @@ public class PlcConnection : IPlcConnection
 
         try
         {
+            // Convert JsonElement to native type if needed
+            var convertedValue = ConvertJsonElement(value);
+
             var nodesToWrite = new WriteValueCollection
             {
                 new WriteValue
                 {
                     NodeId = new NodeId(nodeId),
                     AttributeId = Attributes.Value,
-                    Value = new DataValue(new Variant(value))
+                    Value = new DataValue(new Variant(convertedValue))
                 }
             };
 
@@ -427,12 +430,12 @@ public class PlcConnection : IPlcConnection
                 out DiagnosticInfoCollection diagnosticInfos);
 
             var success = StatusCode.IsGood(results[0]);
-            
+
             if (!success)
             {
                 Logger.Warning("Write to {NodeId} failed: {StatusCode}", nodeId, results[0]);
             }
-            
+
             return success;
         }
         catch (Exception ex)
@@ -440,6 +443,28 @@ public class PlcConnection : IPlcConnection
             Logger.Error(ex, "Error writing to tag {NodeId} on {PlcName}", nodeId, _device.Name);
             return false;
         }
+    }
+
+    /// <summary>
+    /// Convert JsonElement to native .NET type for OPC UA Variant
+    /// </summary>
+    private object ConvertJsonElement(object value)
+    {
+        if (value is System.Text.Json.JsonElement jsonElement)
+        {
+            return jsonElement.ValueKind switch
+            {
+                System.Text.Json.JsonValueKind.True => true,
+                System.Text.Json.JsonValueKind.False => false,
+                System.Text.Json.JsonValueKind.Number => jsonElement.TryGetInt64(out var longVal)
+                    ? (jsonElement.TryGetInt32(out var intVal) ? intVal : longVal)
+                    : jsonElement.GetDouble(),
+                System.Text.Json.JsonValueKind.String => jsonElement.GetString() ?? string.Empty,
+                System.Text.Json.JsonValueKind.Null => null!,
+                _ => value
+            };
+        }
+        return value;
     }
 
     public async Task<IReadOnlyList<bool>> WriteTagsAsync(IReadOnlyList<(string NodeId, object Value)> items, CancellationToken cancellationToken = default)
@@ -458,11 +483,12 @@ public class PlcConnection : IPlcConnection
             
             foreach (var (nodeId, value) in items)
             {
+                var convertedValue = ConvertJsonElement(value);
                 nodesToWrite.Add(new WriteValue
                 {
                     NodeId = new NodeId(nodeId),
                     AttributeId = Attributes.Value,
-                    Value = new DataValue(new Variant(value))
+                    Value = new DataValue(new Variant(convertedValue))
                 });
             }
 
