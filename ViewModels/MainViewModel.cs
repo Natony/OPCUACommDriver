@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.IO;
 using System.Windows.Input;
 using OpcUaCommunicationEngine.Helpers;
 using OpcUaCommunicationEngine.Interfaces;
@@ -111,9 +112,17 @@ public class MainViewModel : ViewModelBase
 
     public bool HasUnsavedChanges => _configService.HasUnsavedChanges;
 
-    public string WindowTitle => HasUnsavedChanges 
-        ? "OPC UA Communication Engine *" 
-        : "OPC UA Communication Engine";
+    public string WindowTitle
+    {
+        get
+        {
+            var fileName = !string.IsNullOrEmpty(_configService.CurrentFilePath)
+                ? Path.GetFileName(_configService.CurrentFilePath)
+                : "New Configuration";
+            var modified = HasUnsavedChanges ? " *" : "";
+            return $"OPC UA Communication Engine - {fileName}{modified}";
+        }
+    }
 
     #endregion
 
@@ -288,15 +297,24 @@ public class MainViewModel : ViewModelBase
 
     private async Task LoadConfigurationAsync()
     {
+        var dialog = new Microsoft.Win32.OpenFileDialog
+        {
+            Filter = "JSON files (*.json)|*.json|All files (*.*)|*.*",
+            DefaultExt = ".json",
+            Title = "Open Configuration File"
+        };
+
+        if (dialog.ShowDialog() != true) return;
+
         IsBusy = true;
         BusyMessage = "Loading configuration...";
         StatusMessage = "Loading configuration...";
-        
+
         try
         {
             await _plcManager.DisconnectAllAsync();
-            await Task.Run(async () => await _configService.LoadConfigurationAsync());
-            
+            await Task.Run(async () => await _configService.LoadConfigurationAsync(dialog.FileName));
+
             PlcDevices.Clear();
             foreach (var plc in _configService.CurrentConfiguration.PlcDevices)
             {
@@ -306,15 +324,22 @@ public class MainViewModel : ViewModelBase
                     await _plcManager.AddPlcAsync(plc);
                 }
             }
-            
+
             TotalPlcCount = PlcDevices.Count;
-            StatusMessage = $"Loaded {PlcDevices.Count} PLCs";
+            StatusMessage = $"Loaded {PlcDevices.Count} PLCs from {Path.GetFileName(dialog.FileName)}";
+            OnPropertyChanged(nameof(WindowTitle));
+            OnPropertyChanged(nameof(HasUnsavedChanges));
             OnPropertyChanged(nameof(ConnectionStatusText));
         }
         catch (Exception ex)
         {
             _logger.Error(ex, "Error loading configuration");
             StatusMessage = "Error loading configuration";
+            System.Windows.MessageBox.Show(
+                $"Error loading configuration:\n{ex.Message}",
+                "Load Error",
+                System.Windows.MessageBoxButton.OK,
+                System.Windows.MessageBoxImage.Error);
         }
         finally
         {

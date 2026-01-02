@@ -39,6 +39,11 @@ public interface IConfigurationService
     bool HasUnsavedChanges { get; }
 
     /// <summary>
+    /// Đường dẫn file configuration hiện tại
+    /// </summary>
+    string? CurrentFilePath { get; }
+
+    /// <summary>
     /// Đánh dấu đã có thay đổi
     /// </summary>
     void MarkAsModified();
