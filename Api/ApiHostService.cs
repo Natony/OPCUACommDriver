@@ -25,12 +25,14 @@ public class ApiHostService : IDisposable
     private readonly AuthSettings _authSettings;
     private PlcHubService? _hubService;
     private OperatorLockService? _lockService;
+    private UserService? _userService;
     private bool _disposed;
 
     public bool IsRunning => _host != null;
     public string BaseUrl => $"http://localhost:{_port}";
     public PlcHubService? HubService => _hubService;
     public OperatorLockService? LockService => _lockService;
+    public UserService? UserService => _userService;
 
     public ApiHostService(IPlcManager plcManager, ILogger logger, AuthSettings authSettings, int port = 5000)
     {
@@ -54,8 +56,8 @@ public class ApiHostService : IDisposable
         try
         {
             // Create services that need to be shared
-            var userService = new UserService(_authSettings);
-            var authService = new AuthService(_authSettings, userService);
+            _userService = new UserService(_authSettings);
+            var authService = new AuthService(_authSettings, _userService);
             _lockService = new OperatorLockService(_authSettings);
 
             _host = Host.CreateDefaultBuilder()
@@ -136,7 +138,7 @@ public class ApiHostService : IDisposable
                         services.AddSingleton(_plcManager);
                         services.AddSingleton(_logger);
                         services.AddSingleton(_authSettings);
-                        services.AddSingleton(userService);
+                        services.AddSingleton(_userService);
                         services.AddSingleton(authService);
                         services.AddSingleton(_lockService);
                         services.AddSingleton<PlcHubService>();

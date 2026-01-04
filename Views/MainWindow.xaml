@@ -78,6 +78,9 @@
                 <MenuItem Header="_Toggle Log Panel" Command="{Binding ToggleLogPanelCommand}" InputGestureText="Ctrl+L"/>
                 <MenuItem Header="_Clear Logs" Command="{Binding ClearLogsCommand}"/>
             </MenuItem>
+            <MenuItem Header="_Admin">
+                <MenuItem Header="_User Management" Click="UserManagement_Click"/>
+            </MenuItem>
             <MenuItem Header="_Help">
                 <MenuItem Header="_About" Command="{Binding AboutCommand}"/>
             </MenuItem>
