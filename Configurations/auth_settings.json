@@ -1,0 +1,11 @@
+{
+  "JwtSecretKey": "OpcUaCommunicationEngine_SuperSecretKey_2024_ChangeThisInProduction!",
+  "JwtIssuer": "OpcUaCommunicationEngine",
+  "JwtAudience": "OpcUaCommunicationEngine.Clients",
+  "AccessTokenExpiryMinutes": 15,
+  "RefreshTokenExpiryDays": 7,
+  "LockTimeoutMinutes": 30,
+  "MaxLockDurationMinutes": 120,
+  "UsersFilePath": "Configurations/users.json",
+  "EnableAuthentication": true
+}

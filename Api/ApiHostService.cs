@@ -1,9 +1,13 @@
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.OpenApi.Models;
 using OpcUaCommunicationEngine.Api.Hubs;
 using OpcUaCommunicationEngine.Interfaces;
+using OpcUaCommunicationEngine.Models;
+using OpcUaCommunicationEngine.Services.Auth;
 using Serilog;
 using System.Text.Json.Serialization;
 
@@ -18,17 +22,21 @@ public class ApiHostService : IDisposable
     private readonly IPlcManager _plcManager;
     private readonly ILogger _logger;
     private readonly int _port;
+    private readonly AuthSettings _authSettings;
     private PlcHubService? _hubService;
+    private OperatorLockService? _lockService;
     private bool _disposed;
 
     public bool IsRunning => _host != null;
     public string BaseUrl => $"http://localhost:{_port}";
     public PlcHubService? HubService => _hubService;
+    public OperatorLockService? LockService => _lockService;
 
-    public ApiHostService(IPlcManager plcManager, ILogger logger, int port = 5000)
+    public ApiHostService(IPlcManager plcManager, ILogger logger, AuthSettings authSettings, int port = 5000)
     {
         _plcManager = plcManager;
         _logger = logger;
+        _authSettings = authSettings;
         _port = port;
     }
 
@@ -45,6 +53,11 @@ public class ApiHostService : IDisposable
 
         try
         {
+            // Create services that need to be shared
+            var userService = new UserService(_authSettings);
+            var authService = new AuthService(_authSettings, userService);
+            _lockService = new OperatorLockService(_authSettings);
+
             _host = Host.CreateDefaultBuilder()
                 .ConfigureWebHostDefaults(webBuilder =>
                 {
@@ -58,6 +71,39 @@ public class ApiHostService : IDisposable
                                 options.JsonSerializerOptions.PropertyNamingPolicy = null; // PascalCase
                                 options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
                             });
+
+                        // Add JWT Authentication
+                        if (_authSettings.EnableAuthentication)
+                        {
+                            services.AddAuthentication(options =>
+                            {
+                                options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+                                options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+                            })
+                            .AddJwtBearer(options =>
+                            {
+                                options.TokenValidationParameters = authService.GetTokenValidationParameters();
+
+                                // Configure for SignalR
+                                options.Events = new JwtBearerEvents
+                                {
+                                    OnMessageReceived = context =>
+                                    {
+                                        var accessToken = context.Request.Query["access_token"];
+                                        var path = context.HttpContext.Request.Path;
+
+                                        if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/hubs"))
+                                        {
+                                            context.Token = accessToken;
+                                        }
+
+                                        return Task.CompletedTask;
+                                    }
+                                };
+                            });
+
+                            services.AddAuthorization();
+                        }
 
                         // Add SignalR
                         services.AddSignalR()
@@ -89,6 +135,10 @@ public class ApiHostService : IDisposable
                         // Register dependencies
                         services.AddSingleton(_plcManager);
                         services.AddSingleton(_logger);
+                        services.AddSingleton(_authSettings);
+                        services.AddSingleton(userService);
+                        services.AddSingleton(authService);
+                        services.AddSingleton(_lockService);
                         services.AddSingleton<PlcHubService>();
 
                         // Add Swagger for API documentation
@@ -101,6 +151,35 @@ public class ApiHostService : IDisposable
                                 Version = "v1",
                                 Description = "REST API for controlling PLC connections and reading/writing tag values"
                             });
+
+                            // Add JWT authentication to Swagger
+                            if (_authSettings.EnableAuthentication)
+                            {
+                                c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+                                {
+                                    Name = "Authorization",
+                                    Type = SecuritySchemeType.ApiKey,
+                                    Scheme = "Bearer",
+                                    BearerFormat = "JWT",
+                                    In = ParameterLocation.Header,
+                                    Description = "Enter 'Bearer' followed by a space and your JWT token.\n\nExample: Bearer eyJhbGciOiJIUzI1NiIs..."
+                                });
+
+                                c.AddSecurityRequirement(new OpenApiSecurityRequirement
+                                {
+                                    {
+                                        new OpenApiSecurityScheme
+                                        {
+                                            Reference = new OpenApiReference
+                                            {
+                                                Type = ReferenceType.SecurityScheme,
+                                                Id = "Bearer"
+                                            }
+                                        },
+                                        Array.Empty<string>()
+                                    }
+                                });
+                            }
                         });
                     });
 
@@ -110,6 +189,13 @@ public class ApiHostService : IDisposable
 
                         // Enable CORS
                         app.UseCors();
+
+                        // Enable Authentication & Authorization
+                        if (_authSettings.EnableAuthentication)
+                        {
+                            app.UseAuthentication();
+                            app.UseAuthorization();
+                        }
 
                         // Enable Swagger
                         app.UseSwagger();
@@ -134,11 +220,20 @@ public class ApiHostService : IDisposable
             // Subscribe to PLC events
             SubscribeToPLcEvents();
 
+            // Subscribe to lock events
+            SubscribeToLockEvents();
+
             await _host.StartAsync(cancellationToken);
 
             _logger.Information("API Server started on {BaseUrl}", BaseUrl);
             _logger.Information("Swagger UI available at {BaseUrl}/index.html", BaseUrl);
             _logger.Information("SignalR Hub available at {BaseUrl}/hubs/plc", BaseUrl);
+            _logger.Information("Authentication: {Status}", _authSettings.EnableAuthentication ? "Enabled" : "Disabled");
+
+            if (_authSettings.EnableAuthentication)
+            {
+                _logger.Information("Default admin account: admin / admin123");
+            }
         }
         catch (Exception ex)
         {
@@ -196,6 +291,43 @@ public class ApiHostService : IDisposable
                     args.PlcName,
                     args.NewState.ToString(),
                     args.NewState == Enums.PlcConnectionState.Connected);
+            }
+        };
+    }
+
+    private void SubscribeToLockEvents()
+    {
+        if (_lockService == null || _hubService == null) return;
+
+        _lockService.LockAcquired += async (sender, args) =>
+        {
+            if (_hubService != null)
+            {
+                await _hubService.BroadcastLockAcquiredAsync(
+                    args.Lock.UserId,
+                    args.Lock.Username,
+                    args.Lock.DisplayName,
+                    args.Lock.ExpiresAt);
+            }
+        };
+
+        _lockService.LockReleased += async (sender, args) =>
+        {
+            if (_hubService != null)
+            {
+                await _hubService.BroadcastLockReleasedAsync(
+                    args.Lock.Username,
+                    args.Reason);
+            }
+        };
+
+        _lockService.LockExtended += async (sender, args) =>
+        {
+            if (_hubService != null)
+            {
+                await _hubService.BroadcastLockExtendedAsync(
+                    args.Lock.UserId,
+                    args.Lock.ExpiresAt);
             }
         };
     }

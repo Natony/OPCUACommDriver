@@ -1,21 +1,27 @@
+using System.Security.Claims;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using OpcUaCommunicationEngine.Api.Models;
 using OpcUaCommunicationEngine.Enums;
 using OpcUaCommunicationEngine.Interfaces;
+using OpcUaCommunicationEngine.Services.Auth;
 using Serilog;
 
 namespace OpcUaCommunicationEngine.Api.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
+[Authorize]
 public class TagsController : ControllerBase
 {
     private readonly IPlcManager _plcManager;
+    private readonly OperatorLockService _lockService;
     private readonly ILogger _logger;
 
-    public TagsController(IPlcManager plcManager, ILogger logger)
+    public TagsController(IPlcManager plcManager, OperatorLockService lockService, ILogger logger)
     {
         _plcManager = plcManager;
+        _lockService = lockService;
         _logger = logger;
     }
 
@@ -175,7 +181,7 @@ public class TagsController : ControllerBase
     }
 
     /// <summary>
-    /// Write value to a tag
+    /// Write value to a tag (requires operator lock)
     /// </summary>
     [HttpPost("{plcId}/{nodeId}/write")]
     public async Task<ActionResult<ApiResponse<bool>>> WriteTag(
@@ -186,6 +192,17 @@ public class TagsController : ControllerBase
     {
         try
         {
+            // Check operator lock
+            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            var roleString = User.FindFirst(ClaimTypes.Role)?.Value;
+            var role = Enum.TryParse<UserRole>(roleString, out var r) ? r : UserRole.Viewer;
+
+            var (canWrite, lockError) = _lockService.CanUserWrite(userId!, role);
+            if (!canWrite)
+            {
+                return StatusCode(403, ApiResponse<bool>.Fail(lockError ?? "Operator lock required to write"));
+            }
+
             var connection = _plcManager.GetConnection(plcId);
             if (connection == null)
                 return NotFound(ApiResponse<bool>.Fail($"PLC '{plcId}' not found"));
@@ -200,7 +217,11 @@ public class TagsController : ControllerBase
 
             if (result)
             {
-                _logger.Information("Tag {NodeId} written with value {Value}", decodedNodeId, request.Value);
+                // Update lock activity
+                _lockService.UpdateActivity(userId!);
+
+                _logger.Information("Tag {NodeId} written with value {Value} by user {UserId}",
+                    decodedNodeId, request.Value, userId);
                 return Ok(ApiResponse<bool>.Ok(true));
             }
             else
@@ -216,7 +237,7 @@ public class TagsController : ControllerBase
     }
 
     /// <summary>
-    /// Write multiple tags at once
+    /// Write multiple tags at once (requires operator lock)
     /// </summary>
     [HttpPost("{plcId}/write-multiple")]
     public async Task<ActionResult<ApiResponse<List<bool>>>> WriteMultipleTags(
@@ -226,6 +247,17 @@ public class TagsController : ControllerBase
     {
         try
         {
+            // Check operator lock
+            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            var roleString = User.FindFirst(ClaimTypes.Role)?.Value;
+            var role = Enum.TryParse<UserRole>(roleString, out var r) ? r : UserRole.Viewer;
+
+            var (canWrite, lockError) = _lockService.CanUserWrite(userId!, role);
+            if (!canWrite)
+            {
+                return StatusCode(403, ApiResponse<List<bool>>.Fail(lockError ?? "Operator lock required to write"));
+            }
+
             var connection = _plcManager.GetConnection(plcId);
             if (connection == null)
                 return NotFound(ApiResponse<List<bool>>.Fail($"PLC '{plcId}' not found"));
@@ -235,6 +267,9 @@ public class TagsController : ControllerBase
 
             var items = request.Tags.Select(t => (t.NodeId, t.Value)).ToList();
             var results = await _plcManager.WriteTagsAsync(plcId, items, cancellationToken);
+
+            // Update lock activity
+            _lockService.UpdateActivity(userId!);
 
             return Ok(ApiResponse<List<bool>>.Ok(results.ToList()));
         }

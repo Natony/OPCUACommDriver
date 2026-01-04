@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using OpcUaCommunicationEngine.Api.Models;
 using OpcUaCommunicationEngine.Enums;
@@ -8,6 +9,7 @@ namespace OpcUaCommunicationEngine.Api.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
+[Authorize]
 public class PlcsController : ControllerBase
 {
     private readonly IPlcManager _plcManager;

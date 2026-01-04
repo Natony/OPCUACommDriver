@@ -1,6 +1,8 @@
 using System.Collections.ObjectModel;
+using System.IO;
 using System.Windows;
 using Microsoft.Extensions.DependencyInjection;
+using Newtonsoft.Json;
 using OpcUaCommunicationEngine.Api;
 using OpcUaCommunicationEngine.Interfaces;
 using OpcUaCommunicationEngine.Models;
@@ -130,19 +132,23 @@ public partial class App : Application
     private void ConfigureServices(IServiceCollection services)
     {
         Log.Debug("Configuring services...");
-        
+
         // Logging
         services.AddSingleton<ILogger>(Log.Logger);
 
+        // Load AuthSettings
+        var authSettings = LoadAuthSettings();
+        services.AddSingleton(authSettings);
+
         // Services
-        services.AddSingleton<IConfigurationService>(sp => 
+        services.AddSingleton<IConfigurationService>(sp =>
         {
             Log.Debug("Creating ConfigurationService...");
             return new ConfigurationService(sp.GetRequiredService<ILogger>());
         });
-        
+
         services.AddSingleton<IDataCache, DataCacheService>();
-        
+
         // OPC UA Manager
         services.AddSingleton<IPlcManager>(sp =>
         {
@@ -166,10 +172,37 @@ public partial class App : Application
             return new ApiHostService(
                 sp.GetRequiredService<IPlcManager>(),
                 sp.GetRequiredService<ILogger>(),
+                sp.GetRequiredService<AuthSettings>(),
                 port: 5000);
         });
 
         Log.Debug("Services configured");
+    }
+
+    private AuthSettings LoadAuthSettings()
+    {
+        const string authSettingsPath = "Configurations/auth_settings.json";
+
+        try
+        {
+            if (File.Exists(authSettingsPath))
+            {
+                var json = File.ReadAllText(authSettingsPath);
+                var settings = JsonConvert.DeserializeObject<AuthSettings>(json);
+                if (settings != null)
+                {
+                    Log.Information("Loaded auth settings from {Path}", authSettingsPath);
+                    return settings;
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "Error loading auth settings, using defaults");
+        }
+
+        Log.Information("Using default auth settings");
+        return new AuthSettings();
     }
 
     protected override void OnExit(ExitEventArgs e)
