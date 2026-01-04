@@ -90,7 +90,8 @@ public class OperatorLockService
                 // If same user, refresh the lock
                 if (_currentLock.UserId == userId)
                 {
-                    return ExtendLockInternal(userId, durationMinutes ?? _settings.LockTimeoutMinutes);
+                    var result = ExtendLockInternal(userId, durationMinutes ?? _settings.LockTimeoutMinutes);
+                    return (result.success, result.operatorLock, result.error, null, null);
                 }
 
                 // Lock is held by another user
