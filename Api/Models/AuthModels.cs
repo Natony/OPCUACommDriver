@@ -148,25 +148,3 @@ public class LockStatusResponse
 }
 
 #endregion
-
-#region Common Response DTOs
-
-/// <summary>
-/// Generic success/error response
-/// </summary>
-public class ApiResponse
-{
-    public bool Success { get; set; }
-    public string? Message { get; set; }
-    public string? Error { get; set; }
-}
-
-/// <summary>
-/// Generic response with data
-/// </summary>
-public class ApiResponse<T> : ApiResponse
-{
-    public T? Data { get; set; }
-}
-
-#endregion
