@@ -7,6 +7,7 @@ using OpcUaCommunicationEngine.Api;
 using OpcUaCommunicationEngine.Interfaces;
 using OpcUaCommunicationEngine.Models;
 using OpcUaCommunicationEngine.Services;
+using OpcUaCommunicationEngine.Services.Auth;
 using OpcUaCommunicationEngine.Services.OpcUa;
 using OpcUaCommunicationEngine.ViewModels;
 using OpcUaCommunicationEngine.Views;
@@ -22,6 +23,7 @@ public partial class App : Application
 {
     private IServiceProvider? _serviceProvider;
     private ApiHostService? _apiHostService;
+    private MainViewModel? _mainViewModel;
 
     public IServiceProvider ServiceProvider => _serviceProvider ?? throw new InvalidOperationException("ServiceProvider not initialized");
     public ApiHostService? ApiHost => _apiHostService;
@@ -55,7 +57,7 @@ public partial class App : Application
 
             // Create and show main window
             var mainWindow = _serviceProvider.GetRequiredService<MainWindow>();
-            var mainViewModel = _serviceProvider.GetRequiredService<MainViewModel>();
+            _mainViewModel = _serviceProvider.GetRequiredService<MainViewModel>();
 
             // Reconfigure logger to include UI sink
             Log.Logger = new LoggerConfiguration()
@@ -67,18 +69,18 @@ public partial class App : Application
                     rollingInterval: RollingInterval.Day,
                     retainedFileCountLimit: 7,
                     outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss.fff} [{Level:u3}] {Message:lj}{NewLine}{Exception}")
-                .WriteTo.UiSink(mainViewModel.LogEntries, maxEntries: 500)
+                .WriteTo.UiSink(_mainViewModel.LogEntries, maxEntries: 500)
                 .CreateLogger();
 
             Log.Information("UI Log sink configured");
 
-            mainWindow.DataContext = mainViewModel;
+            mainWindow.DataContext = _mainViewModel;
             mainWindow.Show();
 
             Log.Information("MainWindow shown");
 
             // Initialize ViewModel
-            _ = InitializeViewModelAsync(mainViewModel);
+            _ = InitializeViewModelAsync(_mainViewModel);
         }
         catch (Exception ex)
         {
@@ -120,6 +122,16 @@ public partial class App : Application
             {
                 await _apiHostService.StartAsync();
                 Log.Information("API Server started successfully at {Url}", _apiHostService.BaseUrl);
+
+                // Connect MainViewModel to LockService for UI updates
+                if (_mainViewModel != null && _apiHostService.LockService != null)
+                {
+                    await Dispatcher.InvokeAsync(() =>
+                    {
+                        _mainViewModel.SetLockService(_apiHostService.LockService);
+                    });
+                    Log.Information("Lock service connected to UI");
+                }
             }
         }
         catch (Exception ex)
