@@ -1230,8 +1230,8 @@ public class MainViewModel : ViewModelBase
     {
         System.Windows.Application.Current?.Dispatcher.InvokeAsync(() =>
         {
-            _lockHolderName = e.DisplayName ?? e.Username ?? "Unknown";
-            HasLock = e.UserId == _currentUserId;
+            _lockHolderName = e.Lock.DisplayName ?? e.Lock.Username ?? "Unknown";
+            HasLock = e.Lock.UserId == _currentUserId;
             CanAcquireLock = false;
 
             if (HasLock)
@@ -1275,7 +1275,7 @@ public class MainViewModel : ViewModelBase
         {
             if (HasLock)
             {
-                StatusMessage = $"Lock extended until {e.ExpiresAt:HH:mm:ss}";
+                StatusMessage = $"Lock extended until {e.Lock.ExpiresAt:HH:mm:ss}";
             }
         });
     }
