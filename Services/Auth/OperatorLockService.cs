@@ -266,12 +266,12 @@ public class OperatorLockService
 
     #region Private Methods
 
-    private (bool success, OperatorLock? operatorLock, string? error, string? lockedByUsername, string? lockedByDisplayName)
+    private (bool success, OperatorLock? operatorLock, string? error)
         ExtendLockInternal(string userId, int additionalMinutes)
     {
         if (_currentLock == null || _currentLock.UserId != userId)
         {
-            return (false, null, "You do not hold the current lock", null, null);
+            return (false, null, "You do not hold the current lock");
         }
 
         // Calculate new expiry time
@@ -300,7 +300,7 @@ public class OperatorLockService
             Reason = "extended"
         });
 
-        return (true, _currentLock, null, null, null);
+        return (true, _currentLock, null);
     }
 
     private void ReleaseLockInternal(string reason)
