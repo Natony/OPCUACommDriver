@@ -1,9 +1,11 @@
 using System.Collections.ObjectModel;
 using System.IO;
 using System.Windows.Input;
+using System.Windows.Media;
 using OpcUaCommunicationEngine.Helpers;
 using OpcUaCommunicationEngine.Interfaces;
 using OpcUaCommunicationEngine.Models;
+using OpcUaCommunicationEngine.Services.Auth;
 using OpcUaCommunicationEngine.Services.OpcUa;
 using Serilog;
 using Serilog.Events;
@@ -28,6 +30,14 @@ public class MainViewModel : ViewModelBase
     private int _connectedPlcCount;
     private int _totalPlcCount;
     private bool _isLogPanelVisible = true;
+
+    // Lock related fields
+    private OperatorLockService? _lockService;
+    private bool _hasLock;
+    private string _lockStatusText = "No lock service";
+    private string _lockHolderName = string.Empty;
+    private bool _canAcquireLock;
+    private string _currentUserId = "local-user";
 
     #region Properties
 
@@ -124,6 +134,97 @@ public class MainViewModel : ViewModelBase
         }
     }
 
+    #region Lock Properties
+
+    /// <summary>
+    /// Whether current user holds the operator lock
+    /// </summary>
+    public bool HasLock
+    {
+        get => _hasLock;
+        private set
+        {
+            if (SetProperty(ref _hasLock, value))
+            {
+                OnPropertyChanged(nameof(LockIcon));
+                OnPropertyChanged(nameof(LockStatusText));
+                OnPropertyChanged(nameof(LockStatusColor));
+                OnPropertyChanged(nameof(CanAcquireLock));
+            }
+        }
+    }
+
+    /// <summary>
+    /// Whether user can acquire the lock (no one else holds it)
+    /// </summary>
+    public bool CanAcquireLock
+    {
+        get => _canAcquireLock && !_hasLock;
+        private set => SetProperty(ref _canAcquireLock, value);
+    }
+
+    /// <summary>
+    /// Lock status display text
+    /// </summary>
+    public string LockStatusText
+    {
+        get
+        {
+            if (_lockService == null)
+                return "No lock service";
+
+            if (_hasLock)
+                return "You have control";
+
+            if (!string.IsNullOrEmpty(_lockHolderName))
+                return $"Locked by {_lockHolderName}";
+
+            return "Available";
+        }
+    }
+
+    /// <summary>
+    /// Lock icon based on current state
+    /// </summary>
+    public string LockIcon
+    {
+        get
+        {
+            if (_lockService == null)
+                return "⚠️";
+
+            if (_hasLock)
+                return "🔒";
+
+            if (!string.IsNullOrEmpty(_lockHolderName))
+                return "🔐";
+
+            return "🔓";
+        }
+    }
+
+    /// <summary>
+    /// Lock status color as Brush
+    /// </summary>
+    public Brush LockStatusColor
+    {
+        get
+        {
+            if (_lockService == null)
+                return Brushes.Gray;
+
+            if (_hasLock)
+                return Brushes.Green;
+
+            if (!string.IsNullOrEmpty(_lockHolderName))
+                return Brushes.Orange;
+
+            return Brushes.DodgerBlue;
+        }
+    }
+
+    #endregion
+
     #endregion
 
     #region Commands
@@ -149,6 +250,10 @@ public class MainViewModel : ViewModelBase
     public ICommand AboutCommand { get; }
     public ICommand ToggleLogPanelCommand { get; }
     public ICommand ClearLogsCommand { get; }
+
+    // Lock commands
+    public ICommand AcquireLockCommand { get; }
+    public ICommand ReleaseLockCommand { get; }
 
     #endregion
 
@@ -192,6 +297,10 @@ public class MainViewModel : ViewModelBase
         AboutCommand = new RelayCommand(ShowAbout);
         ToggleLogPanelCommand = new RelayCommand(ToggleLogPanel);
         ClearLogsCommand = new RelayCommand(ClearLogs);
+
+        // Lock commands
+        AcquireLockCommand = new AsyncRelayCommand(AcquireLockAsync, () => CanAcquireLock);
+        ReleaseLockCommand = new AsyncRelayCommand(ReleaseLockAsync, () => HasLock);
 
         _logger.Debug("MainViewModel constructor completed");
     }
@@ -1055,6 +1164,192 @@ public class MainViewModel : ViewModelBase
     {
         LogEntries.Clear();
         _logger.Information("Log cleared");
+    }
+
+    #endregion
+
+    #region Lock Methods
+
+    /// <summary>
+    /// Set the lock service and subscribe to events
+    /// </summary>
+    public void SetLockService(OperatorLockService lockService)
+    {
+        if (_lockService != null)
+        {
+            // Unsubscribe from old service
+            _lockService.LockAcquired -= OnLockAcquired;
+            _lockService.LockReleased -= OnLockReleased;
+            _lockService.LockExtended -= OnLockExtended;
+        }
+
+        _lockService = lockService;
+
+        if (_lockService != null)
+        {
+            // Subscribe to events
+            _lockService.LockAcquired += OnLockAcquired;
+            _lockService.LockReleased += OnLockReleased;
+            _lockService.LockExtended += OnLockExtended;
+
+            // Update initial state
+            UpdateLockState();
+        }
+
+        // Notify UI
+        OnPropertyChanged(nameof(LockIcon));
+        OnPropertyChanged(nameof(LockStatusText));
+        OnPropertyChanged(nameof(LockStatusColor));
+        OnPropertyChanged(nameof(CanAcquireLock));
+        OnPropertyChanged(nameof(HasLock));
+
+        _logger.Information("Lock service configured for UI");
+    }
+
+    private void UpdateLockState()
+    {
+        if (_lockService == null) return;
+
+        var status = _lockService.GetLockStatus();
+
+        if (status.IsLocked)
+        {
+            _lockHolderName = status.DisplayName ?? status.Username ?? "Unknown";
+            HasLock = status.UserId == _currentUserId;
+            CanAcquireLock = false;
+        }
+        else
+        {
+            _lockHolderName = string.Empty;
+            HasLock = false;
+            CanAcquireLock = true;
+        }
+    }
+
+    private void OnLockAcquired(object? sender, LockEventArgs e)
+    {
+        System.Windows.Application.Current?.Dispatcher.InvokeAsync(() =>
+        {
+            _lockHolderName = e.DisplayName ?? e.Username ?? "Unknown";
+            HasLock = e.UserId == _currentUserId;
+            CanAcquireLock = false;
+
+            if (HasLock)
+            {
+                StatusMessage = "You have acquired operator control";
+                _logger.Information("Lock acquired by current user");
+            }
+            else
+            {
+                StatusMessage = $"Control acquired by {_lockHolderName}";
+                _logger.Information("Lock acquired by {User}", _lockHolderName);
+            }
+        });
+    }
+
+    private void OnLockReleased(object? sender, LockEventArgs e)
+    {
+        System.Windows.Application.Current?.Dispatcher.InvokeAsync(() =>
+        {
+            var wasOurs = HasLock;
+            _lockHolderName = string.Empty;
+            HasLock = false;
+            CanAcquireLock = true;
+
+            if (wasOurs)
+            {
+                StatusMessage = "You have released operator control";
+            }
+            else
+            {
+                StatusMessage = "Operator control is now available";
+            }
+
+            _logger.Information("Lock released");
+        });
+    }
+
+    private void OnLockExtended(object? sender, LockEventArgs e)
+    {
+        System.Windows.Application.Current?.Dispatcher.InvokeAsync(() =>
+        {
+            if (HasLock)
+            {
+                StatusMessage = $"Lock extended until {e.ExpiresAt:HH:mm:ss}";
+            }
+        });
+    }
+
+    private async Task AcquireLockAsync()
+    {
+        if (_lockService == null)
+        {
+            StatusMessage = "Lock service not available";
+            return;
+        }
+
+        try
+        {
+            StatusMessage = "Acquiring operator control...";
+
+            // For local UI, use Operator role
+            var (success, operatorLock, error, _, _) = _lockService.TryAcquireLock(
+                _currentUserId, "Local User", "Local User", Enums.UserRole.Operator);
+
+            if (success && operatorLock != null)
+            {
+                _lockHolderName = "You";
+                HasLock = true;
+                CanAcquireLock = false;
+                StatusMessage = "Operator control acquired";
+                _logger.Information("Successfully acquired operator lock");
+            }
+            else
+            {
+                StatusMessage = $"Failed to acquire lock: {error}";
+                _logger.Warning("Failed to acquire lock: {Error}", error);
+            }
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"Error acquiring lock: {ex.Message}";
+            _logger.Error(ex, "Error acquiring lock");
+        }
+    }
+
+    private async Task ReleaseLockAsync()
+    {
+        if (_lockService == null)
+        {
+            StatusMessage = "Lock service not available";
+            return;
+        }
+
+        try
+        {
+            StatusMessage = "Releasing operator control...";
+
+            var (success, error) = _lockService.ReleaseLock(_currentUserId);
+
+            if (success)
+            {
+                _lockHolderName = string.Empty;
+                HasLock = false;
+                CanAcquireLock = true;
+                StatusMessage = "Operator control released";
+                _logger.Information("Successfully released operator lock");
+            }
+            else
+            {
+                StatusMessage = $"Failed to release lock: {error}";
+                _logger.Warning("Failed to release lock: {Error}", error);
+            }
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"Error releasing lock: {ex.Message}";
+            _logger.Error(ex, "Error releasing lock");
+        }
     }
 
     #endregion
