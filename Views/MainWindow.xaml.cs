@@ -151,6 +151,26 @@ public partial class MainWindow : Window
         }
     }
 
+    /// <summary>
+    /// Open User Management window
+    /// </summary>
+    private void UserManagement_Click(object sender, RoutedEventArgs e)
+    {
+        var app = Application.Current as App;
+        var userService = app?.ApiHost?.UserService;
+
+        if (userService == null)
+        {
+            MessageBox.Show("User service is not available. API server may not be running.",
+                "Service Unavailable", MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+
+        var window = new UserManagementWindow(userService);
+        window.Owner = this;
+        window.ShowDialog();
+    }
+
     protected override void OnClosing(System.ComponentModel.CancelEventArgs e)
     {
         // Cleanup event handler
