@@ -55,7 +55,7 @@ public class AuthController : ControllerBase
         return Ok(new LoginResponse
         {
             Success = true,
-            Token = accessToken,
+            AccessToken = accessToken,
             RefreshToken = refreshToken,
             ExpiresAt = expiresAt,
             User = new UserDto
@@ -101,7 +101,7 @@ public class AuthController : ControllerBase
         return Ok(new LoginResponse
         {
             Success = true,
-            Token = accessToken,
+            AccessToken = accessToken,
             RefreshToken = refreshToken,
             ExpiresAt = expiresAt,
             User = new UserDto
