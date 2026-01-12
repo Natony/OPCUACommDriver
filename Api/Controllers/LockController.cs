@@ -28,12 +28,12 @@ public class LockController : ControllerBase
     /// Get current lock status
     /// </summary>
     [HttpGet("status")]
-    public ActionResult<LockStatusResponse> GetStatus()
+    public ActionResult<ApiResponse<LockStatusResponse>> GetStatus()
     {
         var status = _lockService.GetLockStatus();
         var currentUserId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
 
-        return Ok(new LockStatusResponse
+        var response = new LockStatusResponse
         {
             IsLocked = status.IsLocked,
             LockId = status.LockId,
@@ -44,7 +44,9 @@ public class LockController : ControllerBase
             ExpiresAt = status.ExpiresAt,
             TimeRemainingSeconds = status.TimeRemainingSeconds,
             IsCurrentUser = status.UserId == currentUserId
-        });
+        };
+
+        return Ok(ApiResponse<LockStatusResponse>.Ok(response));
     }
 
     /// <summary>
