@@ -136,6 +136,7 @@ public class ExtendLockRequest
 /// </summary>
 public class LockStatusResponse
 {
+    public bool Success { get; set; } = true;
     public bool IsLocked { get; set; }
     public string? LockId { get; set; }
     public string? UserId { get; set; }
