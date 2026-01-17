@@ -46,13 +46,19 @@ public class OperatorLockService
     {
         lock (_lock)
         {
-            if (_currentLock == null || _currentLock.IsExpired)
+            if (_currentLock == null)
             {
-                if (_currentLock?.IsExpired == true)
-                {
-                    ReleaseLockInternal("timeout");
-                }
+                return new LockStatus { IsLocked = false };
+            }
 
+            // Debug logging
+            Logger.Debug("GetLockStatus: ExpiresAt={ExpiresAt}, UtcNow={UtcNow}, IsExpired={IsExpired}, TimeRemaining={TimeRemaining}",
+                _currentLock.ExpiresAt, DateTime.UtcNow, _currentLock.IsExpired, _currentLock.TimeRemaining);
+
+            if (_currentLock.IsExpired)
+            {
+                Logger.Information("Lock expired during status check");
+                ReleaseLockInternal("timeout");
                 return new LockStatus { IsLocked = false };
             }
 
