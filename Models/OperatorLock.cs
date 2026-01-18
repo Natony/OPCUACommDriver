@@ -1,3 +1,5 @@
+using OpcUaCommunicationEngine.Enums;
+
 namespace OpcUaCommunicationEngine.Models;
 
 /// <summary>
@@ -27,12 +29,18 @@ public class OperatorLock
     public string DisplayName { get; set; } = string.Empty;
 
     /// <summary>
+    /// Role of the lock holder
+    /// </summary>
+    public UserRole Role { get; set; } = UserRole.Operator;
+
+    /// <summary>
     /// When the lock was acquired
     /// </summary>
     public DateTime AcquiredAt { get; set; } = DateTime.UtcNow;
 
     /// <summary>
     /// When the lock will expire (auto-release)
+    /// For Admin: DateTime.MaxValue (never expires)
     /// </summary>
     public DateTime ExpiresAt { get; set; }
 
@@ -43,14 +51,23 @@ public class OperatorLock
     public DateTime LastActivity { get; set; } = DateTime.UtcNow;
 
     /// <summary>
-    /// Check if the lock has expired
+    /// Check if this is an admin lock (never expires automatically)
     /// </summary>
-    public bool IsExpired => DateTime.UtcNow > ExpiresAt;
+    public bool IsAdminLock => Role == UserRole.Admin;
+
+    /// <summary>
+    /// Check if the lock has expired
+    /// Admin locks never expire automatically
+    /// </summary>
+    public bool IsExpired => !IsAdminLock && DateTime.UtcNow > ExpiresAt;
 
     /// <summary>
     /// Time remaining until expiration
+    /// Returns MaxValue for admin locks
     /// </summary>
-    public TimeSpan TimeRemaining => IsExpired ? TimeSpan.Zero : ExpiresAt - DateTime.UtcNow;
+    public TimeSpan TimeRemaining => IsAdminLock
+        ? TimeSpan.MaxValue
+        : (IsExpired ? TimeSpan.Zero : ExpiresAt - DateTime.UtcNow);
 }
 
 /// <summary>

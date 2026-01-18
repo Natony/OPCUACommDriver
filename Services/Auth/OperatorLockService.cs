@@ -1,3 +1,5 @@
+using System.IO;
+using Newtonsoft.Json;
 using OpcUaCommunicationEngine.Enums;
 using OpcUaCommunicationEngine.Models;
 using Serilog;
@@ -12,6 +14,7 @@ public class OperatorLockService
 {
     private readonly AuthSettings _settings;
     private readonly object _lock = new();
+    private readonly string _lockStatePath = "Configurations/lock_state.json";
     private OperatorLock? _currentLock;
     private Timer? _timeoutTimer;
     private static ILogger Logger => Log.Logger;
@@ -34,6 +37,7 @@ public class OperatorLockService
     public OperatorLockService(AuthSettings settings)
     {
         _settings = settings;
+        LoadLockState(); // Restore lock state from file
         StartTimeoutChecker();
     }
 
@@ -112,9 +116,25 @@ public class OperatorLockService
             }
 
             // Calculate lock duration
-            var duration = durationMinutes ?? _settings.LockTimeoutMinutes;
-            var maxDuration = _settings.MaxLockDurationMinutes;
-            duration = Math.Min(duration, maxDuration);
+            // Admin: unlimited (DateTime.MaxValue)
+            // Others: configurable with max limit
+            DateTime expiresAt;
+            string durationText;
+
+            if (role == UserRole.Admin)
+            {
+                // Admin lock never expires automatically
+                expiresAt = DateTime.MaxValue;
+                durationText = "unlimited";
+            }
+            else
+            {
+                var duration = durationMinutes ?? _settings.LockTimeoutMinutes;
+                var maxDuration = _settings.MaxLockDurationMinutes;
+                duration = Math.Min(duration, maxDuration);
+                expiresAt = DateTime.UtcNow.AddMinutes(duration);
+                durationText = $"{duration} minutes";
+            }
 
             // Acquire new lock
             _currentLock = new OperatorLock
@@ -123,13 +143,17 @@ public class OperatorLockService
                 UserId = userId,
                 Username = username,
                 DisplayName = displayName,
+                Role = role,
                 AcquiredAt = DateTime.UtcNow,
-                ExpiresAt = DateTime.UtcNow.AddMinutes(duration),
+                ExpiresAt = expiresAt,
                 LastActivity = DateTime.UtcNow
             };
 
-            Logger.Information("Lock acquired by {Username} (expires in {Duration} minutes)",
-                username, duration);
+            // Save lock state to file
+            SaveLockState();
+
+            Logger.Information("Lock acquired by {Username} (Role: {Role}, expires in {Duration})",
+                username, role, durationText);
 
             // Fire event
             LockAcquired?.Invoke(this, new LockEventArgs
@@ -297,6 +321,9 @@ public class OperatorLockService
 
         _currentLock.LastActivity = DateTime.UtcNow;
 
+        // Save lock state to file
+        SaveLockState();
+
         Logger.Information("Lock extended for {Username} (expires at {ExpiresAt})",
             _currentLock.Username, _currentLock.ExpiresAt);
 
@@ -316,6 +343,9 @@ public class OperatorLockService
 
         var releasedLock = _currentLock;
         _currentLock = null;
+
+        // Save lock state to file (removes the file)
+        SaveLockState();
 
         Logger.Information("Lock released ({Reason}). Previous holder: {Username}",
             reason, releasedLock.Username);
@@ -341,6 +371,76 @@ public class OperatorLockService
                 }
             }
         }, null, TimeSpan.FromSeconds(30), TimeSpan.FromSeconds(30));
+    }
+
+    private void SaveLockState()
+    {
+        try
+        {
+            var directory = Path.GetDirectoryName(_lockStatePath);
+            if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
+            {
+                Directory.CreateDirectory(directory);
+            }
+
+            if (_currentLock == null)
+            {
+                // No lock - delete the file if it exists
+                if (File.Exists(_lockStatePath))
+                {
+                    File.Delete(_lockStatePath);
+                }
+            }
+            else
+            {
+                // Save current lock state
+                var json = JsonConvert.SerializeObject(_currentLock, Formatting.Indented);
+                File.WriteAllText(_lockStatePath, json);
+                Logger.Debug("Lock state saved to {Path}", _lockStatePath);
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.Error(ex, "Failed to save lock state to {Path}", _lockStatePath);
+        }
+    }
+
+    private void LoadLockState()
+    {
+        try
+        {
+            if (!File.Exists(_lockStatePath))
+            {
+                Logger.Debug("No lock state file found at {Path}", _lockStatePath);
+                return;
+            }
+
+            var json = File.ReadAllText(_lockStatePath);
+            var loadedLock = JsonConvert.DeserializeObject<OperatorLock>(json);
+
+            if (loadedLock == null)
+            {
+                Logger.Warning("Failed to deserialize lock state from {Path}", _lockStatePath);
+                return;
+            }
+
+            // Check if the loaded lock is still valid (not expired)
+            if (loadedLock.IsExpired)
+            {
+                Logger.Information("Loaded lock has expired, discarding. Previous holder: {Username}", loadedLock.Username);
+                File.Delete(_lockStatePath);
+                return;
+            }
+
+            // Restore the lock
+            _currentLock = loadedLock;
+            Logger.Information("Lock state restored from file. Lock held by {Username} (Role: {Role}, expires at {ExpiresAt})",
+                _currentLock.Username, _currentLock.Role, _currentLock.ExpiresAt);
+        }
+        catch (Exception ex)
+        {
+            Logger.Error(ex, "Failed to load lock state from {Path}", _lockStatePath);
+        }
     }
 
     #endregion
