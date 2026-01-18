@@ -212,7 +212,8 @@ public class AuthService
             new(ClaimTypes.Name, user.Username),
             new("displayName", user.DisplayName),
             new(ClaimTypes.Role, user.Role.ToString()),
-            new("roleLevel", ((int)user.Role).ToString())
+            new("roleLevel", ((int)user.Role).ToString()),
+            new("lockDurationMinutes", user.LockDurationMinutes?.ToString() ?? "")
         };
 
         var tokenDescriptor = new SecurityTokenDescriptor

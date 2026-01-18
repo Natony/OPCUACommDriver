@@ -17,6 +17,15 @@ public partial class EditUserDialog : Window
     public string DisplayName => DisplayNameTextBox.Text.Trim();
     public UserRole SelectedRole => (UserRole)RoleComboBox.SelectedItem;
     public bool IsActive => IsActiveCheckBox.IsChecked == true;
+    public int? LockDurationMinutes
+    {
+        get
+        {
+            var text = LockDurationTextBox.Text.Trim();
+            if (string.IsNullOrEmpty(text)) return null;
+            return int.TryParse(text, out var val) ? val : null;
+        }
+    }
 
     /// <summary>
     /// Constructor for adding a new user
@@ -46,6 +55,7 @@ public partial class EditUserDialog : Window
         DisplayNameTextBox.Text = user.DisplayName;
         RoleComboBox.SelectedItem = user.Role;
         IsActiveCheckBox.IsChecked = user.IsActive;
+        LockDurationTextBox.Text = user.LockDurationMinutes?.ToString() ?? "";
 
         // Hide password field for edit mode
         PasswordLabel.Visibility = Visibility.Collapsed;

@@ -61,7 +61,7 @@ public class UserService
     /// <summary>
     /// Create new user
     /// </summary>
-    public User CreateUser(string username, string password, string displayName, UserRole role)
+    public User CreateUser(string username, string password, string displayName, UserRole role, int? lockDurationMinutes = null)
     {
         lock (_lock)
         {
@@ -79,13 +79,15 @@ public class UserService
                 DisplayName = displayName,
                 Role = role,
                 IsActive = true,
-                CreatedAt = DateTime.UtcNow
+                CreatedAt = DateTime.UtcNow,
+                LockDurationMinutes = lockDurationMinutes
             };
 
             _storage.Users.Add(user);
             SaveStorage();
 
-            Logger.Information("Created user: {Username} with role {Role}", username, role);
+            Logger.Information("Created user: {Username} with role {Role}, lock duration: {LockDuration}",
+                username, role, lockDurationMinutes?.ToString() ?? "default");
             return user;
         }
     }
@@ -93,7 +95,7 @@ public class UserService
     /// <summary>
     /// Update user
     /// </summary>
-    public User? UpdateUser(string userId, string? displayName = null, UserRole? role = null, bool? isActive = null)
+    public User? UpdateUser(string userId, string? displayName = null, UserRole? role = null, bool? isActive = null, int? lockDurationMinutes = null, bool updateLockDuration = false)
     {
         lock (_lock)
         {
@@ -108,6 +110,9 @@ public class UserService
 
             if (isActive.HasValue)
                 user.IsActive = isActive.Value;
+
+            if (updateLockDuration)
+                user.LockDurationMinutes = lockDurationMinutes;
 
             SaveStorage();
 

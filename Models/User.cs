@@ -15,6 +15,13 @@ public class User
     public bool IsActive { get; set; } = true;
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime? LastLoginAt { get; set; }
+
+    /// <summary>
+    /// Custom lock duration in minutes for this user.
+    /// null = use default from AuthSettings
+    /// 0 = unlimited (same as admin)
+    /// </summary>
+    public int? LockDurationMinutes { get; set; }
 }
 
 /// <summary>

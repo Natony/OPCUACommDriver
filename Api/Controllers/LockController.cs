@@ -59,6 +59,7 @@ public class LockController : ControllerBase
         var username = User.FindFirst(ClaimTypes.Name)?.Value;
         var displayName = User.FindFirst("displayName")?.Value ?? username;
         var roleString = User.FindFirst(ClaimTypes.Role)?.Value;
+        var lockDurationStr = User.FindFirst("lockDurationMinutes")?.Value;
 
         if (string.IsNullOrEmpty(userId) || string.IsNullOrEmpty(username))
         {
@@ -71,8 +72,15 @@ public class LockController : ControllerBase
 
         var role = Enum.TryParse<UserRole>(roleString, out var r) ? r : UserRole.Viewer;
 
+        // Priority: request duration > user's configured duration > default
+        int? durationMinutes = request?.DurationMinutes;
+        if (durationMinutes == null && !string.IsNullOrEmpty(lockDurationStr) && int.TryParse(lockDurationStr, out var userDuration))
+        {
+            durationMinutes = userDuration;
+        }
+
         var (success, operatorLock, error, lockedByUsername, lockedByDisplayName) =
-            _lockService.TryAcquireLock(userId, username, displayName ?? username, role, request?.DurationMinutes);
+            _lockService.TryAcquireLock(userId, username, displayName ?? username, role, durationMinutes);
 
         if (!success)
         {

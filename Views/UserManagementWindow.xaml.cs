@@ -39,7 +39,8 @@ public partial class UserManagementWindow : Window
                     IsActive = user.IsActive,
                     CreatedAt = user.CreatedAt,
                     LastLoginAt = user.LastLoginAt,
-                    CanDelete = user.Username != "admin" // Can't delete admin
+                    CanDelete = user.Username != "admin", // Can't delete admin
+                    LockDurationMinutes = user.LockDurationMinutes
                 });
             }
 
@@ -66,7 +67,8 @@ public partial class UserManagementWindow : Window
                     dialog.Username,
                     dialog.Password,
                     dialog.DisplayName,
-                    dialog.SelectedRole);
+                    dialog.SelectedRole,
+                    dialog.LockDurationMinutes);
 
                 LoadUsers();
                 StatusText.Text = $"User '{dialog.Username}' created successfully";
@@ -101,7 +103,9 @@ public partial class UserManagementWindow : Window
                         userVm.Id,
                         dialog.DisplayName,
                         dialog.SelectedRole,
-                        dialog.IsActive);
+                        dialog.IsActive,
+                        dialog.LockDurationMinutes,
+                        updateLockDuration: true);
 
                     if (updatedUser != null)
                     {
@@ -224,4 +228,11 @@ public class UserViewModel
     public DateTime CreatedAt { get; set; }
     public DateTime? LastLoginAt { get; set; }
     public bool CanDelete { get; set; }
+    public int? LockDurationMinutes { get; set; }
+    public string LockDurationDisplay => LockDurationMinutes switch
+    {
+        null => "Default",
+        0 => "Unlimited",
+        _ => $"{LockDurationMinutes} min"
+    };
 }

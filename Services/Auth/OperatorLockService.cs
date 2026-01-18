@@ -117,13 +117,14 @@ public class OperatorLockService
 
             // Calculate lock duration
             // Admin: unlimited (DateTime.MaxValue)
+            // durationMinutes = 0: unlimited (configured per user)
             // Others: configurable with max limit
             DateTime expiresAt;
             string durationText;
 
-            if (role == UserRole.Admin)
+            if (role == UserRole.Admin || durationMinutes == 0)
             {
-                // Admin lock never expires automatically
+                // Admin lock or user configured as unlimited - never expires automatically
                 expiresAt = DateTime.MaxValue;
                 durationText = "unlimited";
             }

@@ -5,7 +5,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         mc:Ignorable="d"
         Title="User Management"
-        Height="500" Width="700"
+        Height="500" Width="850"
         WindowStartupLocation="CenterOwner"
         Background="#F5F5F5">
 
@@ -58,12 +58,13 @@
                       BorderThickness="0"
                       RowHeaderWidth="0">
                 <DataGrid.Columns>
-                    <DataGridTextColumn Header="Username" Binding="{Binding Username}" Width="120"/>
-                    <DataGridTextColumn Header="Display Name" Binding="{Binding DisplayName}" Width="150"/>
-                    <DataGridTextColumn Header="Role" Binding="{Binding Role}" Width="100"/>
-                    <DataGridCheckBoxColumn Header="Active" Binding="{Binding IsActive}" Width="60"/>
-                    <DataGridTextColumn Header="Created" Binding="{Binding CreatedAt, StringFormat=yyyy-MM-dd HH:mm}" Width="140"/>
-                    <DataGridTextColumn Header="Last Login" Binding="{Binding LastLoginAt, StringFormat=yyyy-MM-dd HH:mm}" Width="140"/>
+                    <DataGridTextColumn Header="Username" Binding="{Binding Username}" Width="100"/>
+                    <DataGridTextColumn Header="Display Name" Binding="{Binding DisplayName}" Width="120"/>
+                    <DataGridTextColumn Header="Role" Binding="{Binding Role}" Width="80"/>
+                    <DataGridTextColumn Header="Lock Time" Binding="{Binding LockDurationDisplay}" Width="80"/>
+                    <DataGridCheckBoxColumn Header="Active" Binding="{Binding IsActive}" Width="55"/>
+                    <DataGridTextColumn Header="Created" Binding="{Binding CreatedAt, StringFormat=yyyy-MM-dd HH:mm}" Width="120"/>
+                    <DataGridTextColumn Header="Last Login" Binding="{Binding LastLoginAt, StringFormat=yyyy-MM-dd HH:mm}" Width="120"/>
                     <DataGridTemplateColumn Header="Actions" Width="*">
                         <DataGridTemplateColumn.CellTemplate>
                             <DataTemplate>

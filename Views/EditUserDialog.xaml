@@ -7,7 +7,7 @@
         xmlns:sys="clr-namespace:System;assembly=mscorlib"
         mc:Ignorable="d"
         Title="User Details"
-        Height="380" Width="400"
+        Height="450" Width="400"
         WindowStartupLocation="CenterOwner"
         ResizeMode="NoResize"
         Background="#F5F5F5">
@@ -44,6 +44,7 @@
                 <RowDefinition Height="Auto"/>
                 <RowDefinition Height="Auto"/>
                 <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
             </Grid.RowDefinitions>
 
             <!-- Username -->
@@ -71,10 +72,21 @@
                       ItemsSource="{Binding Source={StaticResource UserRoleValues}}"
                       Padding="8,6" Margin="0,0,0,12"/>
 
-            <!-- Active -->
-            <TextBlock Grid.Row="4" Grid.Column="0" Text="Active:"
+            <!-- Lock Duration -->
+            <TextBlock Grid.Row="4" Grid.Column="0" Text="Lock Duration:"
                        VerticalAlignment="Center" Margin="0,0,8,12"/>
-            <CheckBox x:Name="IsActiveCheckBox" Grid.Row="4" Grid.Column="1"
+            <StackPanel Grid.Row="4" Grid.Column="1" Orientation="Vertical" Margin="0,0,0,12">
+                <StackPanel Orientation="Horizontal">
+                    <TextBox x:Name="LockDurationTextBox" Width="80" Padding="8,6"/>
+                    <TextBlock Text=" minutes" VerticalAlignment="Center" Margin="4,0,0,0"/>
+                </StackPanel>
+                <TextBlock Text="(Empty=Default, 0=Unlimited)" FontSize="10" Foreground="#666" Margin="0,2,0,0"/>
+            </StackPanel>
+
+            <!-- Active -->
+            <TextBlock Grid.Row="5" Grid.Column="0" Text="Active:"
+                       VerticalAlignment="Center" Margin="0,0,8,12"/>
+            <CheckBox x:Name="IsActiveCheckBox" Grid.Row="5" Grid.Column="1"
                       IsChecked="True" VerticalAlignment="Center" Margin="0,0,0,12"/>
         </Grid>
 
