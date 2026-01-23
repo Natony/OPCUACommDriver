@@ -192,12 +192,21 @@ public class TagsController : ControllerBase
     {
         try
         {
-            // Check operator lock
+            // Validate user claims
             var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             var roleString = User.FindFirst(ClaimTypes.Role)?.Value;
-            var role = Enum.TryParse<UserRole>(roleString, out var r) ? r : UserRole.Viewer;
 
-            var (canWrite, lockError) = _lockService.CanUserWrite(userId!, role);
+            if (string.IsNullOrEmpty(userId))
+            {
+                return Unauthorized(ApiResponse<bool>.Fail("User not authenticated"));
+            }
+
+            if (!Enum.TryParse<UserRole>(roleString, out var role))
+            {
+                return Unauthorized(ApiResponse<bool>.Fail("Invalid or missing user role"));
+            }
+
+            var (canWrite, lockError) = _lockService.CanUserWrite(userId, role);
             if (!canWrite)
             {
                 return StatusCode(403, ApiResponse<bool>.Fail(lockError ?? "Operator lock required to write"));
@@ -218,7 +227,7 @@ public class TagsController : ControllerBase
             if (result)
             {
                 // Update lock activity
-                _lockService.UpdateActivity(userId!);
+                _lockService.UpdateActivity(userId);
 
                 _logger.Information("Tag {NodeId} written with value {Value} by user {UserId}",
                     decodedNodeId, request.Value, userId);
@@ -247,12 +256,21 @@ public class TagsController : ControllerBase
     {
         try
         {
-            // Check operator lock
+            // Validate user claims
             var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             var roleString = User.FindFirst(ClaimTypes.Role)?.Value;
-            var role = Enum.TryParse<UserRole>(roleString, out var r) ? r : UserRole.Viewer;
 
-            var (canWrite, lockError) = _lockService.CanUserWrite(userId!, role);
+            if (string.IsNullOrEmpty(userId))
+            {
+                return Unauthorized(ApiResponse<List<bool>>.Fail("User not authenticated"));
+            }
+
+            if (!Enum.TryParse<UserRole>(roleString, out var role))
+            {
+                return Unauthorized(ApiResponse<List<bool>>.Fail("Invalid or missing user role"));
+            }
+
+            var (canWrite, lockError) = _lockService.CanUserWrite(userId, role);
             if (!canWrite)
             {
                 return StatusCode(403, ApiResponse<List<bool>>.Fail(lockError ?? "Operator lock required to write"));
@@ -269,7 +287,7 @@ public class TagsController : ControllerBase
             var results = await _plcManager.WriteTagsAsync(plcId, items, cancellationToken);
 
             // Update lock activity
-            _lockService.UpdateActivity(userId!);
+            _lockService.UpdateActivity(userId);
 
             return Ok(ApiResponse<List<bool>>.Ok(results.ToList()));
         }

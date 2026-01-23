@@ -131,12 +131,36 @@ public class PlcHub : Hub
     {
         var userId = Context.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         var roleString = Context.User?.FindFirst(ClaimTypes.Role)?.Value;
-        var role = Enum.TryParse<UserRole>(roleString, out var r) ? r : UserRole.Viewer;
+
+        // Validate user claims
+        if (string.IsNullOrEmpty(userId))
+        {
+            await Clients.Caller.SendAsync("WriteResult", new
+            {
+                plcId,
+                nodeId,
+                success = false,
+                error = "User not authenticated"
+            });
+            return;
+        }
+
+        if (!Enum.TryParse<UserRole>(roleString, out var role))
+        {
+            await Clients.Caller.SendAsync("WriteResult", new
+            {
+                plcId,
+                nodeId,
+                success = false,
+                error = "Invalid or missing user role"
+            });
+            return;
+        }
 
         try
         {
             // Check lock
-            var (canWrite, error) = _lockService.CanUserWrite(userId!, role);
+            var (canWrite, error) = _lockService.CanUserWrite(userId, role);
             if (!canWrite)
             {
                 await Clients.Caller.SendAsync("WriteResult", new
@@ -150,6 +174,13 @@ public class PlcHub : Hub
             }
 
             var result = await _plcManager.WriteTagAsync(plcId, nodeId, value);
+
+            if (result)
+            {
+                // Update lock activity to prevent timeout while actively writing
+                _lockService.UpdateActivity(userId);
+            }
+
             await Clients.Caller.SendAsync("WriteResult", new { plcId, nodeId, success = result });
         }
         catch (Exception ex)

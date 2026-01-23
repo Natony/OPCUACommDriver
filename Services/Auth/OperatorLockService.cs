@@ -10,8 +10,9 @@ namespace OpcUaCommunicationEngine.Services.Auth;
 /// Service for operator lock management
 /// Ensures only one operator can control the system at a time
 /// </summary>
-public class OperatorLockService
+public class OperatorLockService : IDisposable
 {
+    private bool _disposed = false;
     private readonly AuthSettings _settings;
     private readonly object _lock = new();
     private readonly string _lockStatePath = "Configurations/lock_state.json";
@@ -394,9 +395,18 @@ public class OperatorLockService
             }
             else
             {
-                // Save current lock state
+                // Save current lock state using atomic write (temp file + rename)
+                var tempPath = _lockStatePath + ".tmp";
                 var json = JsonConvert.SerializeObject(_currentLock, Formatting.Indented);
-                File.WriteAllText(_lockStatePath, json);
+                File.WriteAllText(tempPath, json);
+
+                // Atomic replace (on most file systems)
+                if (File.Exists(_lockStatePath))
+                {
+                    File.Delete(_lockStatePath);
+                }
+                File.Move(tempPath, _lockStatePath);
+
                 Logger.Debug("Lock state saved to {Path}", _lockStatePath);
             }
         }
@@ -410,6 +420,14 @@ public class OperatorLockService
     {
         try
         {
+            // Clean up any temp files from interrupted writes
+            var tempPath = _lockStatePath + ".tmp";
+            if (File.Exists(tempPath))
+            {
+                File.Delete(tempPath);
+                Logger.Debug("Cleaned up temp lock state file");
+            }
+
             if (!File.Exists(_lockStatePath))
             {
                 Logger.Debug("No lock state file found at {Path}", _lockStatePath);
@@ -421,7 +439,8 @@ public class OperatorLockService
 
             if (loadedLock == null)
             {
-                Logger.Warning("Failed to deserialize lock state from {Path}", _lockStatePath);
+                Logger.Warning("Failed to deserialize lock state from {Path}, removing corrupted file", _lockStatePath);
+                File.Delete(_lockStatePath);
                 return;
             }
 
@@ -440,8 +459,47 @@ public class OperatorLockService
         }
         catch (Exception ex)
         {
-            Logger.Error(ex, "Failed to load lock state from {Path}", _lockStatePath);
+            Logger.Error(ex, "Failed to load lock state from {Path}, removing corrupted file", _lockStatePath);
+            // Clean up corrupted file
+            try
+            {
+                if (File.Exists(_lockStatePath))
+                {
+                    File.Delete(_lockStatePath);
+                }
+            }
+            catch { /* Ignore cleanup errors */ }
         }
+    }
+
+    #endregion
+
+    #region IDisposable
+
+    public void Dispose()
+    {
+        Dispose(true);
+        GC.SuppressFinalize(this);
+    }
+
+    protected virtual void Dispose(bool disposing)
+    {
+        if (_disposed) return;
+
+        if (disposing)
+        {
+            // Dispose managed resources
+            _timeoutTimer?.Dispose();
+            _timeoutTimer = null;
+            Logger.Debug("OperatorLockService disposed");
+        }
+
+        _disposed = true;
+    }
+
+    ~OperatorLockService()
+    {
+        Dispose(false);
     }
 
     #endregion

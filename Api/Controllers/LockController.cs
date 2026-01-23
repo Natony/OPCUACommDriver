@@ -70,7 +70,14 @@ public class LockController : ControllerBase
             });
         }
 
-        var role = Enum.TryParse<UserRole>(roleString, out var r) ? r : UserRole.Viewer;
+        if (!Enum.TryParse<UserRole>(roleString, out var role))
+        {
+            return Unauthorized(new AcquireLockResponse
+            {
+                Success = false,
+                Error = "Invalid or missing user role"
+            });
+        }
 
         // Priority: request duration > user's configured duration > default
         int? durationMinutes = request?.DurationMinutes;
@@ -193,7 +200,14 @@ public class LockController : ControllerBase
             });
         }
 
-        var role = Enum.TryParse<UserRole>(roleString, out var r) ? r : UserRole.Viewer;
+        if (!Enum.TryParse<UserRole>(roleString, out var role))
+        {
+            return Unauthorized(new ApiResponse
+            {
+                Success = false,
+                Error = "Invalid or missing user role"
+            });
+        }
 
         var (success, error) = _lockService.ForceReleaseLock(userId, role);
 
