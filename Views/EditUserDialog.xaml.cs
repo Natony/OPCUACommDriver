@@ -1,5 +1,6 @@
 using System.Windows;
 using OpcUaCommunicationEngine.Enums;
+using OpcUaCommunicationEngine.Helpers;
 using OpcUaCommunicationEngine.Models;
 
 namespace OpcUaCommunicationEngine.Views;
@@ -81,17 +82,10 @@ public partial class EditUserDialog : Window
                 return;
             }
 
-            if (string.IsNullOrWhiteSpace(Password))
+            var (isValidPassword, passwordError) = PasswordValidator.Validate(Password);
+            if (!isValidPassword)
             {
-                MessageBox.Show("Password is required", "Validation Error",
-                    MessageBoxButton.OK, MessageBoxImage.Warning);
-                PasswordBox.Focus();
-                return;
-            }
-
-            if (Password.Length < 6)
-            {
-                MessageBox.Show("Password must be at least 6 characters", "Validation Error",
+                MessageBox.Show(passwordError, "Validation Error",
                     MessageBoxButton.OK, MessageBoxImage.Warning);
                 PasswordBox.Focus();
                 return;

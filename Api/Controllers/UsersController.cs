@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using OpcUaCommunicationEngine.Api.Models;
 using OpcUaCommunicationEngine.Enums;
+using OpcUaCommunicationEngine.Helpers;
 using OpcUaCommunicationEngine.Services.Auth;
 using Serilog;
 
@@ -98,12 +99,13 @@ public class UsersController : ControllerBase
             });
         }
 
-        if (string.IsNullOrWhiteSpace(request.Password) || request.Password.Length < 6)
+        var (isValidPassword, passwordError) = PasswordValidator.Validate(request.Password);
+        if (!isValidPassword)
         {
             return BadRequest(new ApiResponse<UserDto>
             {
                 Success = false,
-                Error = "Password must be at least 6 characters"
+                Error = passwordError
             });
         }
 
@@ -226,12 +228,13 @@ public class UsersController : ControllerBase
     [HttpPost("{id}/reset-password")]
     public ActionResult<ApiResponse> ResetPassword(string id, [FromBody] ResetPasswordRequest request)
     {
-        if (string.IsNullOrWhiteSpace(request.NewPassword) || request.NewPassword.Length < 6)
+        var (isValidPassword, passwordError) = PasswordValidator.Validate(request.NewPassword);
+        if (!isValidPassword)
         {
             return BadRequest(new ApiResponse
             {
                 Success = false,
-                Error = "New password must be at least 6 characters"
+                Error = passwordError
             });
         }
 

@@ -1,4 +1,5 @@
 using System.Windows;
+using OpcUaCommunicationEngine.Helpers;
 
 namespace OpcUaCommunicationEngine.Views;
 
@@ -17,18 +18,11 @@ public partial class ResetPasswordDialog : Window
 
     private void Reset_Click(object sender, RoutedEventArgs e)
     {
-        // Validate
-        if (string.IsNullOrWhiteSpace(NewPasswordBox.Password))
+        // Validate password strength
+        var (isValidPassword, passwordError) = PasswordValidator.Validate(NewPasswordBox.Password);
+        if (!isValidPassword)
         {
-            MessageBox.Show("New password is required", "Validation Error",
-                MessageBoxButton.OK, MessageBoxImage.Warning);
-            NewPasswordBox.Focus();
-            return;
-        }
-
-        if (NewPasswordBox.Password.Length < 6)
-        {
-            MessageBox.Show("Password must be at least 6 characters", "Validation Error",
+            MessageBox.Show(passwordError, "Validation Error",
                 MessageBoxButton.OK, MessageBoxImage.Warning);
             NewPasswordBox.Focus();
             return;

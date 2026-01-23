@@ -53,7 +53,7 @@ public class LockController : ControllerBase
     /// Acquire operator lock
     /// </summary>
     [HttpPost("acquire")]
-    public ActionResult<AcquireLockResponse> AcquireLock([FromBody] AcquireLockRequest? request)
+    public ActionResult<ApiResponse<AcquireLockResponse>> AcquireLock([FromBody] AcquireLockRequest? request)
     {
         var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         var username = User.FindFirst(ClaimTypes.Name)?.Value;
@@ -63,20 +63,12 @@ public class LockController : ControllerBase
 
         if (string.IsNullOrEmpty(userId) || string.IsNullOrEmpty(username))
         {
-            return Unauthorized(new AcquireLockResponse
-            {
-                Success = false,
-                Error = "User not authenticated"
-            });
+            return Unauthorized(ApiResponse<AcquireLockResponse>.Fail("User not authenticated"));
         }
 
         if (!Enum.TryParse<UserRole>(roleString, out var role))
         {
-            return Unauthorized(new AcquireLockResponse
-            {
-                Success = false,
-                Error = "Invalid or missing user role"
-            });
+            return Unauthorized(ApiResponse<AcquireLockResponse>.Fail("Invalid or missing user role"));
         }
 
         // Priority: request duration > user's configured duration > default
@@ -91,52 +83,44 @@ public class LockController : ControllerBase
 
         if (!success)
         {
-            return Ok(new AcquireLockResponse
+            return Ok(ApiResponse<AcquireLockResponse>.Ok(new AcquireLockResponse
             {
                 Success = false,
                 Error = error,
                 LockedByUsername = lockedByUsername,
                 LockedByDisplayName = lockedByDisplayName
-            });
+            }));
         }
 
-        return Ok(new AcquireLockResponse
+        return Ok(ApiResponse<AcquireLockResponse>.Ok(new AcquireLockResponse
         {
             Success = true,
             LockId = operatorLock!.LockId,
             ExpiresAt = operatorLock.ExpiresAt,
             TimeRemainingSeconds = (int)operatorLock.TimeRemaining.TotalSeconds
-        });
+        }));
     }
 
     /// <summary>
     /// Release operator lock
     /// </summary>
     [HttpPost("release")]
-    public ActionResult<ApiResponse> ReleaseLock()
+    public ActionResult<ApiResponse<object>> ReleaseLock()
     {
         var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         if (string.IsNullOrEmpty(userId))
         {
-            return Unauthorized(new ApiResponse
-            {
-                Success = false,
-                Error = "User not authenticated"
-            });
+            return Unauthorized(ApiResponse<object>.Fail("User not authenticated"));
         }
 
         var (success, error) = _lockService.ReleaseLock(userId);
 
         if (!success)
         {
-            return BadRequest(new ApiResponse
-            {
-                Success = false,
-                Error = error
-            });
+            return BadRequest(ApiResponse<object>.Fail(error ?? "Failed to release lock"));
         }
 
-        return Ok(new ApiResponse
+        return Ok(new ApiResponse<object>
         {
             Success = true,
             Message = "Lock released successfully"
@@ -147,16 +131,12 @@ public class LockController : ControllerBase
     /// Extend current lock
     /// </summary>
     [HttpPost("extend")]
-    public ActionResult<AcquireLockResponse> ExtendLock([FromBody] ExtendLockRequest? request)
+    public ActionResult<ApiResponse<AcquireLockResponse>> ExtendLock([FromBody] ExtendLockRequest? request)
     {
         var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         if (string.IsNullOrEmpty(userId))
         {
-            return Unauthorized(new AcquireLockResponse
-            {
-                Success = false,
-                Error = "User not authenticated"
-            });
+            return Unauthorized(ApiResponse<AcquireLockResponse>.Fail("User not authenticated"));
         }
 
         var durationMinutes = request?.DurationMinutes ?? 30;
@@ -165,20 +145,16 @@ public class LockController : ControllerBase
 
         if (!success)
         {
-            return BadRequest(new AcquireLockResponse
-            {
-                Success = false,
-                Error = error
-            });
+            return BadRequest(ApiResponse<AcquireLockResponse>.Fail(error ?? "Failed to extend lock"));
         }
 
-        return Ok(new AcquireLockResponse
+        return Ok(ApiResponse<AcquireLockResponse>.Ok(new AcquireLockResponse
         {
             Success = true,
             LockId = operatorLock!.LockId,
             ExpiresAt = operatorLock.ExpiresAt,
             TimeRemainingSeconds = (int)operatorLock.TimeRemaining.TotalSeconds
-        });
+        }));
     }
 
     /// <summary>
@@ -186,41 +162,29 @@ public class LockController : ControllerBase
     /// </summary>
     [HttpPost("force-release")]
     [Authorize(Roles = "Admin")]
-    public ActionResult<ApiResponse> ForceReleaseLock()
+    public ActionResult<ApiResponse<object>> ForceReleaseLock()
     {
         var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         var roleString = User.FindFirst(ClaimTypes.Role)?.Value;
 
         if (string.IsNullOrEmpty(userId))
         {
-            return Unauthorized(new ApiResponse
-            {
-                Success = false,
-                Error = "User not authenticated"
-            });
+            return Unauthorized(ApiResponse<object>.Fail("User not authenticated"));
         }
 
         if (!Enum.TryParse<UserRole>(roleString, out var role))
         {
-            return Unauthorized(new ApiResponse
-            {
-                Success = false,
-                Error = "Invalid or missing user role"
-            });
+            return Unauthorized(ApiResponse<object>.Fail("Invalid or missing user role"));
         }
 
         var (success, error) = _lockService.ForceReleaseLock(userId, role);
 
         if (!success)
         {
-            return BadRequest(new ApiResponse
-            {
-                Success = false,
-                Error = error
-            });
+            return BadRequest(ApiResponse<object>.Fail(error ?? "Failed to force release lock"));
         }
 
-        return Ok(new ApiResponse
+        return Ok(new ApiResponse<object>
         {
             Success = true,
             Message = "Lock force released successfully"

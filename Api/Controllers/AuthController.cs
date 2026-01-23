@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using OpcUaCommunicationEngine.Api.Models;
 using OpcUaCommunicationEngine.Enums;
+using OpcUaCommunicationEngine.Helpers;
 using OpcUaCommunicationEngine.Services.Auth;
 using Serilog;
 
@@ -201,12 +202,13 @@ public class AuthController : ControllerBase
             });
         }
 
-        if (request.NewPassword.Length < 6)
+        var (isValidPassword, passwordError) = PasswordValidator.Validate(request.NewPassword);
+        if (!isValidPassword)
         {
             return BadRequest(new ApiResponse
             {
                 Success = false,
-                Error = "New password must be at least 6 characters"
+                Error = passwordError
             });
         }
 
