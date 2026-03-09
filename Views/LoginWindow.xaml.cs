@@ -204,11 +204,8 @@ public partial class LoginWindow : Window
 
     protected override void OnClosing(System.ComponentModel.CancelEventArgs e)
     {
-        // If user closes without logging in, exit app
-        if (DialogResult != true)
-        {
-            Application.Current.Shutdown();
-        }
+        // Note: App.xaml.cs handles shutdown if login fails
+        // No need to call Shutdown() here
         base.OnClosing(e);
     }
 }

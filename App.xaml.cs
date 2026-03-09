@@ -34,6 +34,9 @@ public partial class App : Application
     {
         base.OnStartup(e);
 
+        // Prevent app from shutting down when login window closes
+        ShutdownMode = ShutdownMode.OnExplicitShutdown;
+
         // Setup initial logging (file and console only)
         Log.Logger = new LoggerConfiguration()
             .MinimumLevel.Debug()
@@ -95,6 +98,11 @@ public partial class App : Application
             Log.Information("UI Log sink configured");
 
             mainWindow.DataContext = _mainViewModel;
+
+            // Set MainWindow and switch to normal shutdown mode
+            MainWindow = mainWindow;
+            ShutdownMode = ShutdownMode.OnMainWindowClose;
+
             mainWindow.Show();
 
             Log.Information("MainWindow shown");
