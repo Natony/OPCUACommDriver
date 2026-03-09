@@ -12,6 +12,19 @@
     <Version>1.0.0</Version>
     <Authors>Your Company</Authors>
     <Description>OPC UA Multi-PLC Communication Engine with REST API</Description>
+
+    <!-- Publishing Configuration -->
+    <PublishSingleFile>true</PublishSingleFile>
+    <SelfContained>true</SelfContained>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <PublishReadyToRun>true</PublishReadyToRun>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+
+    <!-- Application Info -->
+    <Product>OPC UA Communication Engine</Product>
+    <Company>Your Company</Company>
+    <Copyright>Copyright 2024</Copyright>
   </PropertyGroup>
 
   <ItemGroup>

@@ -24,9 +24,11 @@ public partial class App : Application
     private IServiceProvider? _serviceProvider;
     private ApiHostService? _apiHostService;
     private MainViewModel? _mainViewModel;
+    private User? _loggedInUser;
 
     public IServiceProvider ServiceProvider => _serviceProvider ?? throw new InvalidOperationException("ServiceProvider not initialized");
     public ApiHostService? ApiHost => _apiHostService;
+    public User? LoggedInUser => _loggedInUser;
 
     protected override void OnStartup(StartupEventArgs e)
     {
@@ -55,9 +57,27 @@ public partial class App : Application
 
             Log.Information("Services configured successfully");
 
+            // Show login window first
+            var userService = _serviceProvider.GetRequiredService<UserService>();
+            var loginWindow = new LoginWindow(userService);
+
+            var loginResult = loginWindow.ShowDialog();
+            if (loginResult != true || loginWindow.LoggedInUser == null)
+            {
+                Log.Information("Login cancelled or failed, shutting down");
+                Shutdown(0);
+                return;
+            }
+
+            _loggedInUser = loginWindow.LoggedInUser;
+            Log.Information("User {Username} logged in with role {Role}", _loggedInUser.Username, _loggedInUser.Role);
+
             // Create and show main window
             var mainWindow = _serviceProvider.GetRequiredService<MainWindow>();
             _mainViewModel = _serviceProvider.GetRequiredService<MainViewModel>();
+
+            // Set logged in user info
+            _mainViewModel.SetLoggedInUser(_loggedInUser);
 
             // Reconfigure logger to include UI sink
             Log.Logger = new LoggerConfiguration()
@@ -151,6 +171,9 @@ public partial class App : Application
         // Load AuthSettings
         var authSettings = LoadAuthSettings();
         services.AddSingleton(authSettings);
+
+        // Auth Services
+        services.AddSingleton<UserService>();
 
         // Services
         services.AddSingleton<IConfigurationService>(sp =>

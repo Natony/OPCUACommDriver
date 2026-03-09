@@ -39,6 +39,9 @@ public class MainViewModel : ViewModelBase
     private bool _canAcquireLock;
     private string _currentUserId = "local-user";
 
+    // Logged in user
+    private User? _loggedInUser;
+
     #region Properties
 
     public ObservableCollection<PlcDevice> PlcDevices { get; } = new();
@@ -130,7 +133,8 @@ public class MainViewModel : ViewModelBase
                 ? Path.GetFileName(_configService.CurrentFilePath)
                 : "New Configuration";
             var modified = HasUnsavedChanges ? " *" : "";
-            return $"OPC UA Communication Engine - {fileName}{modified}";
+            var userInfo = _loggedInUser != null ? $" [{_loggedInUser.DisplayName}]" : "";
+            return $"OPC UA Communication Engine - {fileName}{modified}{userInfo}";
         }
     }
 
@@ -1169,6 +1173,19 @@ public class MainViewModel : ViewModelBase
     #endregion
 
     #region Lock Methods
+
+    /// <summary>
+    /// Set the logged in user for the desktop application
+    /// </summary>
+    public void SetLoggedInUser(User user)
+    {
+        _loggedInUser = user;
+        _currentUserId = user.Id;
+        _logger.Information("Logged in user set: {Username} (Role: {Role})", user.Username, user.Role);
+
+        // Update window title to show logged in user
+        OnPropertyChanged(nameof(WindowTitle));
+    }
 
     /// <summary>
     /// Set the lock service and subscribe to events
