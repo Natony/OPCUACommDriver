@@ -5,7 +5,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         mc:Ignorable="d"
         Title="User Management"
-        Height="500" Width="850"
+        Height="500" Width="950"
         WindowStartupLocation="CenterOwner"
         Background="#F5F5F5">
 
@@ -71,14 +71,21 @@
                                 <StackPanel Orientation="Horizontal">
                                     <Button Content="Edit" Click="EditUser_Click"
                                             Padding="8,4" Margin="0,0,4,0"
-                                            Background="#FFC107" Foreground="#333" BorderThickness="0"/>
-                                    <Button Content="Reset Password" Click="ResetPassword_Click"
+                                            Background="#FFC107" Foreground="#333" BorderThickness="0"
+                                            ToolTip="Edit user details"/>
+                                    <Button Content="Change Pwd" Click="ChangePassword_Click"
                                             Padding="8,4" Margin="0,0,4,0"
-                                            Background="#9C27B0" Foreground="White" BorderThickness="0"/>
+                                            Background="#2196F3" Foreground="White" BorderThickness="0"
+                                            ToolTip="Change password (requires current password)"/>
+                                    <Button Content="Reset Pwd" Click="ResetPassword_Click"
+                                            Padding="8,4" Margin="0,0,4,0"
+                                            Background="#9C27B0" Foreground="White" BorderThickness="0"
+                                            ToolTip="Admin reset password (no current password needed)"/>
                                     <Button Content="Delete" Click="DeleteUser_Click"
                                             Padding="8,4"
                                             Background="#F44336" Foreground="White" BorderThickness="0"
-                                            IsEnabled="{Binding CanDelete}"/>
+                                            IsEnabled="{Binding CanDelete}"
+                                            ToolTip="Delete user"/>
                                 </StackPanel>
                             </DataTemplate>
                         </DataGridTemplateColumn.CellTemplate>

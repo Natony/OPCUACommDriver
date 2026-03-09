@@ -165,11 +165,43 @@
                                Margin="0,0,0,12"
                                Foreground="{StaticResource TextPrimaryBrush}"/>
 
-                    <ListBox Grid.Row="1" 
+                    <ListBox Grid.Row="1"
+                             x:Name="PlcListBox"
                              ItemsSource="{Binding PlcDevices}"
                              SelectedItem="{Binding SelectedPlc}"
                              BorderThickness="1"
                              BorderBrush="#E0E0E0">
+                        <ListBox.ContextMenu>
+                            <ContextMenu>
+                                <MenuItem Header="Connect" Command="{Binding ConnectSelectedCommand}">
+                                    <MenuItem.Icon>
+                                        <TextBlock Text="🔌" FontSize="14"/>
+                                    </MenuItem.Icon>
+                                </MenuItem>
+                                <MenuItem Header="Disconnect" Command="{Binding DisconnectSelectedCommand}">
+                                    <MenuItem.Icon>
+                                        <TextBlock Text="⛔" FontSize="14"/>
+                                    </MenuItem.Icon>
+                                </MenuItem>
+                                <Separator/>
+                                <MenuItem Header="Edit" Command="{Binding EditPlcCommand}">
+                                    <MenuItem.Icon>
+                                        <TextBlock Text="✏️" FontSize="14"/>
+                                    </MenuItem.Icon>
+                                </MenuItem>
+                                <MenuItem Header="Browse Server" Command="{Binding BrowseServerCommand}">
+                                    <MenuItem.Icon>
+                                        <TextBlock Text="🔍" FontSize="14"/>
+                                    </MenuItem.Icon>
+                                </MenuItem>
+                                <Separator/>
+                                <MenuItem Header="Delete" Command="{Binding DeletePlcCommand}" Foreground="Red">
+                                    <MenuItem.Icon>
+                                        <TextBlock Text="🗑️" FontSize="14"/>
+                                    </MenuItem.Icon>
+                                </MenuItem>
+                            </ContextMenu>
+                        </ListBox.ContextMenu>
                         <ListBox.ItemTemplate>
                             <DataTemplate>
                                 <Grid Margin="4">

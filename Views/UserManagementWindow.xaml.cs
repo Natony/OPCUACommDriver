@@ -127,10 +127,36 @@ public partial class UserManagementWindow : Window
         }
     }
 
+    private void ChangePassword_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is FrameworkElement element && element.DataContext is UserViewModel userVm)
+        {
+            var dialog = new ChangePasswordDialog(_userService, userVm.Id, userVm.Username);
+            dialog.Owner = this;
+
+            if (dialog.ShowDialog() == true)
+            {
+                StatusText.Text = $"Password changed for '{userVm.Username}'";
+                MessageBox.Show($"Password has been changed for {userVm.Username}",
+                    "Success", MessageBoxButton.OK, MessageBoxImage.Information);
+            }
+        }
+    }
+
     private void ResetPassword_Click(object sender, RoutedEventArgs e)
     {
         if (sender is FrameworkElement element && element.DataContext is UserViewModel userVm)
         {
+            // Confirm admin reset
+            var confirmResult = MessageBox.Show(
+                $"Reset password for '{userVm.Username}' without verifying current password?\n\nThis is an admin function.",
+                "Confirm Admin Reset",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Question);
+
+            if (confirmResult != MessageBoxResult.Yes)
+                return;
+
             var dialog = new ResetPasswordDialog(userVm.Username);
             dialog.Owner = this;
 
