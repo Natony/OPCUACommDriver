@@ -150,7 +150,7 @@ public class MainViewModel : ViewModelBase
             {
                 _configService.CurrentConfiguration.Settings.AutoConnectOnStartup = value;
                 OnPropertyChanged();
-                _configService.MarkModified();
+                _configService.MarkAsModified();
                 OnPropertyChanged(nameof(HasUnsavedChanges));
                 OnPropertyChanged(nameof(WindowTitle));
                 _logger.Information("AutoConnectOnStartup changed to: {Value}", value);
