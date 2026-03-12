@@ -138,6 +138,26 @@ public class MainViewModel : ViewModelBase
         }
     }
 
+    /// <summary>
+    /// Tự động kết nối tất cả PLCs khi load configuration
+    /// </summary>
+    public bool AutoConnectOnStartup
+    {
+        get => _configService.CurrentConfiguration.Settings.AutoConnectOnStartup;
+        set
+        {
+            if (_configService.CurrentConfiguration.Settings.AutoConnectOnStartup != value)
+            {
+                _configService.CurrentConfiguration.Settings.AutoConnectOnStartup = value;
+                OnPropertyChanged();
+                _configService.MarkModified();
+                OnPropertyChanged(nameof(HasUnsavedChanges));
+                OnPropertyChanged(nameof(WindowTitle));
+                _logger.Information("AutoConnectOnStartup changed to: {Value}", value);
+            }
+        }
+    }
+
     #region Lock Properties
 
     /// <summary>
@@ -334,13 +354,32 @@ public class MainViewModel : ViewModelBase
             
             // Initialize PlcManager with PLCs from configuration
             await _plcManager.InitializeAsync();
-            
+
             StatusMessage = $"Loaded {PlcDevices.Count} PLCs";
             OnPropertyChanged(nameof(WindowTitle));
             OnPropertyChanged(nameof(HasUnsavedChanges));
             OnPropertyChanged(nameof(ConnectionStatusText));
-            
+            OnPropertyChanged(nameof(AutoConnectOnStartup));
+
             _logger.Information("InitializeAsync completed. PLCs: {Count}", PlcDevices.Count);
+
+            // Auto-connect all PLCs if enabled
+            if (_configService.CurrentConfiguration.Settings.AutoConnectOnStartup && PlcDevices.Count > 0)
+            {
+                _logger.Information("AutoConnectOnStartup is enabled. Connecting to all PLCs...");
+                StatusMessage = "Auto-connecting to PLCs...";
+                try
+                {
+                    var connectedCount = await _plcManager.ConnectAllAsync();
+                    StatusMessage = $"Auto-connected to {connectedCount}/{PlcDevices.Count} PLCs";
+                    _logger.Information("Auto-connect completed. Connected: {Connected}/{Total}", connectedCount, PlcDevices.Count);
+                }
+                catch (Exception connectEx)
+                {
+                    _logger.Error(connectEx, "Error during auto-connect");
+                    StatusMessage = "Auto-connect failed. Check logs for details.";
+                }
+            }
         }
         catch (Exception ex)
         {
@@ -443,6 +482,26 @@ public class MainViewModel : ViewModelBase
             OnPropertyChanged(nameof(WindowTitle));
             OnPropertyChanged(nameof(HasUnsavedChanges));
             OnPropertyChanged(nameof(ConnectionStatusText));
+            OnPropertyChanged(nameof(AutoConnectOnStartup));
+
+            // Auto-connect all PLCs if enabled
+            if (_configService.CurrentConfiguration.Settings.AutoConnectOnStartup && PlcDevices.Count > 0)
+            {
+                _logger.Information("AutoConnectOnStartup is enabled. Connecting to all PLCs...");
+                BusyMessage = "Auto-connecting to PLCs...";
+                StatusMessage = "Auto-connecting to PLCs...";
+                try
+                {
+                    var connectedCount = await _plcManager.ConnectAllAsync();
+                    StatusMessage = $"Loaded config and connected to {connectedCount}/{PlcDevices.Count} PLCs";
+                    _logger.Information("Auto-connect after load completed. Connected: {Connected}/{Total}", connectedCount, PlcDevices.Count);
+                }
+                catch (Exception connectEx)
+                {
+                    _logger.Error(connectEx, "Error during auto-connect after load");
+                    StatusMessage = "Configuration loaded. Auto-connect failed.";
+                }
+            }
         }
         catch (Exception ex)
         {

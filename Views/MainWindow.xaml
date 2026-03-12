@@ -52,6 +52,9 @@
                 <MenuItem Header="_Save Configuration" Command="{Binding SaveConfigCommand}" InputGestureText="Ctrl+S"/>
                 <MenuItem Header="Save _As..." Command="{Binding SaveConfigAsCommand}"/>
                 <Separator/>
+                <MenuItem Header="_Auto-Connect on Load" IsCheckable="True" IsChecked="{Binding AutoConnectOnStartup}"
+                          ToolTip="Automatically connect to all PLCs when configuration is loaded"/>
+                <Separator/>
                 <MenuItem Header="E_xit" Command="{Binding ExitCommand}" InputGestureText="Alt+F4"/>
             </MenuItem>
             <MenuItem Header="_Edit">
