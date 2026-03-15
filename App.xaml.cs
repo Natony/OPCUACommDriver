@@ -224,12 +224,13 @@ public partial class App : Application
         services.AddSingleton<ApiHostService>(sp =>
         {
             var apiSettings = sp.GetRequiredService<ApiSettings>();
-            Log.Debug("Creating ApiHostService on port {Port}...", apiSettings.Port);
+            Log.Debug("Creating ApiHostService on {BindAddress}:{Port}...", apiSettings.BindAddress, apiSettings.Port);
             return new ApiHostService(
                 sp.GetRequiredService<IPlcManager>(),
                 sp.GetRequiredService<ILogger>(),
                 sp.GetRequiredService<AuthSettings>(),
-                port: apiSettings.Port);
+                port: apiSettings.Port,
+                bindAddress: apiSettings.BindAddress);
         });
 
         Log.Debug("Services configured");
@@ -277,9 +278,11 @@ public partial class App : Application
                     var settings = new ApiSettings
                     {
                         Port = apiSection["Port"]?.Value<int>() ?? 5000,
+                        BindAddress = apiSection["BindAddress"]?.Value<string>() ?? "0.0.0.0",
                         Enabled = apiSection["Enabled"]?.Value<bool>() ?? true
                     };
-                    Log.Information("Loaded API settings: Port={Port}, Enabled={Enabled}", settings.Port, settings.Enabled);
+                    Log.Information("Loaded API settings: BindAddress={BindAddress}, Port={Port}, Enabled={Enabled}",
+                        settings.BindAddress, settings.Port, settings.Enabled);
                     return settings;
                 }
             }
@@ -289,7 +292,7 @@ public partial class App : Application
             Log.Warning(ex, "Error loading API settings, using defaults");
         }
 
-        Log.Information("Using default API settings (port 5000)");
+        Log.Information("Using default API settings (0.0.0.0:5000)");
         return new ApiSettings();
     }
 

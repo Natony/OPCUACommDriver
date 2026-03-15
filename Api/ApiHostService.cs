@@ -22,6 +22,7 @@ public class ApiHostService : IDisposable
     private readonly IPlcManager _plcManager;
     private readonly ILogger _logger;
     private readonly int _port;
+    private readonly string _bindAddress;
     private readonly AuthSettings _authSettings;
     private PlcHubService? _hubService;
     private OperatorLockService? _lockService;
@@ -29,17 +30,19 @@ public class ApiHostService : IDisposable
     private bool _disposed;
 
     public bool IsRunning => _host != null;
-    public string BaseUrl => $"http://localhost:{_port}";
+    public string BindUrl => $"http://{_bindAddress}:{_port}";
+    public string BaseUrl => _bindAddress == "0.0.0.0" ? $"http://localhost:{_port}" : BindUrl;
     public PlcHubService? HubService => _hubService;
     public OperatorLockService? LockService => _lockService;
     public UserService? UserService => _userService;
 
-    public ApiHostService(IPlcManager plcManager, ILogger logger, AuthSettings authSettings, int port = 5000)
+    public ApiHostService(IPlcManager plcManager, ILogger logger, AuthSettings authSettings, int port = 5000, string bindAddress = "0.0.0.0")
     {
         _plcManager = plcManager;
         _logger = logger;
         _authSettings = authSettings;
         _port = port;
+        _bindAddress = bindAddress;
     }
 
     /// <summary>
@@ -63,7 +66,7 @@ public class ApiHostService : IDisposable
             _host = Host.CreateDefaultBuilder()
                 .ConfigureWebHostDefaults(webBuilder =>
                 {
-                    webBuilder.UseUrls($"http://0.0.0.0:{_port}");
+                    webBuilder.UseUrls($"http://{_bindAddress}:{_port}");
                     webBuilder.ConfigureServices(services =>
                     {
                         // Add controllers
