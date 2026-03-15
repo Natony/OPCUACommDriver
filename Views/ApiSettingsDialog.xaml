@@ -2,9 +2,9 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="API Server Settings"
-        Height="400" Width="500"
+        Height="480" Width="500"
         WindowStartupLocation="CenterOwner"
-        ResizeMode="NoResize"
+        ResizeMode="CanResizeWithGrip"
         Background="{StaticResource BackgroundBrush}">
 
     <Grid Margin="16">
@@ -138,13 +138,17 @@
                     HorizontalAlignment="Right" Margin="0,16,0,0">
             <Button x:Name="SaveButton"
                     Content="Save"
-                    Style="{StaticResource PrimaryButton}"
-                    Width="80"
+                    Background="#1976D2"
+                    Foreground="White"
+                    FontWeight="SemiBold"
+                    Width="100"
+                    Height="32"
                     Margin="0,0,8,0"
                     Click="Save_Click"/>
             <Button x:Name="CancelButton"
                     Content="Cancel"
-                    Width="80"
+                    Width="100"
+                    Height="32"
                     Click="Cancel_Click"/>
         </StackPanel>
     </Grid>
