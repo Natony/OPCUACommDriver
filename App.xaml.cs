@@ -277,9 +277,9 @@ public partial class App : Application
                 {
                     var settings = new ApiSettings
                     {
-                        Port = apiSection["Port"]?.Value<int>() ?? 5000,
-                        BindAddress = apiSection["BindAddress"]?.Value<string>() ?? "0.0.0.0",
-                        Enabled = apiSection["Enabled"]?.Value<bool>() ?? true
+                        Port = (int?)apiSection["Port"] ?? 5000,
+                        BindAddress = (string?)apiSection["BindAddress"] ?? "0.0.0.0",
+                        Enabled = (bool?)apiSection["Enabled"] ?? true
                     };
                     Log.Information("Loaded API settings: BindAddress={BindAddress}, Port={Port}, Enabled={Enabled}",
                         settings.BindAddress, settings.Port, settings.Enabled);
