@@ -25,6 +25,7 @@ public partial class App : Application
     private ApiHostService? _apiHostService;
     private MainViewModel? _mainViewModel;
     private User? _loggedInUser;
+    private ApiSettings _apiSettings = new();
 
     public IServiceProvider ServiceProvider => _serviceProvider ?? throw new InvalidOperationException("ServiceProvider not initialized");
     public ApiHostService? ApiHost => _apiHostService;
@@ -145,6 +146,13 @@ public partial class App : Application
     {
         try
         {
+            // Check if API is enabled
+            if (!_apiSettings.Enabled)
+            {
+                Log.Information("API Server is disabled in settings");
+                return;
+            }
+
             _apiHostService = _serviceProvider?.GetService<ApiHostService>();
             if (_apiHostService != null)
             {
@@ -175,6 +183,10 @@ public partial class App : Application
 
         // Logging
         services.AddSingleton<ILogger>(Log.Logger);
+
+        // Load ApiSettings
+        _apiSettings = LoadApiSettings();
+        services.AddSingleton(_apiSettings);
 
         // Load AuthSettings
         var authSettings = LoadAuthSettings();
@@ -211,12 +223,13 @@ public partial class App : Application
         // API Host Service
         services.AddSingleton<ApiHostService>(sp =>
         {
-            Log.Debug("Creating ApiHostService...");
+            var apiSettings = sp.GetRequiredService<ApiSettings>();
+            Log.Debug("Creating ApiHostService on port {Port}...", apiSettings.Port);
             return new ApiHostService(
                 sp.GetRequiredService<IPlcManager>(),
                 sp.GetRequiredService<ILogger>(),
                 sp.GetRequiredService<AuthSettings>(),
-                port: 5000);
+                port: apiSettings.Port);
         });
 
         Log.Debug("Services configured");
@@ -246,6 +259,38 @@ public partial class App : Application
 
         Log.Information("Using default auth settings");
         return new AuthSettings();
+    }
+
+    private ApiSettings LoadApiSettings()
+    {
+        const string appSettingsPath = "Configurations/appsettings.json";
+
+        try
+        {
+            if (File.Exists(appSettingsPath))
+            {
+                var json = File.ReadAllText(appSettingsPath);
+                var doc = Newtonsoft.Json.Linq.JObject.Parse(json);
+                var apiSection = doc["Api"];
+                if (apiSection != null)
+                {
+                    var settings = new ApiSettings
+                    {
+                        Port = apiSection["Port"]?.Value<int>() ?? 5000,
+                        Enabled = apiSection["Enabled"]?.Value<bool>() ?? true
+                    };
+                    Log.Information("Loaded API settings: Port={Port}, Enabled={Enabled}", settings.Port, settings.Enabled);
+                    return settings;
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "Error loading API settings, using defaults");
+        }
+
+        Log.Information("Using default API settings (port 5000)");
+        return new ApiSettings();
     }
 
     protected override void OnExit(ExitEventArgs e)
