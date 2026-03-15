@@ -171,6 +171,93 @@ public partial class MainWindow : Window
         window.ShowDialog();
     }
 
+    /// <summary>
+    /// Open API Settings dialog
+    /// </summary>
+    private void ApiSettings_Click(object sender, RoutedEventArgs e)
+    {
+        if (DataContext is not MainViewModel viewModel)
+            return;
+
+        // Load current settings
+        var currentSettings = LoadCurrentApiSettings();
+
+        // Open dialog with current settings and PLC list
+        var dialog = new ApiSettingsDialog(currentSettings, viewModel.PlcDevices);
+        dialog.Owner = this;
+
+        if (dialog.ShowDialog() == true && dialog.Result != null)
+        {
+            // Save new settings
+            SaveApiSettings(dialog.Result);
+
+            MessageBox.Show(
+                $"API settings saved.\nNew address: {dialog.Result.BindAddress}:{dialog.Result.Port}\n\nRestart the application to apply changes.",
+                "Settings Saved",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+        }
+    }
+
+    private ApiSettings LoadCurrentApiSettings()
+    {
+        const string appSettingsPath = "Configurations/appsettings.json";
+        try
+        {
+            if (System.IO.File.Exists(appSettingsPath))
+            {
+                var json = System.IO.File.ReadAllText(appSettingsPath);
+                var doc = Newtonsoft.Json.Linq.JObject.Parse(json);
+                var apiSection = doc["Api"];
+                if (apiSection != null)
+                {
+                    return new ApiSettings
+                    {
+                        Port = (int?)apiSection["Port"] ?? 5000,
+                        BindAddress = (string?)apiSection["BindAddress"] ?? "0.0.0.0",
+                        Enabled = (bool?)apiSection["Enabled"] ?? true
+                    };
+                }
+            }
+        }
+        catch { }
+        return new ApiSettings();
+    }
+
+    private void SaveApiSettings(ApiSettings settings)
+    {
+        const string appSettingsPath = "Configurations/appsettings.json";
+        try
+        {
+            Newtonsoft.Json.Linq.JObject doc;
+            if (System.IO.File.Exists(appSettingsPath))
+            {
+                var json = System.IO.File.ReadAllText(appSettingsPath);
+                doc = Newtonsoft.Json.Linq.JObject.Parse(json);
+            }
+            else
+            {
+                doc = new Newtonsoft.Json.Linq.JObject();
+            }
+
+            // Update Api section
+            doc["Api"] = new Newtonsoft.Json.Linq.JObject
+            {
+                ["BindAddress"] = settings.BindAddress,
+                ["Port"] = settings.Port,
+                ["Enabled"] = settings.Enabled
+            };
+
+            // Save back to file
+            System.IO.File.WriteAllText(appSettingsPath, doc.ToString(Newtonsoft.Json.Formatting.Indented));
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"Error saving settings: {ex.Message}", "Error",
+                MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
     protected override void OnClosing(System.ComponentModel.CancelEventArgs e)
     {
         // Cleanup event handler

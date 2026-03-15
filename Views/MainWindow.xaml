@@ -74,6 +74,8 @@
                 <MenuItem Header="Disconnect S_elected" Command="{Binding DisconnectSelectedCommand}"/>
                 <Separator/>
                 <MenuItem Header="_Browse Server..." Command="{Binding BrowseServerCommand}"/>
+                <Separator/>
+                <MenuItem Header="_API Settings..." Click="ApiSettings_Click"/>
             </MenuItem>
             <MenuItem Header="_View">
                 <MenuItem Header="_Refresh" Command="{Binding RefreshCommand}" InputGestureText="F5"/>
