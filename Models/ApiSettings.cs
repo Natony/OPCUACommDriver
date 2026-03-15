@@ -124,7 +124,7 @@ public class ApiSettings
     }
 
     /// <summary>
-    /// Check if the bind address is valid
+    /// Check if the bind address is valid format
     /// </summary>
     public static bool IsValidBindAddress(string? address)
     {
@@ -138,6 +138,59 @@ public class ApiSettings
         // Validate IP address format
         return Regex.IsMatch(address, @"^(\d{1,3}\.){3}\d{1,3}$") &&
                address.Split('.').All(part => int.TryParse(part, out var num) && num >= 0 && num <= 255);
+    }
+
+    /// <summary>
+    /// Check if the IP address exists on this machine
+    /// </summary>
+    public static bool IsLocalIpAddress(string? address)
+    {
+        if (string.IsNullOrWhiteSpace(address))
+            return false;
+
+        // These always work
+        if (address == "0.0.0.0" || address == "localhost" || address == "127.0.0.1")
+            return true;
+
+        try
+        {
+            // Get all local IP addresses
+            var hostName = System.Net.Dns.GetHostName();
+            var localIPs = System.Net.Dns.GetHostAddresses(hostName);
+
+            // Check if the address matches any local IP
+            var targetIP = System.Net.IPAddress.Parse(address);
+            return localIPs.Any(ip => ip.Equals(targetIP));
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Get list of local IP addresses
+    /// </summary>
+    public static List<string> GetLocalIpAddresses()
+    {
+        var result = new List<string> { "0.0.0.0 (All interfaces)", "127.0.0.1 (Localhost)" };
+
+        try
+        {
+            var hostName = System.Net.Dns.GetHostName();
+            var localIPs = System.Net.Dns.GetHostAddresses(hostName);
+
+            foreach (var ip in localIPs)
+            {
+                if (ip.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork) // IPv4 only
+                {
+                    result.Add(ip.ToString());
+                }
+            }
+        }
+        catch { }
+
+        return result;
     }
 }
 

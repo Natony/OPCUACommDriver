@@ -76,18 +76,18 @@
                             Click="UseSuggestion_Click"/>
                 </Grid>
 
-                <!-- Quick Options -->
-                <StackPanel Grid.Row="2" Grid.ColumnSpan="2"
-                            Orientation="Horizontal"
-                            Margin="0,8,0,0">
-                    <TextBlock Text="Quick:" VerticalAlignment="Center" Margin="0,0,8,0"/>
-                    <Button Content="All Interfaces (0.0.0.0)"
-                            Padding="6,4" Margin="0,0,4,0"
-                            Click="SetAllInterfaces_Click"/>
-                    <Button Content="Localhost Only"
-                            Padding="6,4" Margin="0,0,4,0"
-                            Click="SetLocalhost_Click"/>
-                </StackPanel>
+                <!-- Available IPs on this machine -->
+                <TextBlock Grid.Row="2" Grid.Column="0"
+                           Text="Available IPs:"
+                           VerticalAlignment="Top"
+                           FontWeight="SemiBold"
+                           Margin="0,8,0,0"/>
+                <ListBox Grid.Row="2" Grid.Column="1"
+                         x:Name="LocalIpListBox"
+                         Height="80"
+                         Margin="0,8,0,0"
+                         SelectionChanged="LocalIpListBox_SelectionChanged">
+                </ListBox>
             </Grid>
         </GroupBox>
 

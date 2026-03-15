@@ -41,6 +41,9 @@ public partial class ApiSettingsDialog : Window
 
         // Update button state based on PLC count
         UseSuggestionButton.IsEnabled = _suggestion.CanConfigure && !string.IsNullOrEmpty(_suggestion.SubnetPrefix);
+
+        // Populate local IP addresses
+        LocalIpListBox.ItemsSource = ApiSettings.GetLocalIpAddresses();
     }
 
     private void UpdateSuggestionText()
@@ -87,6 +90,16 @@ public partial class ApiSettingsDialog : Window
         BindAddressTextBox.Text = "127.0.0.1";
     }
 
+    private void LocalIpListBox_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
+    {
+        if (LocalIpListBox.SelectedItem is string selectedIp)
+        {
+            // Extract just the IP part (remove description in parentheses)
+            var ip = selectedIp.Split(' ')[0];
+            BindAddressTextBox.Text = ip;
+        }
+    }
+
     private void Save_Click(object sender, RoutedEventArgs e)
     {
         // Validate port
@@ -98,14 +111,32 @@ public partial class ApiSettingsDialog : Window
             return;
         }
 
-        // Validate bind address
+        // Validate bind address format
         var bindAddress = BindAddressTextBox.Text.Trim();
         if (!ApiSettings.IsValidBindAddress(bindAddress))
         {
-            MessageBox.Show("Invalid bind address. Use format: xxx.xxx.xxx.xxx\nExamples: 0.0.0.0, 127.0.0.1, 192.168.1.100",
+            MessageBox.Show("Invalid bind address format.\nUse format: xxx.xxx.xxx.xxx\nExamples: 0.0.0.0, 127.0.0.1, 192.168.1.100",
                 "Invalid Address", MessageBoxButton.OK, MessageBoxImage.Warning);
             BindAddressTextBox.Focus();
             return;
+        }
+
+        // Check if IP exists on this machine
+        if (!ApiSettings.IsLocalIpAddress(bindAddress))
+        {
+            var result = MessageBox.Show(
+                $"Warning: IP address '{bindAddress}' does not exist on this machine.\n\n" +
+                "The API server will fail to start with this address.\n\n" +
+                "Do you want to continue anyway?",
+                "IP Not Found",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Warning);
+
+            if (result != MessageBoxResult.Yes)
+            {
+                BindAddressTextBox.Focus();
+                return;
+            }
         }
 
         // Create result
