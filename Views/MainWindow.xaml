@@ -603,6 +603,16 @@
                 <TextBlock Text="{Binding StatusMessage}" Foreground="{StaticResource TextSecondaryBrush}"/>
             </StatusBarItem>
             <Separator/>
+            <!-- API Status -->
+            <StatusBarItem ToolTip="{Binding ApiStatusTooltip}">
+                <StackPanel Orientation="Horizontal">
+                    <Ellipse Width="8" Height="8" Margin="0,0,4,0"
+                             Fill="{Binding ApiStatusColor}"/>
+                    <TextBlock Text="{Binding ApiStatusText}"
+                               Foreground="{StaticResource TextSecondaryBrush}"/>
+                </StackPanel>
+            </StatusBarItem>
+            <Separator/>
             <StatusBarItem>
                 <StackPanel Orientation="Horizontal">
                     <TextBlock Text="PLCs: " Foreground="{StaticResource TextSecondaryBrush}"/>

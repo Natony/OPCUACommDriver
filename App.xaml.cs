@@ -150,6 +150,10 @@ public partial class App : Application
             if (!_apiSettings.Enabled)
             {
                 Log.Information("API Server is disabled in settings");
+                if (_mainViewModel != null)
+                {
+                    await Dispatcher.InvokeAsync(() => _mainViewModel.SetApiStatus(false));
+                }
                 return;
             }
 
@@ -158,6 +162,15 @@ public partial class App : Application
             {
                 await _apiHostService.StartAsync();
                 Log.Information("API Server started successfully at {Url}", _apiHostService.BaseUrl);
+
+                // Update API status in MainViewModel
+                if (_mainViewModel != null)
+                {
+                    await Dispatcher.InvokeAsync(() =>
+                    {
+                        _mainViewModel.SetApiStatus(true, _apiHostService.BaseUrl);
+                    });
+                }
 
                 // Connect MainViewModel to LockService for UI updates
                 if (_mainViewModel != null && _apiHostService.LockService != null)
@@ -173,6 +186,10 @@ public partial class App : Application
         catch (Exception ex)
         {
             Log.Error(ex, "Failed to start API server");
+            if (_mainViewModel != null)
+            {
+                await Dispatcher.InvokeAsync(() => _mainViewModel.SetApiStatus(false));
+            }
             // API server failure should not prevent the app from running
         }
     }

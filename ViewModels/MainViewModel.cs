@@ -42,6 +42,10 @@ public class MainViewModel : ViewModelBase
     // Logged in user
     private User? _loggedInUser;
 
+    // API Server status
+    private bool _isApiRunning;
+    private string _apiUrl = string.Empty;
+
     #region Properties
 
     public ObservableCollection<PlcDevice> PlcDevices { get; } = new();
@@ -245,6 +249,69 @@ public class MainViewModel : ViewModelBase
 
             return Brushes.DodgerBlue;
         }
+    }
+
+    #endregion
+
+    #region API Status Properties
+
+    /// <summary>
+    /// Whether the API server is running
+    /// </summary>
+    public bool IsApiRunning
+    {
+        get => _isApiRunning;
+        private set
+        {
+            if (SetProperty(ref _isApiRunning, value))
+            {
+                OnPropertyChanged(nameof(ApiStatusText));
+                OnPropertyChanged(nameof(ApiStatusColor));
+                OnPropertyChanged(nameof(ApiStatusTooltip));
+            }
+        }
+    }
+
+    /// <summary>
+    /// API server URL
+    /// </summary>
+    public string ApiUrl
+    {
+        get => _apiUrl;
+        private set
+        {
+            if (SetProperty(ref _apiUrl, value))
+            {
+                OnPropertyChanged(nameof(ApiStatusTooltip));
+            }
+        }
+    }
+
+    /// <summary>
+    /// Short API status text for status bar
+    /// </summary>
+    public string ApiStatusText => _isApiRunning ? "API" : "API Off";
+
+    /// <summary>
+    /// API status color
+    /// </summary>
+    public Brush ApiStatusColor => _isApiRunning ? Brushes.Green : Brushes.Gray;
+
+    /// <summary>
+    /// Tooltip showing full API URL
+    /// </summary>
+    public string ApiStatusTooltip => _isApiRunning
+        ? $"API Server running at {_apiUrl}"
+        : "API Server is not running";
+
+    /// <summary>
+    /// Set API server status (called from App.xaml.cs)
+    /// </summary>
+    public void SetApiStatus(bool isRunning, string url = "")
+    {
+        IsApiRunning = isRunning;
+        ApiUrl = url;
+        _logger.Debug("API status updated: Running={IsRunning}, URL={Url}", isRunning, url);
     }
 
     #endregion
