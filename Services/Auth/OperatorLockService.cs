@@ -18,6 +18,9 @@ public class OperatorLockService : IDisposable
     private readonly string _lockStatePath = "Configurations/lock_state.json";
     private OperatorLock? _currentLock;
     private Timer? _timeoutTimer;
+    private FileSystemWatcher? _fileWatcher;
+    private bool _isInternalUpdate = false; // Flag to prevent self-triggered events
+    private DateTime _lastFileChange = DateTime.MinValue;
     private static ILogger Logger => Log.Logger;
 
     /// <summary>
@@ -40,6 +43,7 @@ public class OperatorLockService : IDisposable
         _settings = settings;
         LoadLockState(); // Restore lock state from file
         StartTimeoutChecker();
+        StartFileWatcher(); // Watch for external changes to lock file
     }
 
     #region Public Methods
@@ -375,10 +379,211 @@ public class OperatorLockService : IDisposable
         }, null, TimeSpan.FromSeconds(30), TimeSpan.FromSeconds(30));
     }
 
+    private void StartFileWatcher()
+    {
+        try
+        {
+            var directory = Path.GetDirectoryName(_lockStatePath);
+            if (string.IsNullOrEmpty(directory))
+            {
+                directory = ".";
+            }
+
+            // Ensure directory exists
+            if (!Directory.Exists(directory))
+            {
+                Directory.CreateDirectory(directory);
+            }
+
+            var fileName = Path.GetFileName(_lockStatePath);
+
+            _fileWatcher = new FileSystemWatcher(directory, fileName)
+            {
+                NotifyFilter = NotifyFilters.LastWrite | NotifyFilters.CreationTime | NotifyFilters.FileName,
+                EnableRaisingEvents = true
+            };
+
+            _fileWatcher.Changed += OnLockFileChanged;
+            _fileWatcher.Created += OnLockFileChanged;
+            _fileWatcher.Deleted += OnLockFileDeleted;
+
+            Logger.Debug("FileSystemWatcher started for lock state file: {Path}", _lockStatePath);
+        }
+        catch (Exception ex)
+        {
+            Logger.Error(ex, "Failed to start FileSystemWatcher for lock state file");
+        }
+    }
+
+    private void OnLockFileChanged(object sender, FileSystemEventArgs e)
+    {
+        // Ignore if this is our own update
+        if (_isInternalUpdate)
+        {
+            return;
+        }
+
+        // Debounce rapid file changes (FileSystemWatcher may fire multiple events)
+        var now = DateTime.UtcNow;
+        if ((now - _lastFileChange).TotalMilliseconds < 500)
+        {
+            return;
+        }
+        _lastFileChange = now;
+
+        Logger.Debug("Lock file changed externally: {ChangeType}", e.ChangeType);
+
+        // Small delay to ensure file is fully written
+        Task.Delay(100).ContinueWith(_ => ReloadLockStateFromFile());
+    }
+
+    private void OnLockFileDeleted(object sender, FileSystemEventArgs e)
+    {
+        // Ignore if this is our own update
+        if (_isInternalUpdate)
+        {
+            return;
+        }
+
+        Logger.Debug("Lock file deleted externally");
+
+        lock (_lock)
+        {
+            if (_currentLock != null)
+            {
+                var releasedLock = _currentLock;
+                _currentLock = null;
+
+                Logger.Information("Lock released externally. Previous holder: {Username}", releasedLock.Username);
+
+                // Fire event to notify UI
+                LockReleased?.Invoke(this, new LockEventArgs
+                {
+                    Lock = releasedLock,
+                    Reason = "external"
+                });
+            }
+        }
+    }
+
+    private void ReloadLockStateFromFile()
+    {
+        try
+        {
+            if (!File.Exists(_lockStatePath))
+            {
+                // File deleted - lock released
+                lock (_lock)
+                {
+                    if (_currentLock != null)
+                    {
+                        var releasedLock = _currentLock;
+                        _currentLock = null;
+
+                        Logger.Information("Lock released (file not found). Previous holder: {Username}", releasedLock.Username);
+
+                        LockReleased?.Invoke(this, new LockEventArgs
+                        {
+                            Lock = releasedLock,
+                            Reason = "external"
+                        });
+                    }
+                }
+                return;
+            }
+
+            var json = File.ReadAllText(_lockStatePath);
+            var loadedLock = JsonConvert.DeserializeObject<OperatorLock>(json);
+
+            if (loadedLock == null)
+            {
+                Logger.Warning("Failed to deserialize external lock state");
+                return;
+            }
+
+            lock (_lock)
+            {
+                var previousLock = _currentLock;
+
+                // Check if lock has changed
+                if (previousLock == null && loadedLock != null && !loadedLock.IsExpired)
+                {
+                    // New lock acquired externally
+                    _currentLock = loadedLock;
+                    Logger.Information("Lock acquired externally by {Username}", loadedLock.Username);
+
+                    LockAcquired?.Invoke(this, new LockEventArgs
+                    {
+                        Lock = loadedLock,
+                        Reason = "external"
+                    });
+                }
+                else if (previousLock != null && loadedLock != null && !loadedLock.IsExpired)
+                {
+                    // Lock changed or extended
+                    if (previousLock.LockId != loadedLock.LockId)
+                    {
+                        // Different lock - new user acquired it
+                        _currentLock = loadedLock;
+                        Logger.Information("Lock taken over by {Username} (previous: {PreviousUsername})",
+                            loadedLock.Username, previousLock.Username);
+
+                        // Fire released for old, acquired for new
+                        LockReleased?.Invoke(this, new LockEventArgs
+                        {
+                            Lock = previousLock,
+                            Reason = "external_takeover"
+                        });
+
+                        LockAcquired?.Invoke(this, new LockEventArgs
+                        {
+                            Lock = loadedLock,
+                            Reason = "external"
+                        });
+                    }
+                    else if (previousLock.ExpiresAt != loadedLock.ExpiresAt)
+                    {
+                        // Same lock but extended
+                        _currentLock = loadedLock;
+                        Logger.Information("Lock extended externally for {Username}", loadedLock.Username);
+
+                        LockExtended?.Invoke(this, new LockEventArgs
+                        {
+                            Lock = loadedLock,
+                            Reason = "external"
+                        });
+                    }
+                }
+                else if (loadedLock?.IsExpired == true)
+                {
+                    // Loaded lock is expired
+                    if (previousLock != null)
+                    {
+                        _currentLock = null;
+                        Logger.Information("Lock expired (detected from file). Previous holder: {Username}", previousLock.Username);
+
+                        LockReleased?.Invoke(this, new LockEventArgs
+                        {
+                            Lock = previousLock,
+                            Reason = "timeout"
+                        });
+                    }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.Error(ex, "Failed to reload lock state from file");
+        }
+    }
+
     private void SaveLockState()
     {
         try
         {
+            // Set flag to prevent FileSystemWatcher from triggering on our own changes
+            _isInternalUpdate = true;
+
             var directory = Path.GetDirectoryName(_lockStatePath);
             if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
             {
@@ -413,6 +618,11 @@ public class OperatorLockService : IDisposable
         catch (Exception ex)
         {
             Logger.Error(ex, "Failed to save lock state to {Path}", _lockStatePath);
+        }
+        finally
+        {
+            // Reset flag after a short delay to ensure FileSystemWatcher events are processed
+            Task.Delay(200).ContinueWith(_ => _isInternalUpdate = false);
         }
     }
 
@@ -491,6 +701,17 @@ public class OperatorLockService : IDisposable
             // Dispose managed resources
             _timeoutTimer?.Dispose();
             _timeoutTimer = null;
+
+            if (_fileWatcher != null)
+            {
+                _fileWatcher.EnableRaisingEvents = false;
+                _fileWatcher.Changed -= OnLockFileChanged;
+                _fileWatcher.Created -= OnLockFileChanged;
+                _fileWatcher.Deleted -= OnLockFileDeleted;
+                _fileWatcher.Dispose();
+                _fileWatcher = null;
+            }
+
             Logger.Debug("OperatorLockService disposed");
         }
 
