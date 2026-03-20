@@ -29,6 +29,10 @@ public class PlcConnection : IPlcConnection
     // This handler manages the two-layer reconnection: Secure Channel + Session
     private SessionReconnectHandler? _reconnectHandler;
 
+    // Timestamp to track when reconnection completed - used to ignore stale KeepAlive events
+    private DateTime _lastReconnectCompleteTime = DateTime.MinValue;
+    private const int KeepAliveSettlingPeriodMs = 2000; // Ignore KeepAlive failures for 2s after reconnection
+
     // Subscriptions management
     private readonly ConcurrentDictionary<string, Subscription> _subscriptions = new();
     private readonly ConcurrentDictionary<uint, (string TagId, string NodeId)> _monitoredItemMapping = new();
@@ -980,6 +984,15 @@ public class PlcConnection : IPlcConnection
             }
 
             // Only trigger reconnect if we're actually connected (not already reconnecting or disconnecting)
+            // Also check settling period to avoid race condition with stale KeepAlive events after reconnection
+            var timeSinceLastReconnect = (DateTime.Now - _lastReconnectCompleteTime).TotalMilliseconds;
+            if (timeSinceLastReconnect < KeepAliveSettlingPeriodMs)
+            {
+                Logger.Debug("Ignoring KeepAlive failure during settling period ({ElapsedMs}ms < {SettlingMs}ms)",
+                    (int)timeSinceLastReconnect, KeepAliveSettlingPeriodMs);
+                return;
+            }
+
             if (ConnectionState == PlcConnectionState.Connected && _device.AutoReconnect && !_isReconnecting)
             {
                 ConnectionState = PlcConnectionState.Reconnecting;
@@ -990,6 +1003,9 @@ public class PlcConnection : IPlcConnection
                 {
                     if (_reconnectHandler == null)
                     {
+                        // Set _isReconnecting to prevent race conditions
+                        _isReconnecting = true;
+
                         // reconnectPeriod = 10000ms (10 seconds) - time between reconnect attempts
                         _reconnectHandler = new SessionReconnectHandler(true);
                         _reconnectHandler.BeginReconnect(
@@ -1021,6 +1037,10 @@ public class PlcConnection : IPlcConnection
                         catch { /* Ignore */ }
                         _reconnectHandler = null;
                     }
+
+                    // Reset flags and set settling time
+                    _isReconnecting = false;
+                    _lastReconnectCompleteTime = DateTime.Now;
                 }
 
                 ConnectionState = PlcConnectionState.Connected;
@@ -1041,6 +1061,7 @@ public class PlcConnection : IPlcConnection
             {
                 _reconnectHandler?.Dispose();
                 _reconnectHandler = null;
+                _isReconnecting = false;
                 return;
             }
 
@@ -1053,7 +1074,8 @@ public class PlcConnection : IPlcConnection
                 Logger.Information("✓ SessionReconnectHandler completed for {PlcName}", _device.Name);
                 Logger.Information("  → New Session ID: {SessionId}", _session?.SessionId);
 
-                // Dispose old session if different
+                // Dispose old session if different - IMPORTANT: Remove event handlers FIRST
+                // to prevent stale KeepAlive events from firing
                 if (oldSession != null && oldSession != _session)
                 {
                     try
@@ -1074,6 +1096,9 @@ public class PlcConnection : IPlcConnection
                     _session.PublishError += Session_PublishError;
                 }
 
+                // Set settling timestamp BEFORE changing state to prevent race condition
+                _lastReconnectCompleteTime = DateTime.Now;
+
                 ConnectionState = PlcConnectionState.Connected;
                 LastConnectedTime = DateTime.Now;
 
@@ -1084,10 +1109,17 @@ public class PlcConnection : IPlcConnection
             {
                 Logger.Warning("SessionReconnectHandler failed for {PlcName}", _device.Name);
 
-                // Fall back to manual auto-reconnect
-                if (_device.AutoReconnect && !_isReconnecting)
+                // Fall back to manual auto-reconnect (don't set _isReconnecting = false here,
+                // StartAutoReconnect will manage it)
+                if (_device.AutoReconnect)
                 {
+                    // Dispose the handler first
+                    _reconnectHandler?.Dispose();
+                    _reconnectHandler = null;
+                    _isReconnecting = false; // Reset before calling StartAutoReconnect
+
                     StartAutoReconnect();
+                    return; // Early return - StartAutoReconnect manages state
                 }
                 else
                 {
@@ -1095,9 +1127,10 @@ public class PlcConnection : IPlcConnection
                 }
             }
 
-            // Dispose the handler
+            // Dispose the handler and reset reconnecting flag
             _reconnectHandler?.Dispose();
             _reconnectHandler = null;
+            _isReconnecting = false;
         }
     }
 
