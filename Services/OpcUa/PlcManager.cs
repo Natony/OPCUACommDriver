@@ -9,11 +9,13 @@ namespace OpcUaCommunicationEngine.Services.OpcUa;
 /// <summary>
 /// Manager quản lý tất cả các PLC connections
 /// Implement IPlcManager interface
+/// Hỗ trợ nhiều loại giao thức: OPC UA, Siemens S7, Mitsubishi MC, v.v.
 /// </summary>
 public class PlcManager : IPlcManager
 {
     private readonly IConfigurationService _configService;
     private readonly IDataCache _dataCache;
+    private readonly IProtocolConnectionFactory _connectionFactory;
     private readonly ConcurrentDictionary<string, IPlcConnection> _connections = new();
     private bool _disposed;
 
@@ -41,13 +43,15 @@ public class PlcManager : IPlcManager
     public PlcManager(
         ILogger logger,
         IConfigurationService configService,
-        IDataCache dataCache)
+        IDataCache dataCache,
+        IProtocolConnectionFactory connectionFactory)
     {
         _configService = configService ?? throw new ArgumentNullException(nameof(configService));
         _dataCache = dataCache ?? throw new ArgumentNullException(nameof(dataCache));
+        _connectionFactory = connectionFactory ?? throw new ArgumentNullException(nameof(connectionFactory));
         // Note: We use static Logger property instead of injected logger
 
-        Logger.Information("PlcManager initialized");
+        Logger.Information("PlcManager initialized with protocol factory support");
     }
 
     #endregion
@@ -79,16 +83,26 @@ public class PlcManager : IPlcManager
 
         try
         {
-            var connection = new PlcConnection(device, Log.Logger);
-            
+            // Kiểm tra protocol có được hỗ trợ không
+            if (!_connectionFactory.IsProtocolSupported(device))
+            {
+                Logger.Error("Protocol {Protocol} is not supported for PLC {Name}",
+                    device.ProtocolType, device.Name);
+                return null;
+            }
+
+            // Sử dụng factory để tạo connection phù hợp với protocol
+            var connection = _connectionFactory.CreateConnection(device);
+
             connection.ConnectionStateChanged += OnConnectionStateChanged;
             connection.TagValueChanged += OnTagValueChanged;
             connection.ErrorOccurred += OnErrorOccurred;
 
             _connections[device.Id] = connection;
-            
-            Logger.Information("Added PLC {Name} ({Id})", device.Name, device.Id);
-            
+
+            Logger.Information("Added PLC {Name} ({Id}) using {Protocol} protocol",
+                device.Name, device.Id, device.ProtocolDisplayName);
+
             return connection;
         }
         catch (Exception ex)
@@ -317,6 +331,8 @@ public class PlcManager : IPlcManager
             PlcId = c.Device.Id,
             PlcName = c.Device.Name,
             EndpointUrl = c.Device.EndpointUrl,
+            ConnectionAddress = c.Device.DisplayConnectionAddress,
+            ProtocolName = c.Device.ProtocolDisplayName,
             ConnectionState = c.ConnectionState,
             IsConnected = c.IsConnected,
             SessionId = c.SessionId,
@@ -337,6 +353,8 @@ public class PlcManager : IPlcManager
                 PlcId = connection.Device.Id,
                 PlcName = connection.Device.Name,
                 EndpointUrl = connection.Device.EndpointUrl,
+                ConnectionAddress = connection.Device.DisplayConnectionAddress,
+                ProtocolName = connection.Device.ProtocolDisplayName,
                 ConnectionState = connection.ConnectionState,
                 IsConnected = connection.IsConnected,
                 SessionId = connection.SessionId,
@@ -416,6 +434,8 @@ public class PlcStatus
     public string PlcId { get; init; } = string.Empty;
     public string PlcName { get; init; } = string.Empty;
     public string EndpointUrl { get; init; } = string.Empty;
+    public string ConnectionAddress { get; init; } = string.Empty;
+    public string ProtocolName { get; init; } = string.Empty;
     public PlcConnectionState ConnectionState { get; init; }
     public bool IsConnected { get; init; }
     public string? SessionId { get; init; }

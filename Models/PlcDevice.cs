@@ -6,7 +6,7 @@ namespace OpcUaCommunicationEngine.Models;
 
 /// <summary>
 /// Model đại diện cho một PLC/OPC UA Server
-/// Mỗi PLC sẽ có một Session OPC UA riêng biệt
+/// Mỗi PLC sẽ có một Session OPC UA riêng biệt hoặc kết nối TCP/IP
 /// </summary>
 public class PlcDevice : ObservableObject
 {
@@ -30,6 +30,17 @@ public class PlcDevice : ObservableObject
     private string _lastError = string.Empty;
     private DateTime? _lastConnectedTime;
     private DateTime? _lastDisconnectedTime;
+
+    // TCP/IP Protocol fields
+    private ProtocolType _protocolType = ProtocolType.OpcUa;
+    private PlcType _plcType = PlcType.Generic;
+    private string _ipAddress = string.Empty;
+    private int _port = 102;
+    private int _rack = 0;
+    private int _slot = 1;
+    private int _connectionTimeout = 5000;
+    private int _readTimeout = 3000;
+    private int _writeTimeout = 3000;
 
     #region Identity Properties
 
@@ -62,7 +73,104 @@ public class PlcDevice : ObservableObject
 
     #endregion
 
-    #region Connection Properties
+    #region Protocol Selection Properties
+
+    /// <summary>
+    /// Loại giao thức truyền thông (OPC UA, Siemens S7, Mitsubishi MC, etc.)
+    /// </summary>
+    public ProtocolType ProtocolType
+    {
+        get => _protocolType;
+        set => SetProperty(ref _protocolType, value);
+    }
+
+    /// <summary>
+    /// Loại PLC cụ thể (S7-1200, FX5U, etc.)
+    /// </summary>
+    public PlcType PlcType
+    {
+        get => _plcType;
+        set => SetProperty(ref _plcType, value);
+    }
+
+    #endregion
+
+    #region TCP/IP Connection Properties
+
+    /// <summary>
+    /// IP Address của PLC (cho kết nối TCP/IP)
+    /// </summary>
+    public string IpAddress
+    {
+        get => _ipAddress;
+        set => SetProperty(ref _ipAddress, value);
+    }
+
+    /// <summary>
+    /// Port kết nối TCP/IP
+    /// Siemens S7: 102
+    /// Mitsubishi MC: 5000/5001
+    /// Modbus: 502
+    /// </summary>
+    public int Port
+    {
+        get => _port;
+        set => SetProperty(ref _port, value);
+    }
+
+    /// <summary>
+    /// Rack number (cho Siemens S7)
+    /// S7-300/400: 0
+    /// S7-1200/1500: 0
+    /// </summary>
+    public int Rack
+    {
+        get => _rack;
+        set => SetProperty(ref _rack, value);
+    }
+
+    /// <summary>
+    /// Slot number (cho Siemens S7)
+    /// S7-300: 2
+    /// S7-400: 3
+    /// S7-1200/1500: 1
+    /// </summary>
+    public int Slot
+    {
+        get => _slot;
+        set => SetProperty(ref _slot, value);
+    }
+
+    /// <summary>
+    /// Timeout kết nối (milliseconds)
+    /// </summary>
+    public int ConnectionTimeout
+    {
+        get => _connectionTimeout;
+        set => SetProperty(ref _connectionTimeout, value);
+    }
+
+    /// <summary>
+    /// Timeout đọc dữ liệu (milliseconds)
+    /// </summary>
+    public int ReadTimeout
+    {
+        get => _readTimeout;
+        set => SetProperty(ref _readTimeout, value);
+    }
+
+    /// <summary>
+    /// Timeout ghi dữ liệu (milliseconds)
+    /// </summary>
+    public int WriteTimeout
+    {
+        get => _writeTimeout;
+        set => SetProperty(ref _writeTimeout, value);
+    }
+
+    #endregion
+
+    #region OPC UA Connection Properties
 
     /// <summary>
     /// OPC UA Endpoint URL (vd: opc.tcp://192.168.1.100:4840)
@@ -274,12 +382,38 @@ public class PlcDevice : ObservableObject
         _ => "Unknown"
     };
 
+    /// <summary>
+    /// Địa chỉ kết nối hiển thị tùy theo giao thức
+    /// </summary>
+    [JsonIgnore]
+    public string DisplayConnectionAddress => ProtocolType switch
+    {
+        ProtocolType.OpcUa => EndpointUrl,
+        ProtocolType.SiemensS7 => $"{IpAddress}:{Port} (Rack:{Rack}, Slot:{Slot})",
+        ProtocolType.MitsubishiMc => $"{IpAddress}:{Port}",
+        ProtocolType.ModbusTcp => $"{IpAddress}:{Port}",
+        _ => EndpointUrl
+    };
+
+    /// <summary>
+    /// Tên loại giao thức hiển thị
+    /// </summary>
+    [JsonIgnore]
+    public string ProtocolDisplayName => ProtocolType switch
+    {
+        ProtocolType.OpcUa => "OPC UA",
+        ProtocolType.SiemensS7 => "Siemens S7 (TCP/IP)",
+        ProtocolType.MitsubishiMc => "Mitsubishi MC Protocol",
+        ProtocolType.ModbusTcp => "Modbus TCP",
+        _ => "Unknown"
+    };
+
     #endregion
 
     #region Factory Methods
 
     /// <summary>
-    /// Tạo PLC mới với ID tự động
+    /// Tạo PLC mới với OPC UA endpoint
     /// </summary>
     public static PlcDevice Create(string name, string endpointUrl)
     {
@@ -288,6 +422,43 @@ public class PlcDevice : ObservableObject
             Id = Guid.NewGuid().ToString(),
             Name = name,
             EndpointUrl = endpointUrl,
+            ProtocolType = ProtocolType.OpcUa,
+            ConnectionState = PlcConnectionState.Disabled
+        };
+    }
+
+    /// <summary>
+    /// Tạo Siemens PLC với kết nối S7 TCP/IP
+    /// </summary>
+    public static PlcDevice CreateSiemensS7(string name, string ipAddress, PlcType plcType, int rack = 0, int slot = 1)
+    {
+        return new PlcDevice
+        {
+            Id = Guid.NewGuid().ToString(),
+            Name = name,
+            IpAddress = ipAddress,
+            Port = 102,
+            Rack = rack,
+            Slot = slot,
+            ProtocolType = ProtocolType.SiemensS7,
+            PlcType = plcType,
+            ConnectionState = PlcConnectionState.Disabled
+        };
+    }
+
+    /// <summary>
+    /// Tạo Mitsubishi PLC với kết nối MC Protocol
+    /// </summary>
+    public static PlcDevice CreateMitsubishiMc(string name, string ipAddress, PlcType plcType, int port = 5000)
+    {
+        return new PlcDevice
+        {
+            Id = Guid.NewGuid().ToString(),
+            Name = name,
+            IpAddress = ipAddress,
+            Port = port,
+            ProtocolType = ProtocolType.MitsubishiMc,
+            PlcType = plcType,
             ConnectionState = PlcConnectionState.Disabled
         };
     }
@@ -314,7 +485,17 @@ public class PlcDevice : ObservableObject
             KeepAliveInterval = this.KeepAliveInterval,
             AutoReconnect = this.AutoReconnect,
             ReconnectInterval = this.ReconnectInterval,
-            MaxReconnectAttempts = this.MaxReconnectAttempts
+            MaxReconnectAttempts = this.MaxReconnectAttempts,
+            // TCP/IP properties
+            ProtocolType = this.ProtocolType,
+            PlcType = this.PlcType,
+            IpAddress = this.IpAddress,
+            Port = this.Port,
+            Rack = this.Rack,
+            Slot = this.Slot,
+            ConnectionTimeout = this.ConnectionTimeout,
+            ReadTimeout = this.ReadTimeout,
+            WriteTimeout = this.WriteTimeout
         };
     }
 
@@ -322,6 +503,6 @@ public class PlcDevice : ObservableObject
 
     public override string ToString()
     {
-        return $"{Name} ({EndpointUrl}) - {ConnectionStateText}";
+        return $"{Name} ({DisplayConnectionAddress}) [{ProtocolDisplayName}] - {ConnectionStateText}";
     }
 }

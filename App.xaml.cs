@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.IO;
 using System.Windows;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 using OpcUaCommunicationEngine.Api;
 using OpcUaCommunicationEngine.Interfaces;
@@ -9,9 +10,11 @@ using OpcUaCommunicationEngine.Models;
 using OpcUaCommunicationEngine.Services;
 using OpcUaCommunicationEngine.Services.Auth;
 using OpcUaCommunicationEngine.Services.OpcUa;
+using OpcUaCommunicationEngine.Services.Protocols;
 using OpcUaCommunicationEngine.ViewModels;
 using OpcUaCommunicationEngine.Views;
 using Serilog;
+using ILogger = Serilog.ILogger;
 
 namespace OpcUaCommunicationEngine;
 
@@ -221,14 +224,28 @@ public partial class App : Application
 
         services.AddSingleton<IDataCache, DataCacheService>();
 
-        // OPC UA Manager
+        // Add LoggerFactory for protocol connections
+        services.AddLogging(builder =>
+        {
+            builder.AddSerilog(Log.Logger, dispose: false);
+        });
+
+        // Protocol Connection Factory
+        services.AddSingleton<IProtocolConnectionFactory>(sp =>
+        {
+            Log.Debug("Creating ProtocolConnectionFactory...");
+            return new ProtocolConnectionFactory(sp.GetRequiredService<ILoggerFactory>());
+        });
+
+        // PLC Manager (supports multiple protocols)
         services.AddSingleton<IPlcManager>(sp =>
         {
-            Log.Debug("Creating PlcManager...");
+            Log.Debug("Creating PlcManager with protocol factory support...");
             return new PlcManager(
                 sp.GetRequiredService<ILogger>(),
                 sp.GetRequiredService<IConfigurationService>(),
-                sp.GetRequiredService<IDataCache>());
+                sp.GetRequiredService<IDataCache>(),
+                sp.GetRequiredService<IProtocolConnectionFactory>());
         });
 
         // ViewModels
