@@ -151,7 +151,7 @@ public class MitsubishiMcConnection : BaseProtocolConnection
                 Quality = TagQuality.Good,
                 Timestamp = DateTime.Now,
                 ServerTimestamp = DateTime.Now,
-                StatusCode = "Good"
+                StatusCode = 0
             };
         }
         catch (Exception ex)

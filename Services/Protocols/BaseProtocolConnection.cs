@@ -375,7 +375,7 @@ public abstract class BaseProtocolConnection : IPlcConnection
             Value = null,
             Quality = TagQuality.Bad,
             Timestamp = DateTime.Now,
-            StatusCode = errorMessage
+            StatusCode = 0x80000000
         };
     }
 
