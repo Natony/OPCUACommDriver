@@ -1,10 +1,12 @@
 using System.Collections.Concurrent;
+using Microsoft.Extensions.Logging;
 using Opc.Ua;
 using Opc.Ua.Client;
 using OpcUaCommunicationEngine.Enums;
 using OpcUaCommunicationEngine.Interfaces;
 using OpcUaCommunicationEngine.Models;
 using Serilog;
+using ILogger = Serilog.ILogger;
 
 namespace OpcUaCommunicationEngine.Services.OpcUa;
 
@@ -93,7 +95,7 @@ public class PlcConnection : IPlcConnection
 
     #region Constructor
 
-    public PlcConnection(PlcDevice device, ILogger logger)
+    public PlcConnection(PlcDevice device, Microsoft.Extensions.Logging.ILogger logger)
     {
         _device = device ?? throw new ArgumentNullException(nameof(device));
         // Note: We use static Logger property instead of injected logger
