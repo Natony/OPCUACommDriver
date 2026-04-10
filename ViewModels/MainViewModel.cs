@@ -651,7 +651,7 @@ public class MainViewModel : ViewModelBase
     private void AddPlc()
     {
         _logger.Information("AddPlc called");
-        
+
         var newPlc = PlcDevice.Create(
             $"New PLC {PlcDevices.Count + 1}",
             "opc.tcp://localhost:4840");
@@ -661,19 +661,31 @@ public class MainViewModel : ViewModelBase
             newPlc.SubscriptionGroups.Add(group);
         }
 
-        PlcDevices.Add(newPlc);
-        _configService.CurrentConfiguration.PlcDevices.Add(newPlc);
-        _configService.MarkAsModified();
-        
-        _ = _plcManager.AddPlcAsync(newPlc);
-        
-        TotalPlcCount = PlcDevices.Count;
-        SelectedPlc = newPlc;
-        StatusMessage = $"Added new PLC: {newPlc.Name}";
-        
-        OnPropertyChanged(nameof(WindowTitle));
-        OnPropertyChanged(nameof(HasUnsavedChanges));
-        OnPropertyChanged(nameof(ConnectionStatusText));
+        // Show edit dialog immediately so user can configure the new PLC
+        var dialog = new Views.EditPlcDialog(newPlc);
+        dialog.Owner = System.Windows.Application.Current.MainWindow;
+
+        if (dialog.ShowDialog() == true)
+        {
+            // Only add PLC if user confirms the dialog
+            PlcDevices.Add(newPlc);
+            _configService.CurrentConfiguration.PlcDevices.Add(newPlc);
+            _configService.MarkAsModified();
+
+            _ = _plcManager.AddPlcAsync(newPlc);
+
+            TotalPlcCount = PlcDevices.Count;
+            SelectedPlc = newPlc;
+            StatusMessage = $"Added new PLC: {newPlc.Name}";
+
+            OnPropertyChanged(nameof(WindowTitle));
+            OnPropertyChanged(nameof(HasUnsavedChanges));
+            OnPropertyChanged(nameof(ConnectionStatusText));
+        }
+        else
+        {
+            _logger.Information("Add PLC cancelled by user");
+        }
     }
 
     private void EditPlc()
