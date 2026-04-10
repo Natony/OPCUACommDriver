@@ -81,8 +81,36 @@ public class PlcDevice : ObservableObject
     public ProtocolType ProtocolType
     {
         get => _protocolType;
-        set => SetProperty(ref _protocolType, value);
+        set
+        {
+            if (SetProperty(ref _protocolType, value))
+            {
+                OnPropertyChanged(nameof(DisplayConnectionAddress));
+                OnPropertyChanged(nameof(ProtocolDisplayName));
+                OnPropertyChanged(nameof(IsOpcUaProtocol));
+                OnPropertyChanged(nameof(IsTcpIpProtocol));
+                OnPropertyChanged(nameof(IsSiemensS7Protocol));
+            }
+        }
     }
+
+    /// <summary>
+    /// True nếu đang dùng OPC UA protocol
+    /// </summary>
+    [JsonIgnore]
+    public bool IsOpcUaProtocol => ProtocolType == ProtocolType.OpcUa;
+
+    /// <summary>
+    /// True nếu đang dùng TCP/IP protocol (S7, MC, Modbus)
+    /// </summary>
+    [JsonIgnore]
+    public bool IsTcpIpProtocol => ProtocolType != ProtocolType.OpcUa;
+
+    /// <summary>
+    /// True nếu đang dùng Siemens S7 protocol
+    /// </summary>
+    [JsonIgnore]
+    public bool IsSiemensS7Protocol => ProtocolType == ProtocolType.SiemensS7;
 
     /// <summary>
     /// Loại PLC cụ thể (S7-1200, FX5U, etc.)
@@ -103,7 +131,13 @@ public class PlcDevice : ObservableObject
     public string IpAddress
     {
         get => _ipAddress;
-        set => SetProperty(ref _ipAddress, value);
+        set
+        {
+            if (SetProperty(ref _ipAddress, value))
+            {
+                OnPropertyChanged(nameof(DisplayConnectionAddress));
+            }
+        }
     }
 
     /// <summary>
@@ -115,7 +149,13 @@ public class PlcDevice : ObservableObject
     public int Port
     {
         get => _port;
-        set => SetProperty(ref _port, value);
+        set
+        {
+            if (SetProperty(ref _port, value))
+            {
+                OnPropertyChanged(nameof(DisplayConnectionAddress));
+            }
+        }
     }
 
     /// <summary>
@@ -126,7 +166,13 @@ public class PlcDevice : ObservableObject
     public int Rack
     {
         get => _rack;
-        set => SetProperty(ref _rack, value);
+        set
+        {
+            if (SetProperty(ref _rack, value))
+            {
+                OnPropertyChanged(nameof(DisplayConnectionAddress));
+            }
+        }
     }
 
     /// <summary>
@@ -138,7 +184,13 @@ public class PlcDevice : ObservableObject
     public int Slot
     {
         get => _slot;
-        set => SetProperty(ref _slot, value);
+        set
+        {
+            if (SetProperty(ref _slot, value))
+            {
+                OnPropertyChanged(nameof(DisplayConnectionAddress));
+            }
+        }
     }
 
     /// <summary>
@@ -178,7 +230,13 @@ public class PlcDevice : ObservableObject
     public string EndpointUrl
     {
         get => _endpointUrl;
-        set => SetProperty(ref _endpointUrl, value);
+        set
+        {
+            if (SetProperty(ref _endpointUrl, value))
+            {
+                OnPropertyChanged(nameof(DisplayConnectionAddress));
+            }
+        }
     }
 
     /// <summary>

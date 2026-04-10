@@ -232,9 +232,9 @@
                                                FontWeight="SemiBold"
                                                Foreground="{StaticResource TextPrimaryBrush}"/>
 
-                                    <!-- Endpoint URL -->
+                                    <!-- Connection Address (protocol-aware) -->
                                     <TextBlock Grid.Column="1" Grid.Row="1"
-                                               Text="{Binding EndpointUrl}"
+                                               Text="{Binding DisplayConnectionAddress}"
                                                FontSize="11"
                                                Foreground="{StaticResource TextSecondaryBrush}"
                                                TextTrimming="CharacterEllipsis"/>
@@ -468,45 +468,102 @@
                         <!-- PLC Properties (when PLC selected but no Tag) -->
                         <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto"
                                       Visibility="{Binding HasSelectedPlc, Converter={StaticResource BoolToVis}}">
-                            <Grid DataContext="{Binding SelectedPlc}">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="120"/>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="120"/>
-                                    <ColumnDefinition Width="*"/>
-                                </Grid.ColumnDefinitions>
-                                <Grid.RowDefinitions>
-                                    <RowDefinition Height="Auto"/>
-                                    <RowDefinition Height="Auto"/>
-                                    <RowDefinition Height="Auto"/>
-                                    <RowDefinition Height="Auto"/>
-                                </Grid.RowDefinitions>
+                            <StackPanel DataContext="{Binding SelectedPlc}">
+                                <!-- Common Properties -->
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="120"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="120"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
 
-                                <TextBlock Grid.Row="0" Grid.Column="0" Text="Name:" FontWeight="SemiBold" Margin="0,4"/>
-                                <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding Name, UpdateSourceTrigger=PropertyChanged}" Margin="4"/>
+                                    <TextBlock Grid.Row="0" Grid.Column="0" Text="Name:" FontWeight="SemiBold" Margin="0,4"/>
+                                    <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding Name, UpdateSourceTrigger=PropertyChanged}" Margin="4"/>
 
-                                <TextBlock Grid.Row="0" Grid.Column="2" Text="Endpoint:" FontWeight="SemiBold" Margin="0,4"/>
-                                <TextBox Grid.Row="0" Grid.Column="3" Text="{Binding EndpointUrl, UpdateSourceTrigger=PropertyChanged}" Margin="4"/>
+                                    <TextBlock Grid.Row="0" Grid.Column="2" Text="Protocol:" FontWeight="SemiBold" Margin="0,4"/>
+                                    <TextBlock Grid.Row="0" Grid.Column="3" Text="{Binding ProtocolDisplayName}" Margin="4"/>
 
-                                <TextBlock Grid.Row="1" Grid.Column="0" Text="Status:" FontWeight="SemiBold" Margin="0,4"/>
-                                <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding ConnectionStateText}" Margin="4"
-                                           Foreground="{Binding ConnectionState, Converter={StaticResource StateToBrush}}"/>
+                                    <TextBlock Grid.Row="1" Grid.Column="0" Text="Status:" FontWeight="SemiBold" Margin="0,4"/>
+                                    <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding ConnectionStateText}" Margin="4"
+                                               Foreground="{Binding ConnectionState, Converter={StaticResource StateToBrush}}"/>
 
-                                <TextBlock Grid.Row="1" Grid.Column="2" Text="Auto Reconnect:" FontWeight="SemiBold" Margin="0,4"/>
-                                <CheckBox Grid.Row="1" Grid.Column="3" IsChecked="{Binding AutoReconnect}" Margin="4" VerticalAlignment="Center"/>
+                                    <TextBlock Grid.Row="1" Grid.Column="2" Text="Auto Reconnect:" FontWeight="SemiBold" Margin="0,4"/>
+                                    <CheckBox Grid.Row="1" Grid.Column="3" IsChecked="{Binding AutoReconnect}" Margin="4" VerticalAlignment="Center"/>
 
-                                <TextBlock Grid.Row="2" Grid.Column="0" Text="Session Timeout:" FontWeight="SemiBold" Margin="0,4"/>
-                                <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding SessionTimeout}" Margin="4"/>
+                                    <TextBlock Grid.Row="2" Grid.Column="0" Text="Tags Count:" FontWeight="SemiBold" Margin="0,4"/>
+                                    <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding Tags.Count}" Margin="4"/>
 
-                                <TextBlock Grid.Row="2" Grid.Column="2" Text="KeepAlive:" FontWeight="SemiBold" Margin="0,4"/>
-                                <TextBox Grid.Row="2" Grid.Column="3" Text="{Binding KeepAliveInterval}" Margin="4"/>
+                                    <TextBlock Grid.Row="2" Grid.Column="2" Text="Enabled:" FontWeight="SemiBold" Margin="0,4"/>
+                                    <CheckBox Grid.Row="2" Grid.Column="3" IsChecked="{Binding IsEnabled}" Margin="4" VerticalAlignment="Center"/>
+                                </Grid>
 
-                                <TextBlock Grid.Row="3" Grid.Column="0" Text="Tags Count:" FontWeight="SemiBold" Margin="0,4"/>
-                                <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding Tags.Count}" Margin="4"/>
+                                <!-- OPC UA Specific Properties -->
+                                <Grid Visibility="{Binding IsOpcUaProtocol, Converter={StaticResource BoolToVis}}" Margin="0,8,0,0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="120"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="120"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
 
-                                <TextBlock Grid.Row="3" Grid.Column="2" Text="Enabled:" FontWeight="SemiBold" Margin="0,4"/>
-                                <CheckBox Grid.Row="3" Grid.Column="3" IsChecked="{Binding IsEnabled}" Margin="4" VerticalAlignment="Center"/>
-                            </Grid>
+                                    <TextBlock Grid.Row="0" Grid.Column="0" Text="Endpoint:" FontWeight="SemiBold" Margin="0,4"/>
+                                    <TextBox Grid.Row="0" Grid.Column="1" Grid.ColumnSpan="3" Text="{Binding EndpointUrl, UpdateSourceTrigger=PropertyChanged}" Margin="4"/>
+
+                                    <TextBlock Grid.Row="1" Grid.Column="0" Text="Session Timeout:" FontWeight="SemiBold" Margin="0,4"/>
+                                    <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding SessionTimeout}" Margin="4"/>
+
+                                    <TextBlock Grid.Row="1" Grid.Column="2" Text="KeepAlive:" FontWeight="SemiBold" Margin="0,4"/>
+                                    <TextBox Grid.Row="1" Grid.Column="3" Text="{Binding KeepAliveInterval}" Margin="4"/>
+                                </Grid>
+
+                                <!-- TCP/IP Specific Properties -->
+                                <Grid Visibility="{Binding IsTcpIpProtocol, Converter={StaticResource BoolToVis}}" Margin="0,8,0,0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="120"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="120"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
+
+                                    <TextBlock Grid.Row="0" Grid.Column="0" Text="IP Address:" FontWeight="SemiBold" Margin="0,4"/>
+                                    <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding IpAddress, UpdateSourceTrigger=PropertyChanged}" Margin="4"/>
+
+                                    <TextBlock Grid.Row="0" Grid.Column="2" Text="Port:" FontWeight="SemiBold" Margin="0,4"/>
+                                    <TextBox Grid.Row="0" Grid.Column="3" Text="{Binding Port, UpdateSourceTrigger=PropertyChanged}" Margin="4"/>
+
+                                    <!-- Siemens S7 Specific: Rack/Slot -->
+                                    <TextBlock Grid.Row="1" Grid.Column="0" Text="Rack:" FontWeight="SemiBold" Margin="0,4"
+                                               Visibility="{Binding IsSiemensS7Protocol, Converter={StaticResource BoolToVis}}"/>
+                                    <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding Rack}" Margin="4"
+                                             Visibility="{Binding IsSiemensS7Protocol, Converter={StaticResource BoolToVis}}"/>
+
+                                    <TextBlock Grid.Row="1" Grid.Column="2" Text="Slot:" FontWeight="SemiBold" Margin="0,4"
+                                               Visibility="{Binding IsSiemensS7Protocol, Converter={StaticResource BoolToVis}}"/>
+                                    <TextBox Grid.Row="1" Grid.Column="3" Text="{Binding Slot}" Margin="4"
+                                             Visibility="{Binding IsSiemensS7Protocol, Converter={StaticResource BoolToVis}}"/>
+
+                                    <TextBlock Grid.Row="2" Grid.Column="0" Text="Conn Timeout:" FontWeight="SemiBold" Margin="0,4"/>
+                                    <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding ConnectionTimeout}" Margin="4"/>
+
+                                    <TextBlock Grid.Row="2" Grid.Column="2" Text="Read Timeout:" FontWeight="SemiBold" Margin="0,4"/>
+                                    <TextBox Grid.Row="2" Grid.Column="3" Text="{Binding ReadTimeout}" Margin="4"/>
+                                </Grid>
+                            </StackPanel>
                         </ScrollViewer>
 
                         <!-- No Selection Message -->
