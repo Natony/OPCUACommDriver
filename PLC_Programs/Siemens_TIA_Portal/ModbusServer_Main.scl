@@ -1,0 +1,364 @@
+// =============================================================================
+// CHUONG TRINH PLC SIEMENS S7-1200/1500 - MODBUS TCP SERVER
+// File: ModbusServer_Main.scl
+// Mo ta: Chuong trinh chinh de quan ly 15 Boolean va 28 Integer qua Modbus TCP
+// =============================================================================
+
+// -----------------------------------------------------------------------------
+// BUOC 1: TAO DATA BLOCK (DB) - Vao Project > Add new block > Data block
+// Ten: "ModbusData" (DB100)
+// -----------------------------------------------------------------------------
+
+DATA_BLOCK "ModbusData"
+{ S7_Optimized_Access := 'FALSE' }  // QUAN TRONG: Tat optimized access
+VERSION : 0.1
+NON_RETAIN
+   STRUCT
+      // ===== HOLDING REGISTER 0: CHUA 15 BOOLEAN =====
+      BoolRegister : Word := 0;      // HR0 (40001) - Dia chi byte 0-1
+
+      // Cac bien Boolean rieng le de su dung trong chuong trinh
+      bool1 : Bool := FALSE;         // Bit 0
+      bool2 : Bool := FALSE;         // Bit 1
+      bool3 : Bool := FALSE;         // Bit 2
+      bool4 : Bool := FALSE;         // Bit 3
+      bool5 : Bool := FALSE;         // Bit 4
+      bool6 : Bool := FALSE;         // Bit 5
+      bool7 : Bool := FALSE;         // Bit 6
+      bool8 : Bool := FALSE;         // Bit 7
+      bool9 : Bool := FALSE;         // Bit 8
+      bool10 : Bool := FALSE;        // Bit 9
+      bool11 : Bool := FALSE;        // Bit 10
+      bool12 : Bool := FALSE;        // Bit 11
+      bool13 : Bool := FALSE;        // Bit 12
+      bool14 : Bool := FALSE;        // Bit 13
+      bool15 : Bool := FALSE;        // Bit 14
+
+      // ===== HOLDING REGISTERS 1-28: CAC GIA TRI INTEGER =====
+      int1 : Int := 0;               // HR1 (40002)
+      int2 : Int := 0;               // HR2 (40003)
+      int3 : Int := 0;               // HR3 (40004)
+      int4 : Int := 0;               // HR4 (40005)
+      int5 : Int := 0;               // HR5 (40006)
+      int6 : Int := 0;               // HR6 (40007)
+      int7 : Int := 0;               // HR7 (40008)
+      int8 : Int := 0;               // HR8 (40009)
+      int9 : Int := 0;               // HR9 (40010)
+      int10 : Int := 0;              // HR10 (40011)
+      int11 : Int := 0;              // HR11 (40012)
+      int12 : Int := 0;              // HR12 (40013)
+      int13 : Int := 0;              // HR13 (40014)
+      int14 : Int := 0;              // HR14 (40015)
+      int15 : Int := 0;              // HR15 (40016)
+      int16 : Int := 0;              // HR16 (40017)
+      int17 : Int := 0;              // HR17 (40018)
+      int18 : Int := 0;              // HR18 (40019)
+      int19 : Int := 0;              // HR19 (40020)
+      int20 : Int := 0;              // HR20 (40021)
+      int21 : Int := 0;              // HR21 (40022)
+      int22 : Int := 0;              // HR22 (40023)
+      int23 : Int := 0;              // HR23 (40024)
+      int24 : Int := 0;              // HR24 (40025)
+      int25 : Int := 0;              // HR25 (40026)
+      int26 : Int := 0;              // HR26 (40027)
+      int27 : Int := 0;              // HR27 (40028)
+      int28 : Int := 0;              // HR28 (40029)
+
+      // ===== MODBUS HOLDING REGISTER ARRAY =====
+      // Day la mang chinh de Modbus doc/ghi
+      // MB_HOLD_REG[0] = BoolRegister
+      // MB_HOLD_REG[1..28] = int1..int28
+      MB_HOLD_REG : Array[0..28] of Word;
+
+      // ===== TRANG THAI KET NOI =====
+      ModbusConnected : Bool := FALSE;
+      LastError : Word := 0;
+
+   END_STRUCT;
+
+BEGIN
+
+END_DATA_BLOCK
+
+
+// -----------------------------------------------------------------------------
+// BUOC 2: TAO FUNCTION BLOCK CHO MODBUS SERVER
+// Ten: "FB_ModbusServer" (FB100)
+// -----------------------------------------------------------------------------
+
+FUNCTION_BLOCK "FB_ModbusServer"
+{ S7_Optimized_Access := 'FALSE' }
+VERSION : 0.1
+   VAR_INPUT
+      Enable : Bool := TRUE;         // Bat/tat Modbus server
+   END_VAR
+
+   VAR_OUTPUT
+      Connected : Bool;              // Trang thai ket noi
+      Error : Bool;                  // Co loi
+      ErrorCode : Word;              // Ma loi
+   END_VAR
+
+   VAR
+      MB_SERVER : MB_SERVER;         // Modbus TCP Server instruction
+      ConnectID : CONN_OUC;          // Connection ID
+   END_VAR
+
+   VAR_TEMP
+      tempWord : Word;
+   END_VAR
+
+BEGIN
+    // ===== CAU HINH MODBUS TCP SERVER =====
+    // S7-1200/1500 su dung instruction MB_SERVER
+
+    #MB_SERVER(
+        DISCONNECT := NOT #Enable,
+        CONNECT_ID := 1,                              // Connection ID
+        IP_PORT := 502,                               // Modbus port
+        MB_HOLD_REG := "ModbusData".MB_HOLD_REG,      // Holding registers
+        NDR => ,
+        DR => ,
+        ERROR => #Error,
+        STATUS => #ErrorCode
+    );
+
+    #Connected := #Enable AND NOT #Error;
+
+END_FUNCTION_BLOCK
+
+
+// -----------------------------------------------------------------------------
+// BUOC 3: TAO FUNCTION DE DONG BO BOOLEAN VA REGISTER
+// Ten: "FC_SyncBoolRegister" (FC100)
+// -----------------------------------------------------------------------------
+
+FUNCTION "FC_SyncBoolRegister" : Void
+{ S7_Optimized_Access := 'FALSE' }
+VERSION : 0.1
+   VAR_INPUT
+      Direction : Int;    // 0 = Bool -> Register, 1 = Register -> Bool
+   END_VAR
+
+   VAR_TEMP
+      tempWord : Word;
+   END_VAR
+
+BEGIN
+
+    IF #Direction = 0 THEN
+        // ===== PACK: BOOL -> REGISTER =====
+        // Dong bo tu cac bien bool1-bool15 vao BoolRegister va MB_HOLD_REG[0]
+
+        #tempWord := 0;
+
+        IF "ModbusData".bool1 THEN
+            #tempWord := #tempWord OR 16#0001;
+        END_IF;
+        IF "ModbusData".bool2 THEN
+            #tempWord := #tempWord OR 16#0002;
+        END_IF;
+        IF "ModbusData".bool3 THEN
+            #tempWord := #tempWord OR 16#0004;
+        END_IF;
+        IF "ModbusData".bool4 THEN
+            #tempWord := #tempWord OR 16#0008;
+        END_IF;
+        IF "ModbusData".bool5 THEN
+            #tempWord := #tempWord OR 16#0010;
+        END_IF;
+        IF "ModbusData".bool6 THEN
+            #tempWord := #tempWord OR 16#0020;
+        END_IF;
+        IF "ModbusData".bool7 THEN
+            #tempWord := #tempWord OR 16#0040;
+        END_IF;
+        IF "ModbusData".bool8 THEN
+            #tempWord := #tempWord OR 16#0080;
+        END_IF;
+        IF "ModbusData".bool9 THEN
+            #tempWord := #tempWord OR 16#0100;
+        END_IF;
+        IF "ModbusData".bool10 THEN
+            #tempWord := #tempWord OR 16#0200;
+        END_IF;
+        IF "ModbusData".bool11 THEN
+            #tempWord := #tempWord OR 16#0400;
+        END_IF;
+        IF "ModbusData".bool12 THEN
+            #tempWord := #tempWord OR 16#0800;
+        END_IF;
+        IF "ModbusData".bool13 THEN
+            #tempWord := #tempWord OR 16#1000;
+        END_IF;
+        IF "ModbusData".bool14 THEN
+            #tempWord := #tempWord OR 16#2000;
+        END_IF;
+        IF "ModbusData".bool15 THEN
+            #tempWord := #tempWord OR 16#4000;
+        END_IF;
+
+        "ModbusData".BoolRegister := #tempWord;
+        "ModbusData".MB_HOLD_REG[0] := #tempWord;
+
+    ELSE
+        // ===== UNPACK: REGISTER -> BOOL =====
+        // Doc tu MB_HOLD_REG[0] (khi client ghi) va cap nhat cac bien bool
+
+        #tempWord := "ModbusData".MB_HOLD_REG[0];
+        "ModbusData".BoolRegister := #tempWord;
+
+        "ModbusData".bool1 := (#tempWord AND 16#0001) <> 0;
+        "ModbusData".bool2 := (#tempWord AND 16#0002) <> 0;
+        "ModbusData".bool3 := (#tempWord AND 16#0004) <> 0;
+        "ModbusData".bool4 := (#tempWord AND 16#0008) <> 0;
+        "ModbusData".bool5 := (#tempWord AND 16#0010) <> 0;
+        "ModbusData".bool6 := (#tempWord AND 16#0020) <> 0;
+        "ModbusData".bool7 := (#tempWord AND 16#0040) <> 0;
+        "ModbusData".bool8 := (#tempWord AND 16#0080) <> 0;
+        "ModbusData".bool9 := (#tempWord AND 16#0100) <> 0;
+        "ModbusData".bool10 := (#tempWord AND 16#0200) <> 0;
+        "ModbusData".bool11 := (#tempWord AND 16#0400) <> 0;
+        "ModbusData".bool12 := (#tempWord AND 16#0800) <> 0;
+        "ModbusData".bool13 := (#tempWord AND 16#1000) <> 0;
+        "ModbusData".bool14 := (#tempWord AND 16#2000) <> 0;
+        "ModbusData".bool15 := (#tempWord AND 16#4000) <> 0;
+
+    END_IF;
+
+END_FUNCTION
+
+
+// -----------------------------------------------------------------------------
+// BUOC 4: TAO FUNCTION DE DONG BO INTEGER VA REGISTER
+// Ten: "FC_SyncIntRegisters" (FC101)
+// -----------------------------------------------------------------------------
+
+FUNCTION "FC_SyncIntRegisters" : Void
+{ S7_Optimized_Access := 'FALSE' }
+VERSION : 0.1
+   VAR_INPUT
+      Direction : Int;    // 0 = Int -> Register, 1 = Register -> Int
+   END_VAR
+
+BEGIN
+
+    IF #Direction = 0 THEN
+        // ===== INT -> REGISTER =====
+        // Dong bo tu int1-int28 vao MB_HOLD_REG[1..28]
+
+        "ModbusData".MB_HOLD_REG[1] := INT_TO_WORD("ModbusData".int1);
+        "ModbusData".MB_HOLD_REG[2] := INT_TO_WORD("ModbusData".int2);
+        "ModbusData".MB_HOLD_REG[3] := INT_TO_WORD("ModbusData".int3);
+        "ModbusData".MB_HOLD_REG[4] := INT_TO_WORD("ModbusData".int4);
+        "ModbusData".MB_HOLD_REG[5] := INT_TO_WORD("ModbusData".int5);
+        "ModbusData".MB_HOLD_REG[6] := INT_TO_WORD("ModbusData".int6);
+        "ModbusData".MB_HOLD_REG[7] := INT_TO_WORD("ModbusData".int7);
+        "ModbusData".MB_HOLD_REG[8] := INT_TO_WORD("ModbusData".int8);
+        "ModbusData".MB_HOLD_REG[9] := INT_TO_WORD("ModbusData".int9);
+        "ModbusData".MB_HOLD_REG[10] := INT_TO_WORD("ModbusData".int10);
+        "ModbusData".MB_HOLD_REG[11] := INT_TO_WORD("ModbusData".int11);
+        "ModbusData".MB_HOLD_REG[12] := INT_TO_WORD("ModbusData".int12);
+        "ModbusData".MB_HOLD_REG[13] := INT_TO_WORD("ModbusData".int13);
+        "ModbusData".MB_HOLD_REG[14] := INT_TO_WORD("ModbusData".int14);
+        "ModbusData".MB_HOLD_REG[15] := INT_TO_WORD("ModbusData".int15);
+        "ModbusData".MB_HOLD_REG[16] := INT_TO_WORD("ModbusData".int16);
+        "ModbusData".MB_HOLD_REG[17] := INT_TO_WORD("ModbusData".int17);
+        "ModbusData".MB_HOLD_REG[18] := INT_TO_WORD("ModbusData".int18);
+        "ModbusData".MB_HOLD_REG[19] := INT_TO_WORD("ModbusData".int19);
+        "ModbusData".MB_HOLD_REG[20] := INT_TO_WORD("ModbusData".int20);
+        "ModbusData".MB_HOLD_REG[21] := INT_TO_WORD("ModbusData".int21);
+        "ModbusData".MB_HOLD_REG[22] := INT_TO_WORD("ModbusData".int22);
+        "ModbusData".MB_HOLD_REG[23] := INT_TO_WORD("ModbusData".int23);
+        "ModbusData".MB_HOLD_REG[24] := INT_TO_WORD("ModbusData".int24);
+        "ModbusData".MB_HOLD_REG[25] := INT_TO_WORD("ModbusData".int25);
+        "ModbusData".MB_HOLD_REG[26] := INT_TO_WORD("ModbusData".int26);
+        "ModbusData".MB_HOLD_REG[27] := INT_TO_WORD("ModbusData".int27);
+        "ModbusData".MB_HOLD_REG[28] := INT_TO_WORD("ModbusData".int28);
+
+    ELSE
+        // ===== REGISTER -> INT =====
+        // Doc tu MB_HOLD_REG[1..28] (khi client ghi) va cap nhat int1-int28
+
+        "ModbusData".int1 := WORD_TO_INT("ModbusData".MB_HOLD_REG[1]);
+        "ModbusData".int2 := WORD_TO_INT("ModbusData".MB_HOLD_REG[2]);
+        "ModbusData".int3 := WORD_TO_INT("ModbusData".MB_HOLD_REG[3]);
+        "ModbusData".int4 := WORD_TO_INT("ModbusData".MB_HOLD_REG[4]);
+        "ModbusData".int5 := WORD_TO_INT("ModbusData".MB_HOLD_REG[5]);
+        "ModbusData".int6 := WORD_TO_INT("ModbusData".MB_HOLD_REG[6]);
+        "ModbusData".int7 := WORD_TO_INT("ModbusData".MB_HOLD_REG[7]);
+        "ModbusData".int8 := WORD_TO_INT("ModbusData".MB_HOLD_REG[8]);
+        "ModbusData".int9 := WORD_TO_INT("ModbusData".MB_HOLD_REG[9]);
+        "ModbusData".int10 := WORD_TO_INT("ModbusData".MB_HOLD_REG[10]);
+        "ModbusData".int11 := WORD_TO_INT("ModbusData".MB_HOLD_REG[11]);
+        "ModbusData".int12 := WORD_TO_INT("ModbusData".MB_HOLD_REG[12]);
+        "ModbusData".int13 := WORD_TO_INT("ModbusData".MB_HOLD_REG[13]);
+        "ModbusData".int14 := WORD_TO_INT("ModbusData".MB_HOLD_REG[14]);
+        "ModbusData".int15 := WORD_TO_INT("ModbusData".MB_HOLD_REG[15]);
+        "ModbusData".int16 := WORD_TO_INT("ModbusData".MB_HOLD_REG[16]);
+        "ModbusData".int17 := WORD_TO_INT("ModbusData".MB_HOLD_REG[17]);
+        "ModbusData".int18 := WORD_TO_INT("ModbusData".MB_HOLD_REG[18]);
+        "ModbusData".int19 := WORD_TO_INT("ModbusData".MB_HOLD_REG[19]);
+        "ModbusData".int20 := WORD_TO_INT("ModbusData".MB_HOLD_REG[20]);
+        "ModbusData".int21 := WORD_TO_INT("ModbusData".MB_HOLD_REG[21]);
+        "ModbusData".int22 := WORD_TO_INT("ModbusData".MB_HOLD_REG[22]);
+        "ModbusData".int23 := WORD_TO_INT("ModbusData".MB_HOLD_REG[23]);
+        "ModbusData".int24 := WORD_TO_INT("ModbusData".MB_HOLD_REG[24]);
+        "ModbusData".int25 := WORD_TO_INT("ModbusData".MB_HOLD_REG[25]);
+        "ModbusData".int26 := WORD_TO_INT("ModbusData".MB_HOLD_REG[26]);
+        "ModbusData".int27 := WORD_TO_INT("ModbusData".MB_HOLD_REG[27]);
+        "ModbusData".int28 := WORD_TO_INT("ModbusData".MB_HOLD_REG[28]);
+
+    END_IF;
+
+END_FUNCTION
+
+
+// -----------------------------------------------------------------------------
+// BUOC 5: CHUONG TRINH CHINH TRONG OB1 (Main)
+// -----------------------------------------------------------------------------
+
+ORGANIZATION_BLOCK "Main"
+TITLE = "Main Program Sweep (Cycle)"
+{ S7_Optimized_Access := 'TRUE' }
+VERSION : 0.1
+
+   VAR_TEMP
+      tempInfo : OB_ANY;
+   END_VAR
+
+BEGIN
+
+    // ===== 1. GOI MODBUS SERVER =====
+    // Goi FB Modbus Server moi scan cycle
+    "FB_ModbusServer_Instance"(
+        Enable := TRUE,
+        Connected => "ModbusData".ModbusConnected,
+        Error => ,
+        ErrorCode => "ModbusData".LastError
+    );
+
+    // ===== 2. DONG BO DU LIEU =====
+    // Chon huong dong bo tuy theo ung dung:
+
+    // Neu PLC la MASTER (dieu khien thiet bi, gui du lieu len):
+    // - Direction = 0: Bool/Int -> Register (PLC ghi, Client doc)
+    "FC_SyncBoolRegister"(Direction := 0);
+    "FC_SyncIntRegisters"(Direction := 0);
+
+    // Neu PLC la SLAVE (nhan lenh tu Android/Server):
+    // - Direction = 1: Register -> Bool/Int (Client ghi, PLC doc)
+    // "FC_SyncBoolRegister"(Direction := 1);
+    // "FC_SyncIntRegisters"(Direction := 1);
+
+    // ===== 3. LOGIC DIEU KHIEN CUA BAN =====
+    // Them logic cua ban o day
+    // Vi du: Doc cam bien, dieu khien relay, v.v.
+
+    // Vi du: bool1 dieu khien relay 1
+    // Q0.0 := "ModbusData".bool1;
+
+    // Vi du: int1 la gia tri cam bien nhiet do
+    // "ModbusData".int1 := WORD_TO_INT(IW64);  // Doc analog input
+
+END_ORGANIZATION_BLOCK
