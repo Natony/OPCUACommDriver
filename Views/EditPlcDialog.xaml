@@ -5,7 +5,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         mc:Ignorable="d"
         Title="Edit PLC"
-        Height="600" Width="500"
+        Height="700" Width="520"
         WindowStartupLocation="CenterOwner"
         ResizeMode="NoResize"
         Background="#F5F5F5">
@@ -49,66 +49,143 @@
                     </StackPanel>
                 </Border>
 
-                <!-- Connection Section -->
-                <TextBlock Text="Connection" FontWeight="Bold" FontSize="14" Margin="0,0,0,10"/>
+                <!-- Protocol Selection Section -->
+                <TextBlock Text="Protocol Type" FontWeight="Bold" FontSize="14" Margin="0,0,0,10"/>
                 <Border BorderBrush="#CCC" BorderThickness="1" Background="White" CornerRadius="4" Padding="10" Margin="0,0,0,15">
                     <StackPanel>
-                        <Label Content="Endpoint URL *"/>
-                        <TextBox x:Name="TxtEndpointUrl" Text="{Binding EndpointUrl, UpdateSourceTrigger=PropertyChanged}"/>
+                        <Label Content="Connection Type *"/>
+                        <ComboBox x:Name="CmbProtocolType" SelectionChanged="CmbProtocolType_SelectionChanged"/>
 
-                        <CheckBox x:Name="ChkIsEnabled" Content="Enabled" IsChecked="{Binding IsEnabled}"/>
+                        <Label Content="PLC Type" x:Name="LblPlcType" Visibility="Collapsed"/>
+                        <ComboBox x:Name="CmbPlcType" Visibility="Collapsed"/>
+
+                        <CheckBox x:Name="ChkIsEnabled" Content="Enabled" IsChecked="{Binding IsEnabled}" Margin="0,5,0,0"/>
                     </StackPanel>
                 </Border>
 
-                <!-- Security Section -->
-                <TextBlock Text="Security" FontWeight="Bold" FontSize="14" Margin="0,0,0,10"/>
-                <Border BorderBrush="#CCC" BorderThickness="1" Background="White" CornerRadius="4" Padding="10" Margin="0,0,0,15">
-                    <StackPanel>
-                        <Label Content="Security Policy"/>
-                        <ComboBox x:Name="CmbSecurityPolicy"/>
+                <!-- OPC UA Connection Section -->
+                <StackPanel x:Name="PanelOpcUa" Visibility="Visible">
+                    <TextBlock Text="OPC UA Connection" FontWeight="Bold" FontSize="14" Margin="0,0,0,10"/>
+                    <Border BorderBrush="#CCC" BorderThickness="1" Background="White" CornerRadius="4" Padding="10" Margin="0,0,0,15">
+                        <StackPanel>
+                            <Label Content="Endpoint URL *"/>
+                            <TextBox x:Name="TxtEndpointUrl" Text="{Binding EndpointUrl, UpdateSourceTrigger=PropertyChanged}"/>
+                            <TextBlock Text="Example: opc.tcp://192.168.1.100:4840" FontSize="11" Foreground="Gray" Margin="0,-8,0,5"/>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
 
-                        <Label Content="Security Mode"/>
-                        <ComboBox x:Name="CmbSecurityMode"/>
+                <!-- TCP/IP Connection Section -->
+                <StackPanel x:Name="PanelTcpIp" Visibility="Collapsed">
+                    <TextBlock Text="TCP/IP Connection" FontWeight="Bold" FontSize="14" Margin="0,0,0,10"/>
+                    <Border BorderBrush="#CCC" BorderThickness="1" Background="White" CornerRadius="4" Padding="10" Margin="0,0,0,15">
+                        <StackPanel>
+                            <Label Content="IP Address *"/>
+                            <TextBox x:Name="TxtIpAddress" Text="{Binding IpAddress, UpdateSourceTrigger=PropertyChanged}"/>
 
-                        <Label Content="Username"/>
-                        <TextBox x:Name="TxtUserName" Text="{Binding UserName, UpdateSourceTrigger=PropertyChanged}"/>
+                            <Label Content="Port *"/>
+                            <TextBox x:Name="TxtPort" Text="{Binding Port, UpdateSourceTrigger=PropertyChanged}"/>
 
-                        <Label Content="Password"/>
-                        <PasswordBox x:Name="TxtPassword"/>
+                            <!-- Siemens S7 specific: Rack & Slot -->
+                            <StackPanel x:Name="PanelSiemensS7" Visibility="Collapsed">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="10"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0">
+                                        <Label Content="Rack"/>
+                                        <TextBox x:Name="TxtRack" Text="{Binding Rack, UpdateSourceTrigger=PropertyChanged}"/>
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="2">
+                                        <Label Content="Slot"/>
+                                        <TextBox x:Name="TxtSlot" Text="{Binding Slot, UpdateSourceTrigger=PropertyChanged}"/>
+                                    </StackPanel>
+                                </Grid>
+                                <TextBlock Text="S7-300: Rack=0, Slot=2 | S7-400: Rack=0, Slot=3 | S7-1200/1500: Rack=0, Slot=1"
+                                           FontSize="11" Foreground="Gray" Margin="0,0,0,5" TextWrapping="Wrap"/>
+                            </StackPanel>
 
-                        <Label Content="Certificate Path"/>
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="Auto"/>
-                            </Grid.ColumnDefinitions>
-                            <TextBox Grid.Column="0" x:Name="TxtCertificatePath" Text="{Binding CertificatePath, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,5,10"/>
-                            <Button Grid.Column="1" Content="..." Width="30" Click="BrowseCertificate_Click" Margin="0,0,0,10"/>
-                        </Grid>
+                            <!-- Timeout settings -->
+                            <Grid Margin="0,5,0,0">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="10"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="10"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Grid.Column="0">
+                                    <Label Content="Connect Timeout (ms)"/>
+                                    <TextBox x:Name="TxtConnectionTimeout" Text="{Binding ConnectionTimeout, UpdateSourceTrigger=PropertyChanged}"/>
+                                </StackPanel>
+                                <StackPanel Grid.Column="2">
+                                    <Label Content="Read Timeout (ms)"/>
+                                    <TextBox x:Name="TxtReadTimeout" Text="{Binding ReadTimeout, UpdateSourceTrigger=PropertyChanged}"/>
+                                </StackPanel>
+                                <StackPanel Grid.Column="4">
+                                    <Label Content="Write Timeout (ms)"/>
+                                    <TextBox x:Name="TxtWriteTimeout" Text="{Binding WriteTimeout, UpdateSourceTrigger=PropertyChanged}"/>
+                                </StackPanel>
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
 
-                        <Label Content="Private Key Path"/>
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="Auto"/>
-                            </Grid.ColumnDefinitions>
-                            <TextBox Grid.Column="0" x:Name="TxtPrivateKeyPath" Text="{Binding PrivateKeyPath, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,5,10"/>
-                            <Button Grid.Column="1" Content="..." Width="30" Click="BrowsePrivateKey_Click" Margin="0,0,0,10"/>
-                        </Grid>
-                    </StackPanel>
-                </Border>
+                <!-- Security Section (OPC UA only) -->
+                <StackPanel x:Name="PanelSecurity" Visibility="Visible">
+                    <TextBlock Text="Security (OPC UA)" FontWeight="Bold" FontSize="14" Margin="0,0,0,10"/>
+                    <Border BorderBrush="#CCC" BorderThickness="1" Background="White" CornerRadius="4" Padding="10" Margin="0,0,0,15">
+                        <StackPanel>
+                            <Label Content="Security Policy"/>
+                            <ComboBox x:Name="CmbSecurityPolicy"/>
 
-                <!-- Session Configuration Section -->
-                <TextBlock Text="Session Configuration" FontWeight="Bold" FontSize="14" Margin="0,0,0,10"/>
-                <Border BorderBrush="#CCC" BorderThickness="1" Background="White" CornerRadius="4" Padding="10" Margin="0,0,0,15">
-                    <StackPanel>
-                        <Label Content="Session Timeout (ms)"/>
-                        <TextBox x:Name="TxtSessionTimeout" Text="{Binding SessionTimeout, UpdateSourceTrigger=PropertyChanged}"/>
+                            <Label Content="Security Mode"/>
+                            <ComboBox x:Name="CmbSecurityMode"/>
 
-                        <Label Content="Keep Alive Interval (ms)"/>
-                        <TextBox x:Name="TxtKeepAliveInterval" Text="{Binding KeepAliveInterval, UpdateSourceTrigger=PropertyChanged}"/>
-                    </StackPanel>
-                </Border>
+                            <Label Content="Username"/>
+                            <TextBox x:Name="TxtUserName" Text="{Binding UserName, UpdateSourceTrigger=PropertyChanged}"/>
+
+                            <Label Content="Password"/>
+                            <PasswordBox x:Name="TxtPassword"/>
+
+                            <Label Content="Certificate Path"/>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBox Grid.Column="0" x:Name="TxtCertificatePath" Text="{Binding CertificatePath, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,5,10"/>
+                                <Button Grid.Column="1" Content="..." Width="30" Click="BrowseCertificate_Click" Margin="0,0,0,10"/>
+                            </Grid>
+
+                            <Label Content="Private Key Path"/>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBox Grid.Column="0" x:Name="TxtPrivateKeyPath" Text="{Binding PrivateKeyPath, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,5,10"/>
+                                <Button Grid.Column="1" Content="..." Width="30" Click="BrowsePrivateKey_Click" Margin="0,0,0,10"/>
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+
+                <!-- Session Configuration Section (OPC UA only) -->
+                <StackPanel x:Name="PanelSessionConfig" Visibility="Visible">
+                    <TextBlock Text="Session Configuration (OPC UA)" FontWeight="Bold" FontSize="14" Margin="0,0,0,10"/>
+                    <Border BorderBrush="#CCC" BorderThickness="1" Background="White" CornerRadius="4" Padding="10" Margin="0,0,0,15">
+                        <StackPanel>
+                            <Label Content="Session Timeout (ms)"/>
+                            <TextBox x:Name="TxtSessionTimeout" Text="{Binding SessionTimeout, UpdateSourceTrigger=PropertyChanged}"/>
+
+                            <Label Content="Keep Alive Interval (ms)"/>
+                            <TextBox x:Name="TxtKeepAliveInterval" Text="{Binding KeepAliveInterval, UpdateSourceTrigger=PropertyChanged}"/>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
 
                 <!-- Reconnect Configuration Section -->
                 <TextBlock Text="Reconnect Configuration" FontWeight="Bold" FontSize="14" Margin="0,0,0,10"/>
