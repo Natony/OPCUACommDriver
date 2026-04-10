@@ -1,0 +1,480 @@
+{
+  "Version": "1.0.0",
+  "LastModified": "2026-04-10 00:00:00",
+  "LastModifiedBy": "System",
+  "Settings": {
+    "ApplicationName": "OPC UA Communication Engine",
+    "CertificateStorePath": "./Certificates",
+    "LogPath": "./Logs",
+    "ConfigPath": "./Configurations",
+    "DefaultSessionTimeout": 60000,
+    "DefaultKeepAliveInterval": 5000,
+    "DefaultReconnectInterval": 5000,
+    "MaxConcurrentConnections": 50,
+    "AutoConnectOnStartup": true,
+    "EnableLogging": true,
+    "LogLevel": "Information",
+    "DataRetentionDays": 7
+  },
+  "PlcDevices": [
+    {
+      "Id": "modbus-plc-001",
+      "Name": "Modbus PLC Controller",
+      "Description": "PLC su dung Modbus TCP/IP voi bool1-bool15 va int1-int28",
+      "ProtocolType": 3,
+      "PlcType": 0,
+      "IpAddress": "192.168.1.100",
+      "Port": 502,
+      "IsEnabled": true,
+      "ConnectionTimeout": 5000,
+      "ReadTimeout": 3000,
+      "WriteTimeout": 3000,
+      "AutoReconnect": true,
+      "ReconnectInterval": 5000,
+      "MaxReconnectAttempts": 10,
+      "Tags": [
+        {
+          "Id": "tag-bool-register",
+          "Name": "BoolRegister",
+          "Description": "Holding Register 0 chua 15 bits (bool1-bool15)",
+          "NodeId": "HR0",
+          "DataType": 5,
+          "AccessMode": 2,
+          "IsEnabled": true,
+          "ScanRate": 500
+        },
+        {
+          "Id": "tag-bool1",
+          "Name": "bool1",
+          "Description": "Boolean 1 - HR0 bit 0",
+          "NodeId": "HR0.0",
+          "DataType": 0,
+          "AccessMode": 2,
+          "IsEnabled": true,
+          "ScanRate": 500
+        },
+        {
+          "Id": "tag-bool2",
+          "Name": "bool2",
+          "Description": "Boolean 2 - HR0 bit 1",
+          "NodeId": "HR0.1",
+          "DataType": 0,
+          "AccessMode": 2,
+          "IsEnabled": true,
+          "ScanRate": 500
+        },
+        {
+          "Id": "tag-bool3",
+          "Name": "bool3",
+          "Description": "Boolean 3 - HR0 bit 2",
+          "NodeId": "HR0.2",
+          "DataType": 0,
+          "AccessMode": 2,
+          "IsEnabled": true,
+          "ScanRate": 500
+        },
+        {
+          "Id": "tag-bool4",
+          "Name": "bool4",
+          "Description": "Boolean 4 - HR0 bit 3",
+          "NodeId": "HR0.3",
+          "DataType": 0,
+          "AccessMode": 2,
+          "IsEnabled": true,
+          "ScanRate": 500
+        },
+        {
+          "Id": "tag-bool5",
+          "Name": "bool5",
+          "Description": "Boolean 5 - HR0 bit 4",
+          "NodeId": "HR0.4",
+          "DataType": 0,
+          "AccessMode": 2,
+          "IsEnabled": true,
+          "ScanRate": 500
+        },
+        {
+          "Id": "tag-bool6",
+          "Name": "bool6",
+          "Description": "Boolean 6 - HR0 bit 5",
+          "NodeId": "HR0.5",
+          "DataType": 0,
+          "AccessMode": 2,
+          "IsEnabled": true,
+          "ScanRate": 500
+        },
+        {
+          "Id": "tag-bool7",
+          "Name": "bool7",
+          "Description": "Boolean 7 - HR0 bit 6",
+          "NodeId": "HR0.6",
+          "DataType": 0,
+          "AccessMode": 2,
+          "IsEnabled": true,
+          "ScanRate": 500
+        },
+        {
+          "Id": "tag-bool8",
+          "Name": "bool8",
+          "Description": "Boolean 8 - HR0 bit 7",
+          "NodeId": "HR0.7",
+          "DataType": 0,
+          "AccessMode": 2,
+          "IsEnabled": true,
+          "ScanRate": 500
+        },
+        {
+          "Id": "tag-bool9",
+          "Name": "bool9",
+          "Description": "Boolean 9 - HR0 bit 8",
+          "NodeId": "HR0.8",
+          "DataType": 0,
+          "AccessMode": 2,
+          "IsEnabled": true,
+          "ScanRate": 500
+        },
+        {
+          "Id": "tag-bool10",
+          "Name": "bool10",
+          "Description": "Boolean 10 - HR0 bit 9",
+          "NodeId": "HR0.9",
+          "DataType": 0,
+          "AccessMode": 2,
+          "IsEnabled": true,
+          "ScanRate": 500
+        },
+        {
+          "Id": "tag-bool11",
+          "Name": "bool11",
+          "Description": "Boolean 11 - HR0 bit 10",
+          "NodeId": "HR0.10",
+          "DataType": 0,
+          "AccessMode": 2,
+          "IsEnabled": true,
+          "ScanRate": 500
+        },
+        {
+          "Id": "tag-bool12",
+          "Name": "bool12",
+          "Description": "Boolean 12 - HR0 bit 11",
+          "NodeId": "HR0.11",
+          "DataType": 0,
+          "AccessMode": 2,
+          "IsEnabled": true,
+          "ScanRate": 500
+        },
+        {
+          "Id": "tag-bool13",
+          "Name": "bool13",
+          "Description": "Boolean 13 - HR0 bit 12",
+          "NodeId": "HR0.12",
+          "DataType": 0,
+          "AccessMode": 2,
+          "IsEnabled": true,
+          "ScanRate": 500
+        },
+        {
+          "Id": "tag-bool14",
+          "Name": "bool14",
+          "Description": "Boolean 14 - HR0 bit 13",
+          "NodeId": "HR0.13",
+          "DataType": 0,
+          "AccessMode": 2,
+          "IsEnabled": true,
+          "ScanRate": 500
+        },
+        {
+          "Id": "tag-bool15",
+          "Name": "bool15",
+          "Description": "Boolean 15 - HR0 bit 14",
+          "NodeId": "HR0.14",
+          "DataType": 0,
+          "AccessMode": 2,
+          "IsEnabled": true,
+          "ScanRate": 500
+        },
+        {
+          "Id": "tag-int1",
+          "Name": "int1",
+          "Description": "Integer 1 - HR1",
+          "NodeId": "HR1",
+          "DataType": 5,
+          "AccessMode": 2,
+          "IsEnabled": true,
+          "ScanRate": 1000
+        },
+        {
+          "Id": "tag-int2",
+          "Name": "int2",
+          "Description": "Integer 2 - HR2",
+          "NodeId": "HR2",
+          "DataType": 5,
+          "AccessMode": 2,
+          "IsEnabled": true,
+          "ScanRate": 1000
+        },
+        {
+          "Id": "tag-int3",
+          "Name": "int3",
+          "Description": "Integer 3 - HR3",
+          "NodeId": "HR3",
+          "DataType": 5,
+          "AccessMode": 2,
+          "IsEnabled": true,
+          "ScanRate": 1000
+        },
+        {
+          "Id": "tag-int4",
+          "Name": "int4",
+          "Description": "Integer 4 - HR4",
+          "NodeId": "HR4",
+          "DataType": 5,
+          "AccessMode": 2,
+          "IsEnabled": true,
+          "ScanRate": 1000
+        },
+        {
+          "Id": "tag-int5",
+          "Name": "int5",
+          "Description": "Integer 5 - HR5",
+          "NodeId": "HR5",
+          "DataType": 5,
+          "AccessMode": 2,
+          "IsEnabled": true,
+          "ScanRate": 1000
+        },
+        {
+          "Id": "tag-int6",
+          "Name": "int6",
+          "Description": "Integer 6 - HR6",
+          "NodeId": "HR6",
+          "DataType": 5,
+          "AccessMode": 2,
+          "IsEnabled": true,
+          "ScanRate": 1000
+        },
+        {
+          "Id": "tag-int7",
+          "Name": "int7",
+          "Description": "Integer 7 - HR7",
+          "NodeId": "HR7",
+          "DataType": 5,
+          "AccessMode": 2,
+          "IsEnabled": true,
+          "ScanRate": 1000
+        },
+        {
+          "Id": "tag-int8",
+          "Name": "int8",
+          "Description": "Integer 8 - HR8",
+          "NodeId": "HR8",
+          "DataType": 5,
+          "AccessMode": 2,
+          "IsEnabled": true,
+          "ScanRate": 1000
+        },
+        {
+          "Id": "tag-int9",
+          "Name": "int9",
+          "Description": "Integer 9 - HR9",
+          "NodeId": "HR9",
+          "DataType": 5,
+          "AccessMode": 2,
+          "IsEnabled": true,
+          "ScanRate": 1000
+        },
+        {
+          "Id": "tag-int10",
+          "Name": "int10",
+          "Description": "Integer 10 - HR10",
+          "NodeId": "HR10",
+          "DataType": 5,
+          "AccessMode": 2,
+          "IsEnabled": true,
+          "ScanRate": 1000
+        },
+        {
+          "Id": "tag-int11",
+          "Name": "int11",
+          "Description": "Integer 11 - HR11",
+          "NodeId": "HR11",
+          "DataType": 5,
+          "AccessMode": 2,
+          "IsEnabled": true,
+          "ScanRate": 1000
+        },
+        {
+          "Id": "tag-int12",
+          "Name": "int12",
+          "Description": "Integer 12 - HR12",
+          "NodeId": "HR12",
+          "DataType": 5,
+          "AccessMode": 2,
+          "IsEnabled": true,
+          "ScanRate": 1000
+        },
+        {
+          "Id": "tag-int13",
+          "Name": "int13",
+          "Description": "Integer 13 - HR13",
+          "NodeId": "HR13",
+          "DataType": 5,
+          "AccessMode": 2,
+          "IsEnabled": true,
+          "ScanRate": 1000
+        },
+        {
+          "Id": "tag-int14",
+          "Name": "int14",
+          "Description": "Integer 14 - HR14",
+          "NodeId": "HR14",
+          "DataType": 5,
+          "AccessMode": 2,
+          "IsEnabled": true,
+          "ScanRate": 1000
+        },
+        {
+          "Id": "tag-int15",
+          "Name": "int15",
+          "Description": "Integer 15 - HR15",
+          "NodeId": "HR15",
+          "DataType": 5,
+          "AccessMode": 2,
+          "IsEnabled": true,
+          "ScanRate": 1000
+        },
+        {
+          "Id": "tag-int16",
+          "Name": "int16",
+          "Description": "Integer 16 - HR16",
+          "NodeId": "HR16",
+          "DataType": 5,
+          "AccessMode": 2,
+          "IsEnabled": true,
+          "ScanRate": 1000
+        },
+        {
+          "Id": "tag-int17",
+          "Name": "int17",
+          "Description": "Integer 17 - HR17",
+          "NodeId": "HR17",
+          "DataType": 5,
+          "AccessMode": 2,
+          "IsEnabled": true,
+          "ScanRate": 1000
+        },
+        {
+          "Id": "tag-int18",
+          "Name": "int18",
+          "Description": "Integer 18 - HR18",
+          "NodeId": "HR18",
+          "DataType": 5,
+          "AccessMode": 2,
+          "IsEnabled": true,
+          "ScanRate": 1000
+        },
+        {
+          "Id": "tag-int19",
+          "Name": "int19",
+          "Description": "Integer 19 - HR19",
+          "NodeId": "HR19",
+          "DataType": 5,
+          "AccessMode": 2,
+          "IsEnabled": true,
+          "ScanRate": 1000
+        },
+        {
+          "Id": "tag-int20",
+          "Name": "int20",
+          "Description": "Integer 20 - HR20",
+          "NodeId": "HR20",
+          "DataType": 5,
+          "AccessMode": 2,
+          "IsEnabled": true,
+          "ScanRate": 1000
+        },
+        {
+          "Id": "tag-int21",
+          "Name": "int21",
+          "Description": "Integer 21 - HR21",
+          "NodeId": "HR21",
+          "DataType": 5,
+          "AccessMode": 2,
+          "IsEnabled": true,
+          "ScanRate": 1000
+        },
+        {
+          "Id": "tag-int22",
+          "Name": "int22",
+          "Description": "Integer 22 - HR22",
+          "NodeId": "HR22",
+          "DataType": 5,
+          "AccessMode": 2,
+          "IsEnabled": true,
+          "ScanRate": 1000
+        },
+        {
+          "Id": "tag-int23",
+          "Name": "int23",
+          "Description": "Integer 23 - HR23",
+          "NodeId": "HR23",
+          "DataType": 5,
+          "AccessMode": 2,
+          "IsEnabled": true,
+          "ScanRate": 1000
+        },
+        {
+          "Id": "tag-int24",
+          "Name": "int24",
+          "Description": "Integer 24 - HR24",
+          "NodeId": "HR24",
+          "DataType": 5,
+          "AccessMode": 2,
+          "IsEnabled": true,
+          "ScanRate": 1000
+        },
+        {
+          "Id": "tag-int25",
+          "Name": "int25",
+          "Description": "Integer 25 - HR25",
+          "NodeId": "HR25",
+          "DataType": 5,
+          "AccessMode": 2,
+          "IsEnabled": true,
+          "ScanRate": 1000
+        },
+        {
+          "Id": "tag-int26",
+          "Name": "int26",
+          "Description": "Integer 26 - HR26",
+          "NodeId": "HR26",
+          "DataType": 5,
+          "AccessMode": 2,
+          "IsEnabled": true,
+          "ScanRate": 1000
+        },
+        {
+          "Id": "tag-int27",
+          "Name": "int27",
+          "Description": "Integer 27 - HR27",
+          "NodeId": "HR27",
+          "DataType": 5,
+          "AccessMode": 2,
+          "IsEnabled": true,
+          "ScanRate": 1000
+        },
+        {
+          "Id": "tag-int28",
+          "Name": "int28",
+          "Description": "Integer 28 - HR28",
+          "NodeId": "HR28",
+          "DataType": 5,
+          "AccessMode": 2,
+          "IsEnabled": true,
+          "ScanRate": 1000
+        }
+      ],
+      "SubscriptionGroups": []
+    }
+  ]
+}

@@ -33,7 +33,7 @@ public class ProtocolConnectionFactory : IProtocolConnectionFactory
             ProtocolType.OpcUa => new PlcConnection(device, logger),
             ProtocolType.SiemensS7 => new SiemensS7Connection(device, logger),
             ProtocolType.MitsubishiMc => new MitsubishiMcConnection(device, logger),
-            ProtocolType.ModbusTcp => throw new NotSupportedException($"Modbus TCP protocol is not yet implemented"),
+            ProtocolType.ModbusTcp => new ModbusTcpConnection(device, logger),
             _ => throw new NotSupportedException($"Protocol type {device.ProtocolType} is not supported")
         };
     }
@@ -48,7 +48,7 @@ public class ProtocolConnectionFactory : IProtocolConnectionFactory
             ProtocolType.OpcUa => true,
             ProtocolType.SiemensS7 => true,
             ProtocolType.MitsubishiMc => true,
-            ProtocolType.ModbusTcp => false,
+            ProtocolType.ModbusTcp => true,
             _ => false
         };
     }

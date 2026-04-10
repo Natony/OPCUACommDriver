@@ -194,10 +194,82 @@ public class TcpTagAddress
         throw new ArgumentException($"Unsupported MC address format: {address}");
     }
 
+    /// <summary>
+    /// Parse dia chi Modbus TCP
+    /// Ho tro: HR0, HR0.5, IR100, C0, DI10
+    /// </summary>
+    public static TcpTagAddress ParseModbusAddress(string address)
+    {
+        var result = new TcpTagAddress { RawAddress = address };
+        address = address.ToUpperInvariant().Trim();
+
+        // Check for point count: HR0:10
+        if (address.Contains(':'))
+        {
+            var colonParts = address.Split(':');
+            address = colonParts[0];
+            result.PointCount = int.Parse(colonParts[1]);
+        }
+
+        // Holding Register: HR0, HR0.5
+        if (address.StartsWith("HR"))
+        {
+            result.ModbusDataType = ModbusRegisterType.HoldingRegister;
+            var rest = address.Substring(2);
+            if (rest.Contains('.'))
+            {
+                var parts = rest.Split('.');
+                result.StartAddress = int.Parse(parts[0]);
+                result.BitOffset = int.Parse(parts[1]);
+                result.DataLength = 1;
+            }
+            else
+            {
+                result.StartAddress = int.Parse(rest);
+                result.DataLength = 2;
+            }
+            return result;
+        }
+
+        // Input Register: IR0
+        if (address.StartsWith("IR"))
+        {
+            result.ModbusDataType = ModbusRegisterType.InputRegister;
+            result.StartAddress = int.Parse(address.Substring(2));
+            result.DataLength = 2;
+            return result;
+        }
+
+        // Coil: C0
+        if (address.StartsWith("C") && !address.StartsWith("CO"))
+        {
+            result.ModbusDataType = ModbusRegisterType.Coil;
+            result.StartAddress = int.Parse(address.Substring(1));
+            result.DataLength = 1;
+            return result;
+        }
+
+        // Discrete Input: DI0
+        if (address.StartsWith("DI"))
+        {
+            result.ModbusDataType = ModbusRegisterType.DiscreteInput;
+            result.StartAddress = int.Parse(address.Substring(2));
+            result.DataLength = 1;
+            return result;
+        }
+
+        throw new ArgumentException($"Unsupported Modbus address format: {address}");
+    }
+
     public override string ToString()
     {
         return RawAddress;
     }
+
+    /// <summary>
+    /// Loai Modbus register
+    /// </summary>
+    public ModbusRegisterType ModbusDataType { get; set; }
 }
 
 /// <summary>
@@ -234,4 +306,30 @@ public enum S7MemoryArea : byte
     /// Counter
     /// </summary>
     Counter = 0x1C
+}
+
+/// <summary>
+/// Loai register Modbus
+/// </summary>
+public enum ModbusRegisterType
+{
+    /// <summary>
+    /// Coil (Read/Write) - Function 01/05/15
+    /// </summary>
+    Coil = 0,
+
+    /// <summary>
+    /// Discrete Input (Read Only) - Function 02
+    /// </summary>
+    DiscreteInput = 1,
+
+    /// <summary>
+    /// Holding Register (Read/Write) - Function 03/06/16
+    /// </summary>
+    HoldingRegister = 3,
+
+    /// <summary>
+    /// Input Register (Read Only) - Function 04
+    /// </summary>
+    InputRegister = 4
 }
