@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.IO;
 using System.Net.Sockets;
 using NModbus;
 using OpcUaCommunicationEngine.Enums;
