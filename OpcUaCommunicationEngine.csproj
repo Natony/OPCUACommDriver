@@ -22,6 +22,9 @@
     <!-- MVVM Toolkit -->
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.2.2" />
     
+    <!-- Modbus TCP Communication -->
+    <PackageReference Include="NModbus" Version="3.0.81" />
+
     <!-- JSON Configuration -->
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
     

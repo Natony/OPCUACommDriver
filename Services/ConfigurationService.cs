@@ -1,5 +1,7 @@
 using System.IO;
+using System.Net;
 using Newtonsoft.Json;
+using OpcUaCommunicationEngine.Enums;
 using OpcUaCommunicationEngine.Interfaces;
 using OpcUaCommunicationEngine.Models;
 using Serilog;
@@ -180,10 +182,26 @@ public class ConfigurationService : IConfigurationService
             if (string.IsNullOrWhiteSpace(plc.Name))
                 errors.Add($"PLC {plc.Id}: Name is required");
 
-            if (string.IsNullOrWhiteSpace(plc.EndpointUrl))
-                errors.Add($"PLC {plc.Name}: Endpoint URL is required");
-            else if (!IsValidOpcUaUrl(plc.EndpointUrl))
-                errors.Add($"PLC {plc.Name}: Invalid OPC UA endpoint URL format");
+            // Validate theo protocol type
+            if (plc.IsModbus)
+            {
+                // Validate Modbus connection
+                if (string.IsNullOrWhiteSpace(plc.IpAddress))
+                    errors.Add($"PLC {plc.Name}: IP Address is required for Modbus TCP");
+                else if (!IPAddress.TryParse(plc.IpAddress, out _))
+                    errors.Add($"PLC {plc.Name}: Invalid IP Address format '{plc.IpAddress}'");
+
+                if (plc.Port < 1 || plc.Port > 65535)
+                    errors.Add($"PLC {plc.Name}: Port must be between 1 and 65535");
+            }
+            else
+            {
+                // Validate OPC UA connection
+                if (string.IsNullOrWhiteSpace(plc.EndpointUrl))
+                    errors.Add($"PLC {plc.Name}: Endpoint URL is required");
+                else if (!IsValidOpcUaUrl(plc.EndpointUrl))
+                    errors.Add($"PLC {plc.Name}: Invalid OPC UA endpoint URL format");
+            }
 
             var duplicateNames = config.PlcDevices
                 .Where(p => p.Name == plc.Name && p.Id != plc.Id)
@@ -201,6 +219,13 @@ public class ConfigurationService : IConfigurationService
 
                 if (tag.ScanRate < 10)
                     warnings.Add($"PLC {plc.Name}: Tag '{tag.Name}' scan rate is very low ({tag.ScanRate}ms)");
+
+                // Validate Modbus register address
+                if (plc.IsModbus && !string.IsNullOrWhiteSpace(tag.NodeId))
+                {
+                    if (!ushort.TryParse(tag.NodeId, out _))
+                        warnings.Add($"PLC {plc.Name}: Tag '{tag.Name}' NodeId '{tag.NodeId}' may not be a valid Modbus register address");
+                }
             }
 
             foreach (var group in plc.SubscriptionGroups)

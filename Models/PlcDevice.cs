@@ -1,18 +1,20 @@
 using System.Collections.ObjectModel;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Converters;
 using OpcUaCommunicationEngine.Enums;
 
 namespace OpcUaCommunicationEngine.Models;
 
 /// <summary>
-/// Model đại diện cho một PLC/OPC UA Server
-/// Mỗi PLC sẽ có một Session OPC UA riêng biệt
+/// Model đại diện cho một PLC/OPC UA Server hoặc Modbus Device
+/// Mỗi PLC sẽ có một Session/Connection riêng biệt
 /// </summary>
 public class PlcDevice : ObservableObject
 {
     private string _id = string.Empty;
     private string _name = string.Empty;
     private string _description = string.Empty;
+    private ProtocolType _protocolType = ProtocolType.OpcUa;
     private string _endpointUrl = string.Empty;
     private bool _isEnabled = true;
     private OpcUaSecurityPolicy _securityPolicy = OpcUaSecurityPolicy.None;
@@ -30,6 +32,14 @@ public class PlcDevice : ObservableObject
     private string _lastError = string.Empty;
     private DateTime? _lastConnectedTime;
     private DateTime? _lastDisconnectedTime;
+
+    // Modbus-specific fields
+    private string _ipAddress = string.Empty;
+    private int _port = 502;
+    private byte _slaveId = 1;
+    private int _connectionTimeout = 5000;
+    private int _readTimeout = 3000;
+    private int _writeTimeout = 3000;
 
     #region Identity Properties
 
@@ -62,10 +72,25 @@ public class PlcDevice : ObservableObject
 
     #endregion
 
+    #region Protocol Properties
+
+    /// <summary>
+    /// Loại giao thức kết nối (OPC UA, Modbus TCP, ...)
+    /// </summary>
+    [JsonConverter(typeof(StringEnumConverter))]
+    public ProtocolType ProtocolType
+    {
+        get => _protocolType;
+        set => SetProperty(ref _protocolType, value);
+    }
+
+    #endregion
+
     #region Connection Properties
 
     /// <summary>
     /// OPC UA Endpoint URL (vd: opc.tcp://192.168.1.100:4840)
+    /// Chỉ dùng cho OPC UA
     /// </summary>
     public string EndpointUrl
     {
@@ -80,6 +105,64 @@ public class PlcDevice : ObservableObject
     {
         get => _isEnabled;
         set => SetProperty(ref _isEnabled, value);
+    }
+
+    #endregion
+
+    #region Modbus Connection Properties
+
+    /// <summary>
+    /// Địa chỉ IP của PLC (dùng cho Modbus TCP)
+    /// </summary>
+    public string IpAddress
+    {
+        get => _ipAddress;
+        set => SetProperty(ref _ipAddress, value);
+    }
+
+    /// <summary>
+    /// Port kết nối (mặc định 502 cho Modbus TCP)
+    /// </summary>
+    public int Port
+    {
+        get => _port;
+        set => SetProperty(ref _port, value);
+    }
+
+    /// <summary>
+    /// Slave/Unit ID của Modbus device (mặc định 1)
+    /// </summary>
+    public byte SlaveId
+    {
+        get => _slaveId;
+        set => SetProperty(ref _slaveId, value);
+    }
+
+    /// <summary>
+    /// Timeout kết nối (milliseconds)
+    /// </summary>
+    public int ConnectionTimeout
+    {
+        get => _connectionTimeout;
+        set => SetProperty(ref _connectionTimeout, value);
+    }
+
+    /// <summary>
+    /// Timeout đọc dữ liệu (milliseconds)
+    /// </summary>
+    public int ReadTimeout
+    {
+        get => _readTimeout;
+        set => SetProperty(ref _readTimeout, value);
+    }
+
+    /// <summary>
+    /// Timeout ghi dữ liệu (milliseconds)
+    /// </summary>
+    public int WriteTimeout
+    {
+        get => _writeTimeout;
+        set => SetProperty(ref _writeTimeout, value);
     }
 
     #endregion
@@ -302,6 +385,7 @@ public class PlcDevice : ObservableObject
             Id = this.Id,
             Name = this.Name,
             Description = this.Description,
+            ProtocolType = this.ProtocolType,
             EndpointUrl = this.EndpointUrl,
             IsEnabled = this.IsEnabled,
             SecurityPolicy = this.SecurityPolicy,
@@ -314,14 +398,37 @@ public class PlcDevice : ObservableObject
             KeepAliveInterval = this.KeepAliveInterval,
             AutoReconnect = this.AutoReconnect,
             ReconnectInterval = this.ReconnectInterval,
-            MaxReconnectAttempts = this.MaxReconnectAttempts
+            MaxReconnectAttempts = this.MaxReconnectAttempts,
+            // Modbus properties
+            IpAddress = this.IpAddress,
+            Port = this.Port,
+            SlaveId = this.SlaveId,
+            ConnectionTimeout = this.ConnectionTimeout,
+            ReadTimeout = this.ReadTimeout,
+            WriteTimeout = this.WriteTimeout
         };
     }
 
     #endregion
 
+    /// <summary>
+    /// Kiểm tra thiết bị có phải Modbus không
+    /// </summary>
+    [JsonIgnore]
+    public bool IsModbus => ProtocolType == ProtocolType.ModbusTcp ||
+                            ProtocolType == ProtocolType.ModbusRtu ||
+                            ProtocolType == ProtocolType.ModbusAscii;
+
+    /// <summary>
+    /// Lấy địa chỉ kết nối hiển thị
+    /// </summary>
+    [JsonIgnore]
+    public string ConnectionAddress => IsModbus
+        ? $"{IpAddress}:{Port}"
+        : EndpointUrl;
+
     public override string ToString()
     {
-        return $"{Name} ({EndpointUrl}) - {ConnectionStateText}";
+        return $"{Name} ({ConnectionAddress}) [{ProtocolType}] - {ConnectionStateText}";
     }
 }

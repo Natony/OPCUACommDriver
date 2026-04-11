@@ -1,10 +1,12 @@
+using System.Collections.ObjectModel;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Converters;
 using OpcUaCommunicationEngine.Enums;
 
 namespace OpcUaCommunicationEngine.Models;
 
 /// <summary>
-/// Model đại diện cho một OPC UA Tag/Node
+/// Model đại diện cho một OPC UA Tag/Node hoặc Modbus Register
 /// Mỗi Tag thuộc về một PLC và một Subscription Group
 /// </summary>
 public class TagItem : ObservableObject
@@ -33,6 +35,7 @@ public class TagItem : ObservableObject
     private double? _minValue;
     private double? _maxValue;
     private int _arraySize;
+    private ModbusRegisterType _registerType = ModbusRegisterType.HoldingRegister;
 
     #region Identity Properties
 
@@ -297,6 +300,33 @@ public class TagItem : ObservableObject
 
     #endregion
 
+    #region Modbus Properties
+
+    /// <summary>
+    /// Loại thanh ghi Modbus (HoldingRegister, InputRegister, Coil, DiscreteInput)
+    /// Chỉ sử dụng khi PLC dùng giao thức Modbus
+    /// </summary>
+    [JsonConverter(typeof(StringEnumConverter))]
+    public ModbusRegisterType RegisterType
+    {
+        get => _registerType;
+        set => SetProperty(ref _registerType, value);
+    }
+
+    /// <summary>
+    /// Danh sách BitMapping - ánh xạ các bit trong thanh ghi sang giá trị boolean
+    /// Chỉ sử dụng khi cần trích xuất nhiều boolean từ 1 thanh ghi
+    /// </summary>
+    public ObservableCollection<BitMapping>? BitMapping { get; set; }
+
+    /// <summary>
+    /// Kiểm tra tag có BitMapping không
+    /// </summary>
+    [JsonIgnore]
+    public bool HasBitMapping => BitMapping != null && BitMapping.Count > 0;
+
+    #endregion
+
     #region Computed Properties
 
     /// <summary>
@@ -382,7 +412,7 @@ public class TagItem : ObservableObject
     /// </summary>
     public TagItem Clone()
     {
-        return new TagItem
+        var clone = new TagItem
         {
             Id = this.Id,
             PlcId = this.PlcId,
@@ -400,8 +430,22 @@ public class TagItem : ObservableObject
             EngineeringUnit = this.EngineeringUnit,
             MinValue = this.MinValue,
             MaxValue = this.MaxValue,
-            ArraySize = this.ArraySize
+            ArraySize = this.ArraySize,
+            RegisterType = this.RegisterType
         };
+
+        if (this.BitMapping != null)
+        {
+            clone.BitMapping = new ObservableCollection<BitMapping>(
+                this.BitMapping.Select(b => new BitMapping
+                {
+                    Bit = b.Bit,
+                    Name = b.Name,
+                    Description = b.Description
+                }));
+        }
+
+        return clone;
     }
 
     #endregion

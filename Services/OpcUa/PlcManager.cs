@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using OpcUaCommunicationEngine.Enums;
 using OpcUaCommunicationEngine.Interfaces;
 using OpcUaCommunicationEngine.Models;
+using OpcUaCommunicationEngine.Services.Modbus;
 using Serilog;
 
 namespace OpcUaCommunicationEngine.Services.OpcUa;
@@ -77,16 +78,17 @@ public class PlcManager : IPlcManager
 
         try
         {
-            var connection = new PlcConnection(device, _logger);
-            
+            var connection = CreateConnection(device);
+
             connection.ConnectionStateChanged += OnConnectionStateChanged;
             connection.TagValueChanged += OnTagValueChanged;
             connection.ErrorOccurred += OnErrorOccurred;
 
             _connections[device.Id] = connection;
-            
-            _logger.Information("Added PLC {Name} ({Id})", device.Name, device.Id);
-            
+
+            _logger.Information("Added PLC {Name} ({Id}) [{Protocol}]",
+                device.Name, device.Id, device.ProtocolType);
+
             return connection;
         }
         catch (Exception ex)
@@ -314,7 +316,8 @@ public class PlcManager : IPlcManager
         {
             PlcId = c.Device.Id,
             PlcName = c.Device.Name,
-            EndpointUrl = c.Device.EndpointUrl,
+            ProtocolType = c.Device.ProtocolType,
+            EndpointUrl = c.Device.ConnectionAddress,
             ConnectionState = c.ConnectionState,
             IsConnected = c.IsConnected,
             SessionId = c.SessionId,
@@ -334,7 +337,8 @@ public class PlcManager : IPlcManager
             {
                 PlcId = connection.Device.Id,
                 PlcName = connection.Device.Name,
-                EndpointUrl = connection.Device.EndpointUrl,
+                ProtocolType = connection.Device.ProtocolType,
+                EndpointUrl = connection.Device.ConnectionAddress,
                 ConnectionState = connection.ConnectionState,
                 IsConnected = connection.IsConnected,
                 SessionId = connection.SessionId,
@@ -346,6 +350,20 @@ public class PlcManager : IPlcManager
             };
         }
         return null;
+    }
+
+    #endregion
+
+    #region Connection Factory
+
+    private IPlcConnection CreateConnection(PlcDevice device)
+    {
+        return device.ProtocolType switch
+        {
+            ProtocolType.ModbusTcp => new ModbusConnection(device, _logger),
+            ProtocolType.OpcUa => new PlcConnection(device, _logger),
+            _ => throw new NotSupportedException($"Protocol type {device.ProtocolType} is not supported")
+        };
     }
 
     #endregion
@@ -413,6 +431,7 @@ public class PlcStatus
 {
     public string PlcId { get; init; } = string.Empty;
     public string PlcName { get; init; } = string.Empty;
+    public ProtocolType ProtocolType { get; init; }
     public string EndpointUrl { get; init; } = string.Empty;
     public PlcConnectionState ConnectionState { get; init; }
     public bool IsConnected { get; init; }
