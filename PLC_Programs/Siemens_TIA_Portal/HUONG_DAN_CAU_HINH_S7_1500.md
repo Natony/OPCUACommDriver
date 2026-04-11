@@ -22,7 +22,7 @@ Huong dan nay chi tiet cach cau hinh S7-1500 lam Modbus TCP Server de:
 2. Chon **PROFINET interface [X1]**
 3. Tab **Ethernet addresses**:
    ```
-   IP address:     192.168.1.100  (hoac IP cua ban)
+   IP address:     192.168.1.10  (hoac IP cua ban)
    Subnet mask:    255.255.255.0
    ```
 
@@ -348,7 +348,7 @@ Copy noi dung tu `modbus_plc_config_sample.json` hoac sua:
       "Name": "S7-1500 Modbus Server",
       "Description": "Siemens S7-1500 with Modbus TCP",
       "ProtocolType": 3,
-      "IpAddress": "192.168.1.100",
+      "IpAddress": "192.168.1.10",
       "Port": 502,
       "IsEnabled": true,
       "ConnectionTimeout": 5000,
@@ -371,34 +371,34 @@ Copy noi dung tu `modbus_plc_config_sample.json` hoac sua:
         {"Id": "bool13", "Name": "bool13", "NodeId": "HR0.12", "DataType": 0, "AccessMode": 2, "ScanRate": 500},
         {"Id": "bool14", "Name": "bool14", "NodeId": "HR0.13", "DataType": 0, "AccessMode": 2, "ScanRate": 500},
         {"Id": "bool15", "Name": "bool15", "NodeId": "HR0.14", "DataType": 0, "AccessMode": 2, "ScanRate": 500},
-        {"Id": "int1", "Name": "int1", "NodeId": "HR1", "DataType": 5, "AccessMode": 2, "ScanRate": 1000},
-        {"Id": "int2", "Name": "int2", "NodeId": "HR2", "DataType": 5, "AccessMode": 2, "ScanRate": 1000},
-        {"Id": "int3", "Name": "int3", "NodeId": "HR3", "DataType": 5, "AccessMode": 2, "ScanRate": 1000},
-        {"Id": "int4", "Name": "int4", "NodeId": "HR4", "DataType": 5, "AccessMode": 2, "ScanRate": 1000},
-        {"Id": "int5", "Name": "int5", "NodeId": "HR5", "DataType": 5, "AccessMode": 2, "ScanRate": 1000},
-        {"Id": "int6", "Name": "int6", "NodeId": "HR6", "DataType": 5, "AccessMode": 2, "ScanRate": 1000},
-        {"Id": "int7", "Name": "int7", "NodeId": "HR7", "DataType": 5, "AccessMode": 2, "ScanRate": 1000},
-        {"Id": "int8", "Name": "int8", "NodeId": "HR8", "DataType": 5, "AccessMode": 2, "ScanRate": 1000},
-        {"Id": "int9", "Name": "int9", "NodeId": "HR9", "DataType": 5, "AccessMode": 2, "ScanRate": 1000},
-        {"Id": "int10", "Name": "int10", "NodeId": "HR10", "DataType": 5, "AccessMode": 2, "ScanRate": 1000},
-        {"Id": "int11", "Name": "int11", "NodeId": "HR11", "DataType": 5, "AccessMode": 2, "ScanRate": 1000},
-        {"Id": "int12", "Name": "int12", "NodeId": "HR12", "DataType": 5, "AccessMode": 2, "ScanRate": 1000},
-        {"Id": "int13", "Name": "int13", "NodeId": "HR13", "DataType": 5, "AccessMode": 2, "ScanRate": 1000},
-        {"Id": "int14", "Name": "int14", "NodeId": "HR14", "DataType": 5, "AccessMode": 2, "ScanRate": 1000},
-        {"Id": "int15", "Name": "int15", "NodeId": "HR15", "DataType": 5, "AccessMode": 2, "ScanRate": 1000},
-        {"Id": "int16", "Name": "int16", "NodeId": "HR16", "DataType": 5, "AccessMode": 2, "ScanRate": 1000},
-        {"Id": "int17", "Name": "int17", "NodeId": "HR17", "DataType": 5, "AccessMode": 2, "ScanRate": 1000},
-        {"Id": "int18", "Name": "int18", "NodeId": "HR18", "DataType": 5, "AccessMode": 2, "ScanRate": 1000},
-        {"Id": "int19", "Name": "int19", "NodeId": "HR19", "DataType": 5, "AccessMode": 2, "ScanRate": 1000},
-        {"Id": "int20", "Name": "int20", "NodeId": "HR20", "DataType": 5, "AccessMode": 2, "ScanRate": 1000},
-        {"Id": "int21", "Name": "int21", "NodeId": "HR21", "DataType": 5, "AccessMode": 2, "ScanRate": 1000},
-        {"Id": "int22", "Name": "int22", "NodeId": "HR22", "DataType": 5, "AccessMode": 2, "ScanRate": 1000},
-        {"Id": "int23", "Name": "int23", "NodeId": "HR23", "DataType": 5, "AccessMode": 2, "ScanRate": 1000},
-        {"Id": "int24", "Name": "int24", "NodeId": "HR24", "DataType": 5, "AccessMode": 2, "ScanRate": 1000},
-        {"Id": "int25", "Name": "int25", "NodeId": "HR25", "DataType": 5, "AccessMode": 2, "ScanRate": 1000},
-        {"Id": "int26", "Name": "int26", "NodeId": "HR26", "DataType": 5, "AccessMode": 2, "ScanRate": 1000},
-        {"Id": "int27", "Name": "int27", "NodeId": "HR27", "DataType": 5, "AccessMode": 2, "ScanRate": 1000},
-        {"Id": "int28", "Name": "int28", "NodeId": "HR28", "DataType": 5, "AccessMode": 2, "ScanRate": 1000}
+        {"Id": "int1", "Name": "int1", "NodeId": "HR1", "DataType": 3, "AccessMode": 2, "ScanRate": 1000},
+        {"Id": "int2", "Name": "int2", "NodeId": "HR2", "DataType": 3, "AccessMode": 2, "ScanRate": 1000},
+        {"Id": "int3", "Name": "int3", "NodeId": "HR3", "DataType": 3, "AccessMode": 2, "ScanRate": 1000},
+        {"Id": "int4", "Name": "int4", "NodeId": "HR4", "DataType": 3, "AccessMode": 2, "ScanRate": 1000},
+        {"Id": "int5", "Name": "int5", "NodeId": "HR5", "DataType": 3, "AccessMode": 2, "ScanRate": 1000},
+        {"Id": "int6", "Name": "int6", "NodeId": "HR6", "DataType": 3, "AccessMode": 2, "ScanRate": 1000},
+        {"Id": "int7", "Name": "int7", "NodeId": "HR7", "DataType": 3, "AccessMode": 2, "ScanRate": 1000},
+        {"Id": "int8", "Name": "int8", "NodeId": "HR8", "DataType": 3, "AccessMode": 2, "ScanRate": 1000},
+        {"Id": "int9", "Name": "int9", "NodeId": "HR9", "DataType": 3, "AccessMode": 2, "ScanRate": 1000},
+        {"Id": "int10", "Name": "int10", "NodeId": "HR10", "DataType": 3, "AccessMode": 2, "ScanRate": 1000},
+        {"Id": "int11", "Name": "int11", "NodeId": "HR11", "DataType": 3, "AccessMode": 2, "ScanRate": 1000},
+        {"Id": "int12", "Name": "int12", "NodeId": "HR12", "DataType": 3, "AccessMode": 2, "ScanRate": 1000},
+        {"Id": "int13", "Name": "int13", "NodeId": "HR13", "DataType": 3, "AccessMode": 2, "ScanRate": 1000},
+        {"Id": "int14", "Name": "int14", "NodeId": "HR14", "DataType": 3, "AccessMode": 2, "ScanRate": 1000},
+        {"Id": "int15", "Name": "int15", "NodeId": "HR15", "DataType": 3, "AccessMode": 2, "ScanRate": 1000},
+        {"Id": "int16", "Name": "int16", "NodeId": "HR16", "DataType": 3, "AccessMode": 2, "ScanRate": 1000},
+        {"Id": "int17", "Name": "int17", "NodeId": "HR17", "DataType": 3, "AccessMode": 2, "ScanRate": 1000},
+        {"Id": "int18", "Name": "int18", "NodeId": "HR18", "DataType": 3, "AccessMode": 2, "ScanRate": 1000},
+        {"Id": "int19", "Name": "int19", "NodeId": "HR19", "DataType": 3, "AccessMode": 2, "ScanRate": 1000},
+        {"Id": "int20", "Name": "int20", "NodeId": "HR20", "DataType": 3, "AccessMode": 2, "ScanRate": 1000},
+        {"Id": "int21", "Name": "int21", "NodeId": "HR21", "DataType": 3, "AccessMode": 2, "ScanRate": 1000},
+        {"Id": "int22", "Name": "int22", "NodeId": "HR22", "DataType": 3, "AccessMode": 2, "ScanRate": 1000},
+        {"Id": "int23", "Name": "int23", "NodeId": "HR23", "DataType": 3, "AccessMode": 2, "ScanRate": 1000},
+        {"Id": "int24", "Name": "int24", "NodeId": "HR24", "DataType": 3, "AccessMode": 2, "ScanRate": 1000},
+        {"Id": "int25", "Name": "int25", "NodeId": "HR25", "DataType": 3, "AccessMode": 2, "ScanRate": 1000},
+        {"Id": "int26", "Name": "int26", "NodeId": "HR26", "DataType": 3, "AccessMode": 2, "ScanRate": 1000},
+        {"Id": "int27", "Name": "int27", "NodeId": "HR27", "DataType": 3, "AccessMode": 2, "ScanRate": 1000},
+        {"Id": "int28", "Name": "int28", "NodeId": "HR28", "DataType": 3, "AccessMode": 2, "ScanRate": 1000}
       ]
     }
   ]
@@ -413,7 +413,7 @@ Copy noi dung tu `modbus_plc_config_sample.json` hoac sua:
 
 1. Download **Modbus Poll** (free trial)
 2. Connection > Connect > TCP/IP
-3. IP: 192.168.1.100, Port: 502
+3. IP: 192.168.1.10, Port: 502
 4. Setup:
    - Slave ID: 1
    - Function: 03 Read Holding Registers
@@ -442,7 +442,7 @@ Copy noi dung tu `modbus_plc_config_sample.json` hoac sua:
 ### Loi: Khong ket noi duoc
 
 1. Kiem tra IP va subnet cung dai
-2. Ping PLC: `ping 192.168.1.100`
+2. Ping PLC: `ping 192.168.1.10`
 3. Kiem tra firewall mo port 502
 4. Kiem tra PLC o che do RUN
 

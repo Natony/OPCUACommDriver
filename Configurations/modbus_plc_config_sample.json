@@ -23,7 +23,7 @@
       "Description": "PLC su dung Modbus TCP/IP voi bool1-bool15 va int1-int28",
       "ProtocolType": 3,
       "PlcType": 0,
-      "IpAddress": "192.168.1.100",
+      "IpAddress": "192.168.1.10",
       "Port": 502,
       "IsEnabled": true,
       "ConnectionTimeout": 5000,
@@ -38,7 +38,7 @@
           "Name": "BoolRegister",
           "Description": "Holding Register 0 chua 15 bits (bool1-bool15)",
           "NodeId": "HR0",
-          "DataType": 5,
+          "DataType": 4,
           "AccessMode": 2,
           "IsEnabled": true,
           "ScanRate": 500
@@ -198,7 +198,7 @@
           "Name": "int1",
           "Description": "Integer 1 - HR1",
           "NodeId": "HR1",
-          "DataType": 5,
+          "DataType": 3,
           "AccessMode": 2,
           "IsEnabled": true,
           "ScanRate": 1000
@@ -208,7 +208,7 @@
           "Name": "int2",
           "Description": "Integer 2 - HR2",
           "NodeId": "HR2",
-          "DataType": 5,
+          "DataType": 3,
           "AccessMode": 2,
           "IsEnabled": true,
           "ScanRate": 1000
@@ -218,7 +218,7 @@
           "Name": "int3",
           "Description": "Integer 3 - HR3",
           "NodeId": "HR3",
-          "DataType": 5,
+          "DataType": 3,
           "AccessMode": 2,
           "IsEnabled": true,
           "ScanRate": 1000
@@ -228,7 +228,7 @@
           "Name": "int4",
           "Description": "Integer 4 - HR4",
           "NodeId": "HR4",
-          "DataType": 5,
+          "DataType": 3,
           "AccessMode": 2,
           "IsEnabled": true,
           "ScanRate": 1000
@@ -238,7 +238,7 @@
           "Name": "int5",
           "Description": "Integer 5 - HR5",
           "NodeId": "HR5",
-          "DataType": 5,
+          "DataType": 3,
           "AccessMode": 2,
           "IsEnabled": true,
           "ScanRate": 1000
@@ -248,7 +248,7 @@
           "Name": "int6",
           "Description": "Integer 6 - HR6",
           "NodeId": "HR6",
-          "DataType": 5,
+          "DataType": 3,
           "AccessMode": 2,
           "IsEnabled": true,
           "ScanRate": 1000
@@ -258,7 +258,7 @@
           "Name": "int7",
           "Description": "Integer 7 - HR7",
           "NodeId": "HR7",
-          "DataType": 5,
+          "DataType": 3,
           "AccessMode": 2,
           "IsEnabled": true,
           "ScanRate": 1000
@@ -268,7 +268,7 @@
           "Name": "int8",
           "Description": "Integer 8 - HR8",
           "NodeId": "HR8",
-          "DataType": 5,
+          "DataType": 3,
           "AccessMode": 2,
           "IsEnabled": true,
           "ScanRate": 1000
@@ -278,7 +278,7 @@
           "Name": "int9",
           "Description": "Integer 9 - HR9",
           "NodeId": "HR9",
-          "DataType": 5,
+          "DataType": 3,
           "AccessMode": 2,
           "IsEnabled": true,
           "ScanRate": 1000
@@ -288,7 +288,7 @@
           "Name": "int10",
           "Description": "Integer 10 - HR10",
           "NodeId": "HR10",
-          "DataType": 5,
+          "DataType": 3,
           "AccessMode": 2,
           "IsEnabled": true,
           "ScanRate": 1000
@@ -298,7 +298,7 @@
           "Name": "int11",
           "Description": "Integer 11 - HR11",
           "NodeId": "HR11",
-          "DataType": 5,
+          "DataType": 3,
           "AccessMode": 2,
           "IsEnabled": true,
           "ScanRate": 1000
@@ -308,7 +308,7 @@
           "Name": "int12",
           "Description": "Integer 12 - HR12",
           "NodeId": "HR12",
-          "DataType": 5,
+          "DataType": 3,
           "AccessMode": 2,
           "IsEnabled": true,
           "ScanRate": 1000
@@ -318,7 +318,7 @@
           "Name": "int13",
           "Description": "Integer 13 - HR13",
           "NodeId": "HR13",
-          "DataType": 5,
+          "DataType": 3,
           "AccessMode": 2,
           "IsEnabled": true,
           "ScanRate": 1000
@@ -328,7 +328,7 @@
           "Name": "int14",
           "Description": "Integer 14 - HR14",
           "NodeId": "HR14",
-          "DataType": 5,
+          "DataType": 3,
           "AccessMode": 2,
           "IsEnabled": true,
           "ScanRate": 1000
@@ -338,7 +338,7 @@
           "Name": "int15",
           "Description": "Integer 15 - HR15",
           "NodeId": "HR15",
-          "DataType": 5,
+          "DataType": 3,
           "AccessMode": 2,
           "IsEnabled": true,
           "ScanRate": 1000
@@ -348,7 +348,7 @@
           "Name": "int16",
           "Description": "Integer 16 - HR16",
           "NodeId": "HR16",
-          "DataType": 5,
+          "DataType": 3,
           "AccessMode": 2,
           "IsEnabled": true,
           "ScanRate": 1000
@@ -358,7 +358,7 @@
           "Name": "int17",
           "Description": "Integer 17 - HR17",
           "NodeId": "HR17",
-          "DataType": 5,
+          "DataType": 3,
           "AccessMode": 2,
           "IsEnabled": true,
           "ScanRate": 1000
@@ -368,7 +368,7 @@
           "Name": "int18",
           "Description": "Integer 18 - HR18",
           "NodeId": "HR18",
-          "DataType": 5,
+          "DataType": 3,
           "AccessMode": 2,
           "IsEnabled": true,
           "ScanRate": 1000
@@ -378,7 +378,7 @@
           "Name": "int19",
           "Description": "Integer 19 - HR19",
           "NodeId": "HR19",
-          "DataType": 5,
+          "DataType": 3,
           "AccessMode": 2,
           "IsEnabled": true,
           "ScanRate": 1000
@@ -388,7 +388,7 @@
           "Name": "int20",
           "Description": "Integer 20 - HR20",
           "NodeId": "HR20",
-          "DataType": 5,
+          "DataType": 3,
           "AccessMode": 2,
           "IsEnabled": true,
           "ScanRate": 1000
@@ -398,7 +398,7 @@
           "Name": "int21",
           "Description": "Integer 21 - HR21",
           "NodeId": "HR21",
-          "DataType": 5,
+          "DataType": 3,
           "AccessMode": 2,
           "IsEnabled": true,
           "ScanRate": 1000
@@ -408,7 +408,7 @@
           "Name": "int22",
           "Description": "Integer 22 - HR22",
           "NodeId": "HR22",
-          "DataType": 5,
+          "DataType": 3,
           "AccessMode": 2,
           "IsEnabled": true,
           "ScanRate": 1000
@@ -418,7 +418,7 @@
           "Name": "int23",
           "Description": "Integer 23 - HR23",
           "NodeId": "HR23",
-          "DataType": 5,
+          "DataType": 3,
           "AccessMode": 2,
           "IsEnabled": true,
           "ScanRate": 1000
@@ -428,7 +428,7 @@
           "Name": "int24",
           "Description": "Integer 24 - HR24",
           "NodeId": "HR24",
-          "DataType": 5,
+          "DataType": 3,
           "AccessMode": 2,
           "IsEnabled": true,
           "ScanRate": 1000
@@ -438,7 +438,7 @@
           "Name": "int25",
           "Description": "Integer 25 - HR25",
           "NodeId": "HR25",
-          "DataType": 5,
+          "DataType": 3,
           "AccessMode": 2,
           "IsEnabled": true,
           "ScanRate": 1000
@@ -448,7 +448,7 @@
           "Name": "int26",
           "Description": "Integer 26 - HR26",
           "NodeId": "HR26",
-          "DataType": 5,
+          "DataType": 3,
           "AccessMode": 2,
           "IsEnabled": true,
           "ScanRate": 1000
@@ -458,7 +458,7 @@
           "Name": "int27",
           "Description": "Integer 27 - HR27",
           "NodeId": "HR27",
-          "DataType": 5,
+          "DataType": 3,
           "AccessMode": 2,
           "IsEnabled": true,
           "ScanRate": 1000
@@ -468,7 +468,7 @@
           "Name": "int28",
           "Description": "Integer 28 - HR28",
           "NodeId": "HR28",
-          "DataType": 5,
+          "DataType": 3,
           "AccessMode": 2,
           "IsEnabled": true,
           "ScanRate": 1000

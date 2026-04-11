@@ -151,7 +151,7 @@ Su dung file cau hinh `modbus_plc_config_sample.json` hoac cau hinh qua giao die
   "Id": "modbus-plc-001",
   "Name": "Modbus PLC Controller",
   "ProtocolType": 3,  // 3 = ModbusTcp
-  "IpAddress": "192.168.1.100",
+  "IpAddress": "192.168.1.10",
   "Port": 502,
   "IsEnabled": true,
   "ConnectionTimeout": 5000,
@@ -185,10 +185,10 @@ Su dung file cau hinh `modbus_plc_config_sample.json` hoac cau hinh qua giao die
     {"Name": "bool15", "NodeId": "HR0.14", "DataType": 0},
     
     // Integer values trong HR1-HR28
-    {"Name": "int1", "NodeId": "HR1", "DataType": 5},
-    {"Name": "int2", "NodeId": "HR2", "DataType": 5},
+    {"Name": "int1", "NodeId": "HR1", "DataType": 3},
+    {"Name": "int2", "NodeId": "HR2", "DataType": 3},
     // ...
-    {"Name": "int28", "NodeId": "HR28", "DataType": 5}
+    {"Name": "int28", "NodeId": "HR28", "DataType": 3}
   ]
 }
 ```
