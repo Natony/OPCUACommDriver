@@ -23,6 +23,11 @@ public abstract class BaseProtocolConnection : IPlcConnection
     protected bool _isDisconnecting;
     protected CancellationTokenSource? _reconnectCts;
 
+    // Polling mechanism for TCP protocols (Modbus, S7, MC)
+    private CancellationTokenSource? _pollingCts;
+    private Task? _pollingTask;
+    protected readonly SemaphoreSlim _communicationLock = new(1, 1);
+
     #region Properties
 
     public PlcDevice Device => _device;
@@ -109,6 +114,9 @@ public abstract class BaseProtocolConnection : IPlcConnection
                 _device.LastConnectedTime = _lastConnectedTime;
                 ConnectionState = PlcConnectionState.Connected;
                 _logger.LogInformation("[{Protocol}] Connected to {Device} successfully", ProtocolName, _device.Name);
+
+                // Start background polling for tag values
+                StartPolling();
             }
             else
             {
@@ -136,6 +144,7 @@ public abstract class BaseProtocolConnection : IPlcConnection
         try
         {
             _isDisconnecting = true;
+            StopPolling();
             _reconnectCts?.Cancel();
             ConnectionState = PlcConnectionState.Disconnecting;
             _logger.LogInformation("[{Protocol}] Disconnecting from {Device}...", ProtocolName, _device.Name);
@@ -176,6 +185,7 @@ public abstract class BaseProtocolConnection : IPlcConnection
             return null;
         }
 
+        await _communicationLock.WaitAsync(cancellationToken);
         try
         {
             return await ReadTagInternalAsync(nodeId, cancellationToken);
@@ -184,6 +194,10 @@ public abstract class BaseProtocolConnection : IPlcConnection
         {
             _logger.LogError(ex, "[{Protocol}] Error reading tag {NodeId}", ProtocolName, nodeId);
             return CreateErrorTagValue(nodeId, ex.Message);
+        }
+        finally
+        {
+            _communicationLock.Release();
         }
     }
 
@@ -207,6 +221,7 @@ public abstract class BaseProtocolConnection : IPlcConnection
             return false;
         }
 
+        await _communicationLock.WaitAsync(cancellationToken);
         try
         {
             return await WriteTagInternalAsync(nodeId, value, cancellationToken);
@@ -215,6 +230,10 @@ public abstract class BaseProtocolConnection : IPlcConnection
         {
             _logger.LogError(ex, "[{Protocol}] Error writing tag {NodeId}", ProtocolName, nodeId);
             return false;
+        }
+        finally
+        {
+            _communicationLock.Release();
         }
     }
 
@@ -227,6 +246,99 @@ public abstract class BaseProtocolConnection : IPlcConnection
             results.Add(result);
         }
         return results;
+    }
+
+    #endregion
+
+    #region Polling Methods - Background tag scanning for TCP protocols
+
+    private void StartPolling()
+    {
+        StopPolling();
+        _pollingCts = new CancellationTokenSource();
+        _pollingTask = Task.Run(() => PollTagsAsync(_pollingCts.Token));
+        _logger.LogInformation("[{Protocol}] Started background polling for {Device}", ProtocolName, _device.Name);
+    }
+
+    private void StopPolling()
+    {
+        if (_pollingCts != null)
+        {
+            _pollingCts.Cancel();
+            _pollingCts.Dispose();
+            _pollingCts = null;
+            _logger.LogInformation("[{Protocol}] Stopped background polling for {Device}", ProtocolName, _device.Name);
+        }
+    }
+
+    private async Task PollTagsAsync(CancellationToken ct)
+    {
+        // Small delay before first poll to let connection stabilize
+        await Task.Delay(200, ct);
+
+        while (!ct.IsCancellationRequested && IsConnected)
+        {
+            try
+            {
+                var enabledTags = _device.Tags.Where(t => t.IsEnabled).ToList();
+                if (enabledTags.Count == 0)
+                {
+                    await Task.Delay(1000, ct);
+                    continue;
+                }
+
+                foreach (var tag in enabledTags)
+                {
+                    if (ct.IsCancellationRequested || !IsConnected) break;
+
+                    try
+                    {
+                        await _communicationLock.WaitAsync(ct);
+                        try
+                        {
+                            var value = await ReadTagInternalAsync(tag.NodeId, ct);
+                            if (value != null)
+                            {
+                                tag.UpdateValue(value.Value, value.Quality, value.Timestamp, value.ServerTimestamp);
+                                OnTagValueChanged(tag.Id, tag.NodeId, value);
+                            }
+                        }
+                        finally
+                        {
+                            _communicationLock.Release();
+                        }
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        break;
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogDebug(ex, "[{Protocol}] Error polling tag {NodeId}", ProtocolName, tag.NodeId);
+                        tag.SetError(ex.Message);
+                    }
+                }
+
+                // Use minimum scan rate of enabled tags, with a floor of 100ms
+                var minScanRate = enabledTags.Min(t => t.ScanRate);
+                await Task.Delay(Math.Max(minScanRate, 100), ct);
+            }
+            catch (OperationCanceledException)
+            {
+                break;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "[{Protocol}] Polling loop error for {Device}", ProtocolName, _device.Name);
+
+                if (!ct.IsCancellationRequested && IsConnected)
+                {
+                    await Task.Delay(2000, ct);
+                }
+            }
+        }
+
+        _logger.LogDebug("[{Protocol}] Polling loop ended for {Device}", ProtocolName, _device.Name);
     }
 
     #endregion
@@ -302,6 +414,9 @@ public abstract class BaseProtocolConnection : IPlcConnection
                     _device.LastConnectedTime = _lastConnectedTime;
                     ConnectionState = PlcConnectionState.Connected;
                     _logger.LogInformation("[{Protocol}] Reconnected to {Device} successfully", ProtocolName, _device.Name);
+
+                    // Restart background polling after reconnect
+                    StartPolling();
                     return;
                 }
             }
@@ -396,6 +511,8 @@ public abstract class BaseProtocolConnection : IPlcConnection
 
         if (disposing)
         {
+            StopPolling();
+            _communicationLock.Dispose();
             _reconnectCts?.Cancel();
             _reconnectCts?.Dispose();
 
