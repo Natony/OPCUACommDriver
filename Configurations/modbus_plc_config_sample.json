@@ -475,6 +475,455 @@
         }
       ],
       "SubscriptionGroups": []
+    },
+    {
+      "Id": "fx5u-modbus",
+      "Name": "FX5U Modbus Server",
+      "Description": "Mitsubishi FX5U with Modbus TCP - bool1-bool15 (M0-M14 = C8192-C8206) va int1-int28 (D0-D27 = HR0-HR27)",
+      "ProtocolType": 3,
+      "PlcType": 0,
+      "IpAddress": "192.168.1.11",
+      "Port": 502,
+      "IsEnabled": true,
+      "ConnectionTimeout": 5000,
+      "ReadTimeout": 3000,
+      "WriteTimeout": 3000,
+      "AutoReconnect": true,
+      "ReconnectInterval": 5000,
+      "MaxReconnectAttempts": 10,
+      "Tags": [
+        {
+          "Id": "bool1",
+          "Name": "bool1",
+          "Description": "M0 (Coil 8192)",
+          "NodeId": "C8192",
+          "DataType": 0,
+          "AccessMode": 2,
+          "IsEnabled": true,
+          "ScanRate": 500
+        },
+        {
+          "Id": "bool2",
+          "Name": "bool2",
+          "Description": "M1 (Coil 8193)",
+          "NodeId": "C8193",
+          "DataType": 0,
+          "AccessMode": 2,
+          "IsEnabled": true,
+          "ScanRate": 500
+        },
+        {
+          "Id": "bool3",
+          "Name": "bool3",
+          "Description": "M2 (Coil 8194)",
+          "NodeId": "C8194",
+          "DataType": 0,
+          "AccessMode": 2,
+          "IsEnabled": true,
+          "ScanRate": 500
+        },
+        {
+          "Id": "bool4",
+          "Name": "bool4",
+          "Description": "M3 (Coil 8195)",
+          "NodeId": "C8195",
+          "DataType": 0,
+          "AccessMode": 2,
+          "IsEnabled": true,
+          "ScanRate": 500
+        },
+        {
+          "Id": "bool5",
+          "Name": "bool5",
+          "Description": "M4 (Coil 8196)",
+          "NodeId": "C8196",
+          "DataType": 0,
+          "AccessMode": 2,
+          "IsEnabled": true,
+          "ScanRate": 500
+        },
+        {
+          "Id": "bool6",
+          "Name": "bool6",
+          "Description": "M5 (Coil 8197)",
+          "NodeId": "C8197",
+          "DataType": 0,
+          "AccessMode": 2,
+          "IsEnabled": true,
+          "ScanRate": 500
+        },
+        {
+          "Id": "bool7",
+          "Name": "bool7",
+          "Description": "M6 (Coil 8198)",
+          "NodeId": "C8198",
+          "DataType": 0,
+          "AccessMode": 2,
+          "IsEnabled": true,
+          "ScanRate": 500
+        },
+        {
+          "Id": "bool8",
+          "Name": "bool8",
+          "Description": "M7 (Coil 8199)",
+          "NodeId": "C8199",
+          "DataType": 0,
+          "AccessMode": 2,
+          "IsEnabled": true,
+          "ScanRate": 500
+        },
+        {
+          "Id": "bool9",
+          "Name": "bool9",
+          "Description": "M8 (Coil 8200)",
+          "NodeId": "C8200",
+          "DataType": 0,
+          "AccessMode": 2,
+          "IsEnabled": true,
+          "ScanRate": 500
+        },
+        {
+          "Id": "bool10",
+          "Name": "bool10",
+          "Description": "M9 (Coil 8201)",
+          "NodeId": "C8201",
+          "DataType": 0,
+          "AccessMode": 2,
+          "IsEnabled": true,
+          "ScanRate": 500
+        },
+        {
+          "Id": "bool11",
+          "Name": "bool11",
+          "Description": "M10 (Coil 8202)",
+          "NodeId": "C8202",
+          "DataType": 0,
+          "AccessMode": 2,
+          "IsEnabled": true,
+          "ScanRate": 500
+        },
+        {
+          "Id": "bool12",
+          "Name": "bool12",
+          "Description": "M11 (Coil 8203)",
+          "NodeId": "C8203",
+          "DataType": 0,
+          "AccessMode": 2,
+          "IsEnabled": true,
+          "ScanRate": 500
+        },
+        {
+          "Id": "bool13",
+          "Name": "bool13",
+          "Description": "M12 (Coil 8204)",
+          "NodeId": "C8204",
+          "DataType": 0,
+          "AccessMode": 2,
+          "IsEnabled": true,
+          "ScanRate": 500
+        },
+        {
+          "Id": "bool14",
+          "Name": "bool14",
+          "Description": "M13 (Coil 8205)",
+          "NodeId": "C8205",
+          "DataType": 0,
+          "AccessMode": 2,
+          "IsEnabled": true,
+          "ScanRate": 500
+        },
+        {
+          "Id": "bool15",
+          "Name": "bool15",
+          "Description": "M14 (Coil 8206)",
+          "NodeId": "C8206",
+          "DataType": 0,
+          "AccessMode": 2,
+          "IsEnabled": true,
+          "ScanRate": 500
+        },
+        {
+          "Id": "int1",
+          "Name": "int1",
+          "Description": "D0 (HR0)",
+          "NodeId": "HR0",
+          "DataType": 3,
+          "AccessMode": 2,
+          "IsEnabled": true,
+          "ScanRate": 1000
+        },
+        {
+          "Id": "int2",
+          "Name": "int2",
+          "Description": "D1 (HR1)",
+          "NodeId": "HR1",
+          "DataType": 3,
+          "AccessMode": 2,
+          "IsEnabled": true,
+          "ScanRate": 1000
+        },
+        {
+          "Id": "int3",
+          "Name": "int3",
+          "Description": "D2 (HR2)",
+          "NodeId": "HR2",
+          "DataType": 3,
+          "AccessMode": 2,
+          "IsEnabled": true,
+          "ScanRate": 1000
+        },
+        {
+          "Id": "int4",
+          "Name": "int4",
+          "Description": "D3 (HR3)",
+          "NodeId": "HR3",
+          "DataType": 3,
+          "AccessMode": 2,
+          "IsEnabled": true,
+          "ScanRate": 1000
+        },
+        {
+          "Id": "int5",
+          "Name": "int5",
+          "Description": "D4 (HR4)",
+          "NodeId": "HR4",
+          "DataType": 3,
+          "AccessMode": 2,
+          "IsEnabled": true,
+          "ScanRate": 1000
+        },
+        {
+          "Id": "int6",
+          "Name": "int6",
+          "Description": "D5 (HR5)",
+          "NodeId": "HR5",
+          "DataType": 3,
+          "AccessMode": 2,
+          "IsEnabled": true,
+          "ScanRate": 1000
+        },
+        {
+          "Id": "int7",
+          "Name": "int7",
+          "Description": "D6 (HR6)",
+          "NodeId": "HR6",
+          "DataType": 3,
+          "AccessMode": 2,
+          "IsEnabled": true,
+          "ScanRate": 1000
+        },
+        {
+          "Id": "int8",
+          "Name": "int8",
+          "Description": "D7 (HR7)",
+          "NodeId": "HR7",
+          "DataType": 3,
+          "AccessMode": 2,
+          "IsEnabled": true,
+          "ScanRate": 1000
+        },
+        {
+          "Id": "int9",
+          "Name": "int9",
+          "Description": "D8 (HR8)",
+          "NodeId": "HR8",
+          "DataType": 3,
+          "AccessMode": 2,
+          "IsEnabled": true,
+          "ScanRate": 1000
+        },
+        {
+          "Id": "int10",
+          "Name": "int10",
+          "Description": "D9 (HR9)",
+          "NodeId": "HR9",
+          "DataType": 3,
+          "AccessMode": 2,
+          "IsEnabled": true,
+          "ScanRate": 1000
+        },
+        {
+          "Id": "int11",
+          "Name": "int11",
+          "Description": "D10 (HR10)",
+          "NodeId": "HR10",
+          "DataType": 3,
+          "AccessMode": 2,
+          "IsEnabled": true,
+          "ScanRate": 1000
+        },
+        {
+          "Id": "int12",
+          "Name": "int12",
+          "Description": "D11 (HR11)",
+          "NodeId": "HR11",
+          "DataType": 3,
+          "AccessMode": 2,
+          "IsEnabled": true,
+          "ScanRate": 1000
+        },
+        {
+          "Id": "int13",
+          "Name": "int13",
+          "Description": "D12 (HR12)",
+          "NodeId": "HR12",
+          "DataType": 3,
+          "AccessMode": 2,
+          "IsEnabled": true,
+          "ScanRate": 1000
+        },
+        {
+          "Id": "int14",
+          "Name": "int14",
+          "Description": "D13 (HR13)",
+          "NodeId": "HR13",
+          "DataType": 3,
+          "AccessMode": 2,
+          "IsEnabled": true,
+          "ScanRate": 1000
+        },
+        {
+          "Id": "int15",
+          "Name": "int15",
+          "Description": "D14 (HR14)",
+          "NodeId": "HR14",
+          "DataType": 3,
+          "AccessMode": 2,
+          "IsEnabled": true,
+          "ScanRate": 1000
+        },
+        {
+          "Id": "int16",
+          "Name": "int16",
+          "Description": "D15 (HR15)",
+          "NodeId": "HR15",
+          "DataType": 3,
+          "AccessMode": 2,
+          "IsEnabled": true,
+          "ScanRate": 1000
+        },
+        {
+          "Id": "int17",
+          "Name": "int17",
+          "Description": "D16 (HR16)",
+          "NodeId": "HR16",
+          "DataType": 3,
+          "AccessMode": 2,
+          "IsEnabled": true,
+          "ScanRate": 1000
+        },
+        {
+          "Id": "int18",
+          "Name": "int18",
+          "Description": "D17 (HR17)",
+          "NodeId": "HR17",
+          "DataType": 3,
+          "AccessMode": 2,
+          "IsEnabled": true,
+          "ScanRate": 1000
+        },
+        {
+          "Id": "int19",
+          "Name": "int19",
+          "Description": "D18 (HR18)",
+          "NodeId": "HR18",
+          "DataType": 3,
+          "AccessMode": 2,
+          "IsEnabled": true,
+          "ScanRate": 1000
+        },
+        {
+          "Id": "int20",
+          "Name": "int20",
+          "Description": "D19 (HR19)",
+          "NodeId": "HR19",
+          "DataType": 3,
+          "AccessMode": 2,
+          "IsEnabled": true,
+          "ScanRate": 1000
+        },
+        {
+          "Id": "int21",
+          "Name": "int21",
+          "Description": "D20 (HR20)",
+          "NodeId": "HR20",
+          "DataType": 3,
+          "AccessMode": 2,
+          "IsEnabled": true,
+          "ScanRate": 1000
+        },
+        {
+          "Id": "int22",
+          "Name": "int22",
+          "Description": "D21 (HR21)",
+          "NodeId": "HR21",
+          "DataType": 3,
+          "AccessMode": 2,
+          "IsEnabled": true,
+          "ScanRate": 1000
+        },
+        {
+          "Id": "int23",
+          "Name": "int23",
+          "Description": "D22 (HR22)",
+          "NodeId": "HR22",
+          "DataType": 3,
+          "AccessMode": 2,
+          "IsEnabled": true,
+          "ScanRate": 1000
+        },
+        {
+          "Id": "int24",
+          "Name": "int24",
+          "Description": "D23 (HR23)",
+          "NodeId": "HR23",
+          "DataType": 3,
+          "AccessMode": 2,
+          "IsEnabled": true,
+          "ScanRate": 1000
+        },
+        {
+          "Id": "int25",
+          "Name": "int25",
+          "Description": "D24 (HR24)",
+          "NodeId": "HR24",
+          "DataType": 3,
+          "AccessMode": 2,
+          "IsEnabled": true,
+          "ScanRate": 1000
+        },
+        {
+          "Id": "int26",
+          "Name": "int26",
+          "Description": "D25 (HR25)",
+          "NodeId": "HR25",
+          "DataType": 3,
+          "AccessMode": 2,
+          "IsEnabled": true,
+          "ScanRate": 1000
+        },
+        {
+          "Id": "int27",
+          "Name": "int27",
+          "Description": "D26 (HR26)",
+          "NodeId": "HR26",
+          "DataType": 3,
+          "AccessMode": 2,
+          "IsEnabled": true,
+          "ScanRate": 1000
+        },
+        {
+          "Id": "int28",
+          "Name": "int28",
+          "Description": "D27 (HR27)",
+          "NodeId": "HR27",
+          "DataType": 3,
+          "AccessMode": 2,
+          "IsEnabled": true,
+          "ScanRate": 1000
+        }
+      ],
+      "SubscriptionGroups": []
     }
   ]
 }
