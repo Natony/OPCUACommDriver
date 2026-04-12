@@ -1,3 +1,4 @@
+using System.IO;
 using System.Net.Sockets;
 using Microsoft.Extensions.Logging;
 using OpcUaCommunicationEngine.Enums;
