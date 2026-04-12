@@ -1,3 +1,4 @@
+using System.Net.Sockets;
 using Microsoft.Extensions.Logging;
 using OpcUaCommunicationEngine.Enums;
 using OpcUaCommunicationEngine.Interfaces;
@@ -273,6 +274,9 @@ public abstract class BaseProtocolConnection : IPlcConnection
 
     private async Task PollTagsAsync(CancellationToken ct)
     {
+        const int maxConsecutiveErrors = 3;
+        int consecutiveErrorCycles = 0;
+
         // Small delay before first poll to let connection stabilize
         await Task.Delay(200, ct);
 
@@ -286,6 +290,8 @@ public abstract class BaseProtocolConnection : IPlcConnection
                     await Task.Delay(1000, ct);
                     continue;
                 }
+
+                int connectionErrors = 0;
 
                 foreach (var tag in enabledTags)
                 {
@@ -312,11 +318,37 @@ public abstract class BaseProtocolConnection : IPlcConnection
                     {
                         break;
                     }
+                    catch (Exception ex) when (IsConnectionException(ex))
+                    {
+                        _logger.LogWarning("[{Protocol}] Connection error polling tag {NodeId}: {Message}",
+                            ProtocolName, tag.NodeId, ex.Message);
+                        tag.SetError(ex.Message);
+                        connectionErrors++;
+                    }
                     catch (Exception ex)
                     {
                         _logger.LogDebug(ex, "[{Protocol}] Error polling tag {NodeId}", ProtocolName, tag.NodeId);
                         tag.SetError(ex.Message);
                     }
+                }
+
+                // If all tags failed with connection errors, the TCP connection is likely dead
+                if (connectionErrors > 0 && connectionErrors >= enabledTags.Count)
+                {
+                    consecutiveErrorCycles++;
+                    _logger.LogWarning("[{Protocol}] All tags failed with connection errors ({Cycle}/{Max} consecutive cycles) for {Device}",
+                        ProtocolName, consecutiveErrorCycles, maxConsecutiveErrors, _device.Name);
+
+                    if (consecutiveErrorCycles >= maxConsecutiveErrors)
+                    {
+                        _logger.LogError("[{Protocol}] Connection lost detected after {Count} consecutive failure cycles for {Device}",
+                            ProtocolName, consecutiveErrorCycles, _device.Name);
+                        break; // Exit polling loop to trigger reconnect
+                    }
+                }
+                else
+                {
+                    consecutiveErrorCycles = 0; // Reset on any successful cycle
                 }
 
                 // Use minimum scan rate of enabled tags, with a floor of 100ms
@@ -339,6 +371,59 @@ public abstract class BaseProtocolConnection : IPlcConnection
         }
 
         _logger.LogDebug("[{Protocol}] Polling loop ended for {Device}", ProtocolName, _device.Name);
+
+        // If we exited due to connection loss (not cancellation or manual disconnect), trigger reconnect
+        if (!ct.IsCancellationRequested && !_isDisconnecting && !_isDisposed
+            && consecutiveErrorCycles >= maxConsecutiveErrors)
+        {
+            await HandleConnectionLostAsync();
+        }
+    }
+
+    /// <summary>
+    /// Xử lý khi phát hiện mất kết nối: cleanup, đánh dấu tags Bad, trigger auto-reconnect
+    /// </summary>
+    private async Task HandleConnectionLostAsync()
+    {
+        _logger.LogWarning("[{Protocol}] Handling connection loss for {Device}", ProtocolName, _device.Name);
+
+        _lastError = "Connection lost - communication failure detected";
+        _device.LastError = _lastError;
+        _lastDisconnectedTime = DateTime.Now;
+        _device.LastDisconnectedTime = _lastDisconnectedTime;
+
+        // Mark all enabled tags as Bad quality
+        foreach (var tag in _device.Tags.Where(t => t.IsEnabled))
+        {
+            tag.SetError("Connection lost");
+        }
+
+        // Cleanup dead TCP connection
+        try
+        {
+            await DisconnectInternalAsync();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "[{Protocol}] Error cleaning up dead connection", ProtocolName);
+        }
+
+        // Fire error event (broadcasts via SignalR)
+        OnError("Connection lost - communication failure detected", null, true);
+
+        // Trigger auto-reconnect (changes state to Reconnecting, broadcasts via SignalR)
+        await StartAutoReconnectAsync();
+    }
+
+    /// <summary>
+    /// Kiểm tra exception có phải lỗi kết nối (IO/Socket) không
+    /// </summary>
+    private static bool IsConnectionException(Exception ex)
+    {
+        return ex is IOException
+            || ex is SocketException
+            || ex.InnerException is IOException
+            || ex.InnerException is SocketException;
     }
 
     #endregion
