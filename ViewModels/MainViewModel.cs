@@ -1,10 +1,14 @@
 using System.Collections.ObjectModel;
+using System.IO;
 using System.Windows.Input;
+using System.Windows.Media;
 using OpcUaCommunicationEngine.Helpers;
 using OpcUaCommunicationEngine.Interfaces;
 using OpcUaCommunicationEngine.Models;
+using OpcUaCommunicationEngine.Services.Auth;
 using OpcUaCommunicationEngine.Services.OpcUa;
 using Serilog;
+using Serilog.Events;
 
 namespace OpcUaCommunicationEngine.ViewModels;
 
@@ -25,10 +29,40 @@ public class MainViewModel : ViewModelBase
     private bool _isConnected;
     private int _connectedPlcCount;
     private int _totalPlcCount;
+    private bool _isLogPanelVisible = true;
+
+    // Lock related fields
+    private OperatorLockService? _lockService;
+    private bool _hasLock;
+    private string _lockStatusText = "No lock service";
+    private string _lockHolderName = string.Empty;
+    private bool _canAcquireLock;
+    private string _currentUserId = "local-user";
+
+    // Logged in user
+    private User? _loggedInUser;
+
+    // API Server status
+    private bool _isApiRunning;
+    private string _apiUrl = string.Empty;
 
     #region Properties
 
     public ObservableCollection<PlcDevice> PlcDevices { get; } = new();
+
+    /// <summary>
+    /// Collection log entries để hiển thị trên UI
+    /// </summary>
+    public ObservableCollection<LogEntry> LogEntries { get; } = new();
+
+    /// <summary>
+    /// Log panel visibility
+    /// </summary>
+    public bool IsLogPanelVisible
+    {
+        get => _isLogPanelVisible;
+        set => SetProperty(ref _isLogPanelVisible, value);
+    }
 
     public PlcDevice? SelectedPlc
     {
@@ -95,9 +129,192 @@ public class MainViewModel : ViewModelBase
 
     public bool HasUnsavedChanges => _configService.HasUnsavedChanges;
 
-    public string WindowTitle => HasUnsavedChanges 
-        ? "OPC UA Communication Engine *" 
-        : "OPC UA Communication Engine";
+    public string WindowTitle
+    {
+        get
+        {
+            var fileName = !string.IsNullOrEmpty(_configService.CurrentFilePath)
+                ? Path.GetFileName(_configService.CurrentFilePath)
+                : "New Configuration";
+            var modified = HasUnsavedChanges ? " *" : "";
+            var userInfo = _loggedInUser != null ? $" [{_loggedInUser.DisplayName}]" : "";
+            return $"OPC UA Communication Engine - {fileName}{modified}{userInfo}";
+        }
+    }
+
+    /// <summary>
+    /// Tự động kết nối tất cả PLCs khi load configuration
+    /// </summary>
+    public bool AutoConnectOnStartup
+    {
+        get => _configService.CurrentConfiguration.Settings.AutoConnectOnStartup;
+        set
+        {
+            if (_configService.CurrentConfiguration.Settings.AutoConnectOnStartup != value)
+            {
+                _configService.CurrentConfiguration.Settings.AutoConnectOnStartup = value;
+                OnPropertyChanged();
+                _configService.MarkAsModified();
+                OnPropertyChanged(nameof(HasUnsavedChanges));
+                OnPropertyChanged(nameof(WindowTitle));
+                _logger.Information("AutoConnectOnStartup changed to: {Value}", value);
+            }
+        }
+    }
+
+    #region Lock Properties
+
+    /// <summary>
+    /// Whether current user holds the operator lock
+    /// </summary>
+    public bool HasLock
+    {
+        get => _hasLock;
+        private set
+        {
+            if (SetProperty(ref _hasLock, value))
+            {
+                OnPropertyChanged(nameof(LockIcon));
+                OnPropertyChanged(nameof(LockStatusText));
+                OnPropertyChanged(nameof(LockStatusColor));
+                OnPropertyChanged(nameof(CanAcquireLock));
+            }
+        }
+    }
+
+    /// <summary>
+    /// Whether user can acquire the lock (no one else holds it)
+    /// </summary>
+    public bool CanAcquireLock
+    {
+        get => _canAcquireLock && !_hasLock;
+        private set => SetProperty(ref _canAcquireLock, value);
+    }
+
+    /// <summary>
+    /// Lock status display text
+    /// </summary>
+    public string LockStatusText
+    {
+        get
+        {
+            if (_lockService == null)
+                return "No lock service";
+
+            if (_hasLock)
+                return "You have control";
+
+            if (!string.IsNullOrEmpty(_lockHolderName))
+                return $"Locked by {_lockHolderName}";
+
+            return "Available";
+        }
+    }
+
+    /// <summary>
+    /// Lock icon based on current state
+    /// </summary>
+    public string LockIcon
+    {
+        get
+        {
+            if (_lockService == null)
+                return "⚠️";
+
+            if (_hasLock)
+                return "🔒";
+
+            if (!string.IsNullOrEmpty(_lockHolderName))
+                return "🔐";
+
+            return "🔓";
+        }
+    }
+
+    /// <summary>
+    /// Lock status color as Brush
+    /// </summary>
+    public Brush LockStatusColor
+    {
+        get
+        {
+            if (_lockService == null)
+                return Brushes.Gray;
+
+            if (_hasLock)
+                return Brushes.Green;
+
+            if (!string.IsNullOrEmpty(_lockHolderName))
+                return Brushes.Orange;
+
+            return Brushes.DodgerBlue;
+        }
+    }
+
+    #endregion
+
+    #region API Status Properties
+
+    /// <summary>
+    /// Whether the API server is running
+    /// </summary>
+    public bool IsApiRunning
+    {
+        get => _isApiRunning;
+        private set
+        {
+            if (SetProperty(ref _isApiRunning, value))
+            {
+                OnPropertyChanged(nameof(ApiStatusText));
+                OnPropertyChanged(nameof(ApiStatusColor));
+                OnPropertyChanged(nameof(ApiStatusTooltip));
+            }
+        }
+    }
+
+    /// <summary>
+    /// API server URL
+    /// </summary>
+    public string ApiUrl
+    {
+        get => _apiUrl;
+        private set
+        {
+            if (SetProperty(ref _apiUrl, value))
+            {
+                OnPropertyChanged(nameof(ApiStatusTooltip));
+            }
+        }
+    }
+
+    /// <summary>
+    /// Short API status text for status bar
+    /// </summary>
+    public string ApiStatusText => _isApiRunning ? "API" : "API Off";
+
+    /// <summary>
+    /// API status color
+    /// </summary>
+    public Brush ApiStatusColor => _isApiRunning ? Brushes.Green : Brushes.Gray;
+
+    /// <summary>
+    /// Tooltip showing full API URL
+    /// </summary>
+    public string ApiStatusTooltip => _isApiRunning
+        ? $"API Server running at {_apiUrl}"
+        : "API Server is not running";
+
+    /// <summary>
+    /// Set API server status (called from App.xaml.cs)
+    /// </summary>
+    public void SetApiStatus(bool isRunning, string url = "")
+    {
+        IsApiRunning = isRunning;
+        ApiUrl = url;
+        _logger.Debug("API status updated: Running={IsRunning}, URL={Url}", isRunning, url);
+    }
+
+    #endregion
 
     #endregion
 
@@ -122,6 +339,12 @@ public class MainViewModel : ViewModelBase
     public ICommand BrowseServerCommand { get; }
     public ICommand ExitCommand { get; }
     public ICommand AboutCommand { get; }
+    public ICommand ToggleLogPanelCommand { get; }
+    public ICommand ClearLogsCommand { get; }
+
+    // Lock commands
+    public ICommand AcquireLockCommand { get; }
+    public ICommand ReleaseLockCommand { get; }
 
     #endregion
 
@@ -163,6 +386,12 @@ public class MainViewModel : ViewModelBase
         BrowseServerCommand = new AsyncRelayCommand(BrowseServerAsync, () => HasSelectedPlc);
         ExitCommand = new RelayCommand(Exit);
         AboutCommand = new RelayCommand(ShowAbout);
+        ToggleLogPanelCommand = new RelayCommand(ToggleLogPanel);
+        ClearLogsCommand = new RelayCommand(ClearLogs);
+
+        // Lock commands
+        AcquireLockCommand = new AsyncRelayCommand(AcquireLockAsync, () => CanAcquireLock);
+        ReleaseLockCommand = new AsyncRelayCommand(ReleaseLockAsync, () => HasLock);
 
         _logger.Debug("MainViewModel constructor completed");
     }
@@ -192,13 +421,32 @@ public class MainViewModel : ViewModelBase
             
             // Initialize PlcManager with PLCs from configuration
             await _plcManager.InitializeAsync();
-            
+
             StatusMessage = $"Loaded {PlcDevices.Count} PLCs";
             OnPropertyChanged(nameof(WindowTitle));
             OnPropertyChanged(nameof(HasUnsavedChanges));
             OnPropertyChanged(nameof(ConnectionStatusText));
-            
+            OnPropertyChanged(nameof(AutoConnectOnStartup));
+
             _logger.Information("InitializeAsync completed. PLCs: {Count}", PlcDevices.Count);
+
+            // Auto-connect all PLCs if enabled
+            if (_configService.CurrentConfiguration.Settings.AutoConnectOnStartup && PlcDevices.Count > 0)
+            {
+                _logger.Information("AutoConnectOnStartup is enabled. Connecting to all PLCs...");
+                StatusMessage = "Auto-connecting to PLCs...";
+                try
+                {
+                    var connectedCount = await _plcManager.ConnectAllAsync();
+                    StatusMessage = $"Auto-connected to {connectedCount}/{PlcDevices.Count} PLCs";
+                    _logger.Information("Auto-connect completed. Connected: {Connected}/{Total}", connectedCount, PlcDevices.Count);
+                }
+                catch (Exception connectEx)
+                {
+                    _logger.Error(connectEx, "Error during auto-connect");
+                    StatusMessage = "Auto-connect failed. Check logs for details.";
+                }
+            }
         }
         catch (Exception ex)
         {
@@ -268,15 +516,24 @@ public class MainViewModel : ViewModelBase
 
     private async Task LoadConfigurationAsync()
     {
+        var dialog = new Microsoft.Win32.OpenFileDialog
+        {
+            Filter = "JSON files (*.json)|*.json|All files (*.*)|*.*",
+            DefaultExt = ".json",
+            Title = "Open Configuration File"
+        };
+
+        if (dialog.ShowDialog() != true) return;
+
         IsBusy = true;
         BusyMessage = "Loading configuration...";
         StatusMessage = "Loading configuration...";
-        
+
         try
         {
             await _plcManager.DisconnectAllAsync();
-            await Task.Run(async () => await _configService.LoadConfigurationAsync());
-            
+            await Task.Run(async () => await _configService.LoadConfigurationAsync(dialog.FileName));
+
             PlcDevices.Clear();
             foreach (var plc in _configService.CurrentConfiguration.PlcDevices)
             {
@@ -286,15 +543,42 @@ public class MainViewModel : ViewModelBase
                     await _plcManager.AddPlcAsync(plc);
                 }
             }
-            
+
             TotalPlcCount = PlcDevices.Count;
-            StatusMessage = $"Loaded {PlcDevices.Count} PLCs";
+            StatusMessage = $"Loaded {PlcDevices.Count} PLCs from {Path.GetFileName(dialog.FileName)}";
+            OnPropertyChanged(nameof(WindowTitle));
+            OnPropertyChanged(nameof(HasUnsavedChanges));
             OnPropertyChanged(nameof(ConnectionStatusText));
+            OnPropertyChanged(nameof(AutoConnectOnStartup));
+
+            // Auto-connect all PLCs if enabled
+            if (_configService.CurrentConfiguration.Settings.AutoConnectOnStartup && PlcDevices.Count > 0)
+            {
+                _logger.Information("AutoConnectOnStartup is enabled. Connecting to all PLCs...");
+                BusyMessage = "Auto-connecting to PLCs...";
+                StatusMessage = "Auto-connecting to PLCs...";
+                try
+                {
+                    var connectedCount = await _plcManager.ConnectAllAsync();
+                    StatusMessage = $"Loaded config and connected to {connectedCount}/{PlcDevices.Count} PLCs";
+                    _logger.Information("Auto-connect after load completed. Connected: {Connected}/{Total}", connectedCount, PlcDevices.Count);
+                }
+                catch (Exception connectEx)
+                {
+                    _logger.Error(connectEx, "Error during auto-connect after load");
+                    StatusMessage = "Configuration loaded. Auto-connect failed.";
+                }
+            }
         }
         catch (Exception ex)
         {
             _logger.Error(ex, "Error loading configuration");
             StatusMessage = "Error loading configuration";
+            System.Windows.MessageBox.Show(
+                $"Error loading configuration:\n{ex.Message}",
+                "Load Error",
+                System.Windows.MessageBoxButton.OK,
+                System.Windows.MessageBoxImage.Error);
         }
         finally
         {
@@ -367,7 +651,7 @@ public class MainViewModel : ViewModelBase
     private void AddPlc()
     {
         _logger.Information("AddPlc called");
-        
+
         var newPlc = PlcDevice.Create(
             $"New PLC {PlcDevices.Count + 1}",
             "opc.tcp://localhost:4840");
@@ -377,25 +661,47 @@ public class MainViewModel : ViewModelBase
             newPlc.SubscriptionGroups.Add(group);
         }
 
-        PlcDevices.Add(newPlc);
-        _configService.CurrentConfiguration.PlcDevices.Add(newPlc);
-        _configService.MarkAsModified();
-        
-        _ = _plcManager.AddPlcAsync(newPlc);
-        
-        TotalPlcCount = PlcDevices.Count;
-        SelectedPlc = newPlc;
-        StatusMessage = $"Added new PLC: {newPlc.Name}";
-        
-        OnPropertyChanged(nameof(WindowTitle));
-        OnPropertyChanged(nameof(HasUnsavedChanges));
-        OnPropertyChanged(nameof(ConnectionStatusText));
+        // Show edit dialog immediately so user can configure the new PLC
+        var dialog = new Views.EditPlcDialog(newPlc);
+        dialog.Owner = System.Windows.Application.Current.MainWindow;
+
+        if (dialog.ShowDialog() == true)
+        {
+            // Only add PLC if user confirms the dialog
+            PlcDevices.Add(newPlc);
+            _configService.CurrentConfiguration.PlcDevices.Add(newPlc);
+            _configService.MarkAsModified();
+
+            _ = _plcManager.AddPlcAsync(newPlc);
+
+            TotalPlcCount = PlcDevices.Count;
+            SelectedPlc = newPlc;
+            StatusMessage = $"Added new PLC: {newPlc.Name}";
+
+            OnPropertyChanged(nameof(WindowTitle));
+            OnPropertyChanged(nameof(HasUnsavedChanges));
+            OnPropertyChanged(nameof(ConnectionStatusText));
+        }
+        else
+        {
+            _logger.Information("Add PLC cancelled by user");
+        }
     }
 
     private void EditPlc()
     {
         if (SelectedPlc == null) return;
-        StatusMessage = $"Editing PLC: {SelectedPlc.Name}";
+
+        var dialog = new Views.EditPlcDialog(SelectedPlc);
+        dialog.Owner = System.Windows.Application.Current.MainWindow;
+
+        if (dialog.ShowDialog() == true)
+        {
+            _configService.MarkAsModified();
+            StatusMessage = $"PLC '{SelectedPlc.Name}' updated";
+            OnPropertyChanged(nameof(WindowTitle));
+            OnPropertyChanged(nameof(HasUnsavedChanges));
+        }
     }
 
     private void DeletePlc()
@@ -466,7 +772,17 @@ public class MainViewModel : ViewModelBase
     private void EditTag()
     {
         if (SelectedTag == null) return;
-        StatusMessage = $"Editing Tag: {SelectedTag.Name}";
+
+        var dialog = new Views.EditTagDialog(SelectedTag);
+        dialog.Owner = System.Windows.Application.Current.MainWindow;
+
+        if (dialog.ShowDialog() == true)
+        {
+            _configService.MarkAsModified();
+            StatusMessage = $"Tag '{SelectedTag.Name}' updated";
+            OnPropertyChanged(nameof(WindowTitle));
+            OnPropertyChanged(nameof(HasUnsavedChanges));
+        }
     }
 
     private void DeleteTag()
@@ -487,7 +803,32 @@ public class MainViewModel : ViewModelBase
         SelectedTag = null;
 
         StatusMessage = $"Deleted Tag: {tagName}";
-        
+
+        OnPropertyChanged(nameof(WindowTitle));
+        OnPropertyChanged(nameof(HasUnsavedChanges));
+    }
+
+    /// <summary>
+    /// Delete multiple selected tags
+    /// </summary>
+    public void DeleteSelectedTags(IEnumerable<TagItem> tagsToDelete)
+    {
+        if (SelectedPlc == null) return;
+
+        var tagsList = tagsToDelete.ToList();
+        var count = tagsList.Count;
+
+        foreach (var tag in tagsList)
+        {
+            SelectedPlc.Tags.Remove(tag);
+        }
+
+        _configService.MarkAsModified();
+        SelectedTag = null;
+
+        StatusMessage = $"Deleted {count} tag(s)";
+        _logger.Information("Deleted {Count} tags from PLC {PlcName}", count, SelectedPlc.Name);
+
         OnPropertyChanged(nameof(WindowTitle));
         OnPropertyChanged(nameof(HasUnsavedChanges));
     }
@@ -656,11 +997,180 @@ public class MainViewModel : ViewModelBase
     {
         if (SelectedPlc == null || SelectedTag == null) return;
 
-        System.Windows.MessageBox.Show(
-            "Write Tag feature - implement value input dialog.",
-            "Write Tag",
-            System.Windows.MessageBoxButton.OK,
-            System.Windows.MessageBoxImage.Information);
+        // Check if PLC is connected
+        var connection = _plcManager.GetConnection(SelectedPlc.Id);
+        if (connection == null || !connection.IsConnected)
+        {
+            System.Windows.MessageBox.Show(
+                "Please connect to the PLC first.",
+                "Not Connected",
+                System.Windows.MessageBoxButton.OK,
+                System.Windows.MessageBoxImage.Warning);
+            return;
+        }
+
+        // Check if tag is writable
+        if (!SelectedTag.CanWrite)
+        {
+            System.Windows.MessageBox.Show(
+                "This tag is read-only and cannot be written.",
+                "Read-Only Tag",
+                System.Windows.MessageBoxButton.OK,
+                System.Windows.MessageBoxImage.Warning);
+            return;
+        }
+
+        var dialog = new Views.WriteValueDialog(SelectedTag);
+        dialog.Owner = System.Windows.Application.Current.MainWindow;
+
+        if (dialog.ShowDialog() == true && dialog.NewValue != null)
+        {
+            try
+            {
+                StatusMessage = $"Writing to {SelectedTag.Name}...";
+
+                var success = await _plcManager.WriteTagAsync(SelectedPlc.Id, SelectedTag.NodeId, dialog.NewValue);
+
+                if (success)
+                {
+                    StatusMessage = $"Successfully wrote '{dialog.NewValue}' to {SelectedTag.Name}";
+
+                    // Refresh the tag value
+                    var value = await _plcManager.ReadTagAsync(SelectedPlc.Id, SelectedTag.NodeId);
+                    if (value != null)
+                    {
+                        SelectedTag.UpdateValue(value.Value, value.Quality, value.SourceTimestamp);
+                    }
+                }
+                else
+                {
+                    StatusMessage = $"Failed to write to {SelectedTag.Name}";
+                    System.Windows.MessageBox.Show(
+                        $"Failed to write value to {SelectedTag.Name}",
+                        "Write Error",
+                        System.Windows.MessageBoxButton.OK,
+                        System.Windows.MessageBoxImage.Error);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(ex, "Error writing to tag {TagName}", SelectedTag.Name);
+                StatusMessage = $"Error writing to {SelectedTag.Name}";
+                System.Windows.MessageBox.Show(
+                    $"Error writing to {SelectedTag.Name}: {ex.Message}",
+                    "Write Error",
+                    System.Windows.MessageBoxButton.OK,
+                    System.Windows.MessageBoxImage.Error);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Write a string value to a tag (for inline editing)
+    /// </summary>
+    public async Task WriteTagValueAsync(TagItem tag, string valueString)
+    {
+        if (SelectedPlc == null || tag == null) return;
+
+        var connection = _plcManager.GetConnection(SelectedPlc.Id);
+        if (connection == null || !connection.IsConnected)
+        {
+            System.Windows.MessageBox.Show(
+                "Please connect to the PLC first.",
+                "Not Connected",
+                System.Windows.MessageBoxButton.OK,
+                System.Windows.MessageBoxImage.Warning);
+            return;
+        }
+
+        if (!tag.CanWrite)
+        {
+            System.Windows.MessageBox.Show(
+                "This tag is read-only and cannot be written.",
+                "Read-Only Tag",
+                System.Windows.MessageBoxButton.OK,
+                System.Windows.MessageBoxImage.Warning);
+            return;
+        }
+
+        try
+        {
+            // Parse the value based on tag data type
+            object? parsedValue = ParseValue(valueString, tag.DataType);
+
+            if (parsedValue == null)
+            {
+                System.Windows.MessageBox.Show(
+                    $"Could not parse '{valueString}' as {tag.DataType}",
+                    "Parse Error",
+                    System.Windows.MessageBoxButton.OK,
+                    System.Windows.MessageBoxImage.Warning);
+                return;
+            }
+
+            StatusMessage = $"Writing to {tag.Name}...";
+
+            var success = await _plcManager.WriteTagAsync(SelectedPlc.Id, tag.NodeId, parsedValue);
+
+            if (success)
+            {
+                StatusMessage = $"Successfully wrote '{parsedValue}' to {tag.Name}";
+
+                // Refresh the tag value
+                var value = await _plcManager.ReadTagAsync(SelectedPlc.Id, tag.NodeId);
+                if (value != null)
+                {
+                    tag.UpdateValue(value.Value, value.Quality, value.SourceTimestamp);
+                }
+            }
+            else
+            {
+                StatusMessage = $"Failed to write to {tag.Name}";
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.Error(ex, "Error writing to tag {TagName}", tag.Name);
+            StatusMessage = $"Error writing to {tag.Name}: {ex.Message}";
+        }
+    }
+
+    private object? ParseValue(string input, Enums.TagDataType dataType)
+    {
+        if (string.IsNullOrWhiteSpace(input)) return null;
+
+        try
+        {
+            return dataType switch
+            {
+                Enums.TagDataType.Boolean => input.Equals("true", StringComparison.OrdinalIgnoreCase) || input == "1",
+                Enums.TagDataType.SByte => sbyte.Parse(input),
+                Enums.TagDataType.Byte => byte.Parse(input),
+                Enums.TagDataType.Int16 => short.Parse(input),
+                Enums.TagDataType.UInt16 => ushort.Parse(input),
+                Enums.TagDataType.Int32 => int.Parse(input),
+                Enums.TagDataType.UInt32 => uint.Parse(input),
+                Enums.TagDataType.Int64 => long.Parse(input),
+                Enums.TagDataType.UInt64 => ulong.Parse(input),
+                Enums.TagDataType.Float => float.Parse(input),
+                Enums.TagDataType.Double => double.Parse(input),
+                Enums.TagDataType.String => input,
+                Enums.TagDataType.DateTime => DateTime.Parse(input),
+                _ => TryParseUnknown(input)
+            };
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private object TryParseUnknown(string input)
+    {
+        if (bool.TryParse(input, out var boolVal)) return boolVal;
+        if (int.TryParse(input, out var intVal)) return intVal;
+        if (double.TryParse(input, out var dblVal)) return dblVal;
+        return input;
     }
 
     private async Task BrowseServerAsync()
@@ -680,30 +1190,51 @@ public class MainViewModel : ViewModelBase
 
         try
         {
-            IsBusy = true;
-            BusyMessage = "Browsing server...";
-            StatusMessage = "Browsing OPC UA server...";
+            // Get the underlying PlcConnection to access Session
+            if (connection is not Services.OpcUa.PlcConnection plcConnection || plcConnection.Session == null)
+            {
+                System.Windows.MessageBox.Show(
+                    "Cannot access OPC UA session.",
+                    "Error",
+                    System.Windows.MessageBoxButton.OK,
+                    System.Windows.MessageBoxImage.Error);
+                return;
+            }
 
-            var nodes = await _plcManager.BrowseAsync(SelectedPlc.Id);
-            
-            StatusMessage = $"Found {nodes.Count} nodes";
-            
-            var nodeNames = string.Join("\n", nodes.Take(10).Select(n => $"{n.DisplayName} ({n.NodeClass})"));
-            System.Windows.MessageBox.Show(
-                $"Found {nodes.Count} nodes:\n\n{nodeNames}\n...",
-                "Browse Result",
-                System.Windows.MessageBoxButton.OK,
-                System.Windows.MessageBoxImage.Information);
+            StatusMessage = "Opening Browse Server window...";
+
+            // Open Browse Server window
+            var browseWindow = new Views.BrowseServerWindow(plcConnection.Session, SelectedPlc);
+            browseWindow.Owner = System.Windows.Application.Current.MainWindow;
+
+            var result = browseWindow.ShowDialog();
+
+            if (result == true && browseWindow.AddedTags.Any())
+            {
+                // Refresh the tag list
+                OnPropertyChanged(nameof(SelectedPlcTags));
+
+                StatusMessage = $"Added {browseWindow.AddedTags.Count} tags from server browser";
+                _logger.Information("Added {Count} tags from server browser", browseWindow.AddedTags.Count);
+
+                // Mark as unsaved
+                OnPropertyChanged(nameof(WindowTitle));
+                OnPropertyChanged(nameof(HasUnsavedChanges));
+            }
+            else
+            {
+                StatusMessage = "Browse server closed";
+            }
         }
         catch (Exception ex)
         {
             _logger.Error(ex, "Error browsing server");
             StatusMessage = "Error browsing server";
-        }
-        finally
-        {
-            IsBusy = false;
-            BusyMessage = string.Empty;
+            System.Windows.MessageBox.Show(
+                $"Error opening server browser: {ex.Message}",
+                "Error",
+                System.Windows.MessageBoxButton.OK,
+                System.Windows.MessageBoxImage.Error);
         }
     }
 
@@ -764,6 +1295,216 @@ public class MainViewModel : ViewModelBase
             "About",
             System.Windows.MessageBoxButton.OK,
             System.Windows.MessageBoxImage.Information);
+    }
+
+    private void ToggleLogPanel()
+    {
+        IsLogPanelVisible = !IsLogPanelVisible;
+    }
+
+    private void ClearLogs()
+    {
+        LogEntries.Clear();
+        _logger.Information("Log cleared");
+    }
+
+    #endregion
+
+    #region Lock Methods
+
+    /// <summary>
+    /// Set the logged in user for the desktop application
+    /// </summary>
+    public void SetLoggedInUser(User user)
+    {
+        _loggedInUser = user;
+        _currentUserId = user.Id;
+        _logger.Information("Logged in user set: {Username} (Role: {Role})", user.Username, user.Role);
+
+        // Update window title to show logged in user
+        OnPropertyChanged(nameof(WindowTitle));
+    }
+
+    /// <summary>
+    /// Set the lock service and subscribe to events
+    /// </summary>
+    public void SetLockService(OperatorLockService lockService)
+    {
+        if (_lockService != null)
+        {
+            // Unsubscribe from old service
+            _lockService.LockAcquired -= OnLockAcquired;
+            _lockService.LockReleased -= OnLockReleased;
+            _lockService.LockExtended -= OnLockExtended;
+        }
+
+        _lockService = lockService;
+
+        if (_lockService != null)
+        {
+            // Subscribe to events
+            _lockService.LockAcquired += OnLockAcquired;
+            _lockService.LockReleased += OnLockReleased;
+            _lockService.LockExtended += OnLockExtended;
+
+            // Update initial state
+            UpdateLockState();
+        }
+
+        // Notify UI
+        OnPropertyChanged(nameof(LockIcon));
+        OnPropertyChanged(nameof(LockStatusText));
+        OnPropertyChanged(nameof(LockStatusColor));
+        OnPropertyChanged(nameof(CanAcquireLock));
+        OnPropertyChanged(nameof(HasLock));
+
+        _logger.Information("Lock service configured for UI");
+    }
+
+    private void UpdateLockState()
+    {
+        if (_lockService == null) return;
+
+        var status = _lockService.GetLockStatus();
+
+        if (status.IsLocked)
+        {
+            _lockHolderName = status.DisplayName ?? status.Username ?? "Unknown";
+            HasLock = status.UserId == _currentUserId;
+            CanAcquireLock = false;
+        }
+        else
+        {
+            _lockHolderName = string.Empty;
+            HasLock = false;
+            CanAcquireLock = true;
+        }
+    }
+
+    private void OnLockAcquired(object? sender, LockEventArgs e)
+    {
+        System.Windows.Application.Current?.Dispatcher.InvokeAsync(() =>
+        {
+            _lockHolderName = e.Lock.DisplayName ?? e.Lock.Username ?? "Unknown";
+            HasLock = e.Lock.UserId == _currentUserId;
+            CanAcquireLock = false;
+
+            if (HasLock)
+            {
+                StatusMessage = "You have acquired operator control";
+                _logger.Information("Lock acquired by current user");
+            }
+            else
+            {
+                StatusMessage = $"Control acquired by {_lockHolderName}";
+                _logger.Information("Lock acquired by {User}", _lockHolderName);
+            }
+        });
+    }
+
+    private void OnLockReleased(object? sender, LockEventArgs e)
+    {
+        System.Windows.Application.Current?.Dispatcher.InvokeAsync(() =>
+        {
+            var wasOurs = HasLock;
+            _lockHolderName = string.Empty;
+            HasLock = false;
+            CanAcquireLock = true;
+
+            if (wasOurs)
+            {
+                StatusMessage = "You have released operator control";
+            }
+            else
+            {
+                StatusMessage = "Operator control is now available";
+            }
+
+            _logger.Information("Lock released");
+        });
+    }
+
+    private void OnLockExtended(object? sender, LockEventArgs e)
+    {
+        System.Windows.Application.Current?.Dispatcher.InvokeAsync(() =>
+        {
+            if (HasLock)
+            {
+                StatusMessage = $"Lock extended until {e.Lock.ExpiresAt:HH:mm:ss}";
+            }
+        });
+    }
+
+    private async Task AcquireLockAsync()
+    {
+        if (_lockService == null)
+        {
+            StatusMessage = "Lock service not available";
+            return;
+        }
+
+        try
+        {
+            StatusMessage = "Acquiring operator control...";
+
+            // For local UI, use Operator role
+            var (success, operatorLock, error, _, _) = _lockService.TryAcquireLock(
+                _currentUserId, "Local User", "Local User", Enums.UserRole.Operator);
+
+            if (success && operatorLock != null)
+            {
+                _lockHolderName = "You";
+                HasLock = true;
+                CanAcquireLock = false;
+                StatusMessage = "Operator control acquired";
+                _logger.Information("Successfully acquired operator lock");
+            }
+            else
+            {
+                StatusMessage = $"Failed to acquire lock: {error}";
+                _logger.Warning("Failed to acquire lock: {Error}", error);
+            }
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"Error acquiring lock: {ex.Message}";
+            _logger.Error(ex, "Error acquiring lock");
+        }
+    }
+
+    private async Task ReleaseLockAsync()
+    {
+        if (_lockService == null)
+        {
+            StatusMessage = "Lock service not available";
+            return;
+        }
+
+        try
+        {
+            StatusMessage = "Releasing operator control...";
+
+            var (success, error) = _lockService.ReleaseLock(_currentUserId);
+
+            if (success)
+            {
+                _lockHolderName = string.Empty;
+                HasLock = false;
+                CanAcquireLock = true;
+                StatusMessage = "Operator control released";
+                _logger.Information("Successfully released operator lock");
+            }
+            else
+            {
+                StatusMessage = $"Failed to release lock: {error}";
+                _logger.Warning("Failed to release lock: {Error}", error);
+            }
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"Error releasing lock: {ex.Message}";
+            _logger.Error(ex, "Error releasing lock");
+        }
     }
 
     #endregion

@@ -1,0 +1,479 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="AutoImportSettings">
+    <option name="autoReloadType" value="NONE" />
+  </component>
+  <component name="ChangeListManager">
+    <list default="true" id="eb02fb2c-30d1-43a9-9f3f-04a0c3a4402f" name="Changes" comment="">
+      <change beforePath="$PROJECT_DIR$/../.vs/OpcUaCommunicationEngine/CopilotIndices/17.14.1290.42047/CodeChunks.db" beforeDir="false" afterPath="$PROJECT_DIR$/../.vs/OpcUaCommunicationEngine/CopilotIndices/17.14.1290.42047/CodeChunks.db" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../.vs/OpcUaCommunicationEngine/CopilotIndices/17.14.1290.42047/SemanticSymbols.db" beforeDir="false" afterPath="$PROJECT_DIR$/../.vs/OpcUaCommunicationEngine/CopilotIndices/17.14.1290.42047/SemanticSymbols.db" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../.vs/OpcUaCommunicationEngine/DesignTimeBuild/.dtbcache.v2" beforeDir="false" afterPath="$PROJECT_DIR$/../.vs/OpcUaCommunicationEngine/DesignTimeBuild/.dtbcache.v2" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../.vs/OpcUaCommunicationEngine/FileContentIndex/278d58d4-4b39-4c1c-91a9-d11c9f988aec.vsidx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../.vs/OpcUaCommunicationEngine/FileContentIndex/39550d73-6c75-4644-9c80-b7a1eba1a3fc.vsidx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../.vs/OpcUaCommunicationEngine/FileContentIndex/5f3f889f-40bd-4553-8c6e-fbed7c86916e.vsidx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../.vs/OpcUaCommunicationEngine/FileContentIndex/66a75af4-3b5c-42c9-8731-8109d3e74e22.vsidx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../.vs/OpcUaCommunicationEngine/FileContentIndex/6ea2d4f0-1436-489a-aef5-81cb3c364d14.vsidx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../.vs/OpcUaCommunicationEngine/v17/.futdcache.v2" beforeDir="false" afterPath="$PROJECT_DIR$/../.vs/OpcUaCommunicationEngine/v17/.futdcache.v2" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../.vs/OpcUaCommunicationEngine/v17/.suo" beforeDir="false" afterPath="$PROJECT_DIR$/../.vs/OpcUaCommunicationEngine/v17/.suo" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../.vs/OpcUaCommunicationEngine/v17/DocumentLayout.backup.json" beforeDir="false" afterPath="$PROJECT_DIR$/../.vs/OpcUaCommunicationEngine/v17/DocumentLayout.backup.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../.vs/OpcUaCommunicationEngine/v17/DocumentLayout.json" beforeDir="false" afterPath="$PROJECT_DIR$/../.vs/OpcUaCommunicationEngine/v17/DocumentLayout.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../.vs/ProjectEvaluation/opcuacommunicationengine.metadata.v9.bin" beforeDir="false" afterPath="$PROJECT_DIR$/../.vs/ProjectEvaluation/opcuacommunicationengine.metadata.v9.bin" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../.vs/ProjectEvaluation/opcuacommunicationengine.projects.v9.bin" beforeDir="false" afterPath="$PROJECT_DIR$/../.vs/ProjectEvaluation/opcuacommunicationengine.projects.v9.bin" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../.vs/ProjectEvaluation/opcuacommunicationengine.strings.v9.bin" beforeDir="false" afterPath="$PROJECT_DIR$/../.vs/ProjectEvaluation/opcuacommunicationengine.strings.v9.bin" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../.vs/VSWorkspaceState.json" beforeDir="false" afterPath="$PROJECT_DIR$/../.vs/VSWorkspaceState.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../.vs/slnx.sqlite" beforeDir="false" afterPath="$PROJECT_DIR$/../.vs/slnx.sqlite" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.gitignore" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/.gitignore" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/AndroidProjectSystem.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/deploymentTargetSelector.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/gradle.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/inspectionProfiles/Project_Default.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/kotlinc.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/migrations.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/runConfigurations.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/vcs.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.kotlin/errors/errors-1749275204299.log" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.kotlin/errors/errors-1749538992638.log" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.kotlin/errors/errors-1751977562692.log" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.kotlin/errors/errors-1752622393571.log" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.kotlin/errors/errors-1753611285040.log" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.kotlin/errors/errors-1753746157124.log" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.kotlin/errors/errors-1754318265609.log" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.kotlin/errors/errors-1754349799634.log" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.kotlin/errors/errors-1754487048522.log" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/.gitignore" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/build.gradle.kts" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/proguard-rules.pro" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/schemas/com.example.s7opcuaapp.data.local.AppDatabase/1.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/schemas/com.example.s7opcuaapp.data.local.AppDatabase/3.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/androidTest/java/com/example/s7opcuaapp/ExampleInstrumentedTest.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/AndroidManifest.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/example/s7opcuaapp/MainActivity.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/example/s7opcuaapp/MyApplication.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/example/s7opcuaapp/data/api/ApiModels.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/example/s7opcuaapp/data/api/PlcApiClient.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/example/s7opcuaapp/data/api/PlcApiService.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/example/s7opcuaapp/data/api/PlcSignalRClient.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/example/s7opcuaapp/data/buffer/PlcDataBuffer.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/example/s7opcuaapp/data/local/AppDatabase.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/example/s7opcuaapp/data/local/Converters.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/example/s7opcuaapp/data/local/PrefsManager.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/example/s7opcuaapp/data/local/dao/DeviceAccessLogDao.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/example/s7opcuaapp/data/local/dao/DeviceDao.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/example/s7opcuaapp/data/local/dao/LoginHistoryDao.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/example/s7opcuaapp/data/local/dao/UserDao.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/example/s7opcuaapp/data/model/ActionDetail.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/example/s7opcuaapp/data/model/DeviceAccessLog.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/example/s7opcuaapp/data/model/DeviceAction.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/example/s7opcuaapp/data/model/DeviceEntity.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/example/s7opcuaapp/data/model/LoginHistory.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/example/s7opcuaapp/data/model/PlcData.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/example/s7opcuaapp/data/model/Session.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/example/s7opcuaapp/data/model/User.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/example/s7opcuaapp/data/model/UserCredentials.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/example/s7opcuaapp/data/repository/ApiRepositoryImpl.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/example/s7opcuaapp/data/repository/LogRepository.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/example/s7opcuaapp/data/repository/LogRepositoryImpl.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/example/s7opcuaapp/data/repository/S7Repository.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/example/s7opcuaapp/data/repository/UserRepository.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/example/s7opcuaapp/data/repository/UserRepositoryImpl.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/example/s7opcuaapp/di/AppModule.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/example/s7opcuaapp/di/DatabaseModule.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/example/s7opcuaapp/di/RepositoryModule.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/example/s7opcuaapp/ui/components/BatteryStatusItem.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/example/s7opcuaapp/ui/components/BoolControlItem.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/example/s7opcuaapp/ui/components/BooleanStatusItem.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/example/s7opcuaapp/ui/components/CommonTextField.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/example/s7opcuaapp/ui/components/ConnectionLostNotification.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/example/s7opcuaapp/ui/components/ConnectionOverlay.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/example/s7opcuaapp/ui/components/CountPalletItem.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/example/s7opcuaapp/ui/components/ErrorOverlay.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/example/s7opcuaapp/ui/components/FullScreenOverlay.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/example/s7opcuaapp/ui/components/FunctionListSelector.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/example/s7opcuaapp/ui/components/InlineNumberInputItem.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/example/s7opcuaapp/ui/components/IntControlItem.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/example/s7opcuaapp/ui/components/LoadingOverlay.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/example/s7opcuaapp/ui/components/MainControlContent.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/example/s7opcuaapp/ui/components/MultiStateStatusItem.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/example/s7opcuaapp/ui/components/NumberInputDialog.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/example/s7opcuaapp/ui/components/NumericStatusItem.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/example/s7opcuaapp/ui/components/OfflineOverlay.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/example/s7opcuaapp/ui/components/PerformanceOverlay.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/example/s7opcuaapp/ui/components/PressReleaseBoolControlItem.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/example/s7opcuaapp/ui/components/SendAllButton.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/example/s7opcuaapp/ui/components/SingleTouchHandler.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/example/s7opcuaapp/ui/components/TextStatusItem.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/example/s7opcuaapp/ui/components/TimeoutDialog.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/example/s7opcuaapp/ui/components/UserDialogs.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/example/s7opcuaapp/ui/navigation/BottomNavBar.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/example/s7opcuaapp/ui/navigation/MainNavGraph.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/example/s7opcuaapp/ui/navigation/RootNavHost.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/example/s7opcuaapp/ui/navigation/TopNavigationBar.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/example/s7opcuaapp/ui/screen/admin/StatusLockConfigScreen.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/example/s7opcuaapp/ui/screen/alarm/AlarmScreen.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/example/s7opcuaapp/ui/screen/config/ConfigScreen.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/example/s7opcuaapp/ui/screen/config/DeviceListItem.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/example/s7opcuaapp/ui/screen/control/BottomControlsRow.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/example/s7opcuaapp/ui/screen/control/CenterPanel.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/example/s7opcuaapp/ui/screen/control/ControlScreen.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/example/s7opcuaapp/ui/screen/control/ControlUiState.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/example/s7opcuaapp/ui/screen/control/LeftControlPanel.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/example/s7opcuaapp/ui/screen/control/RightControlPanel.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/example/s7opcuaapp/ui/screen/control/TopStatusBar.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/example/s7opcuaapp/ui/screen/history/LoginHistoryScreen.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/example/s7opcuaapp/ui/screen/home/HomeScreen.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/example/s7opcuaapp/ui/screen/login/LoginScreen.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/example/s7opcuaapp/ui/screen/login/LoginUiState.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/example/s7opcuaapp/ui/screen/usermanager/UserManagerScreen.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/example/s7opcuaapp/ui/theme/Color.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/example/s7opcuaapp/ui/theme/S7Theme.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/example/s7opcuaapp/ui/theme/Type.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/example/s7opcuaapp/util/ButtonLockConfig.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/example/s7opcuaapp/util/ConnectionTimeoutManager.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/example/s7opcuaapp/util/DateUtils.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/example/s7opcuaapp/util/LoadingTracker.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/example/s7opcuaapp/util/PasswordUtils.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/example/s7opcuaapp/util/PerformanceMonitor.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/example/s7opcuaapp/util/PermissionUtils.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/example/s7opcuaapp/util/SessionManager.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/example/s7opcuaapp/util/StatusLockConfig.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/example/s7opcuaapp/viewmodel/ConfigViewModel.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/example/s7opcuaapp/viewmodel/ControlViewModel.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/example/s7opcuaapp/viewmodel/HomeViewModel.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/example/s7opcuaapp/viewmodel/LoginHistoryViewModel.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/example/s7opcuaapp/viewmodel/LoginViewModel.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/example/s7opcuaapp/viewmodel/LogoutViewModel.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/example/s7opcuaapp/viewmodel/PerformanceViewModel.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/example/s7opcuaapp/viewmodel/StatusLockConfigViewModel.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/example/s7opcuaapp/viewmodel/UserManagerViewModel.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/res/drawable/.idea/.gitignore" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/res/drawable/.idea/misc.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/res/drawable/.idea/modules.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/res/drawable/.idea/vcs.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/res/drawable/ic_alarm.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/res/drawable/ic_battery_full.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/res/drawable/ic_battery_low.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/res/drawable/ic_battery_medium.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/res/drawable/ic_buzzer_off.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/res/drawable/ic_buzzer_on.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/res/drawable/ic_control.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/res/drawable/ic_count_pallet_off.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/res/drawable/ic_count_pallet_on.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/res/drawable/ic_delete.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/res/drawable/ic_device.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/res/drawable/ic_direction_a.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/res/drawable/ic_direction_b.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/res/drawable/ic_emergency_stop.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/res/drawable/ic_export.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/res/drawable/ic_fifo.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/res/drawable/ic_green.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/res/drawable/ic_group_user.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/res/drawable/ic_history.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/res/drawable/ic_home.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/res/drawable/ic_home_image.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/res/drawable/ic_launcher_background.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/res/drawable/ic_launcher_foreground.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/res/drawable/ic_lifo.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/res/drawable/ic_login.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/res/drawable/ic_login_error.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/res/drawable/ic_logo1.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/res/drawable/ic_mode_auto.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/res/drawable/ic_mode_error.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/res/drawable/ic_mode_idle.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/res/drawable/ic_mode_manual.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/res/drawable/ic_pallet_minus_off.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/res/drawable/ic_pallet_minus_on.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/res/drawable/ic_pallet_plus_off.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/res/drawable/ic_pallet_plus_on.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/res/drawable/ic_pallets_minus_off.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/res/drawable/ic_pallets_minus_on.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/res/drawable/ic_pallets_plus_off.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/res/drawable/ic_pallets_plus_on.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/res/drawable/ic_pos10_state0.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/res/drawable/ic_pos10_state1.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/res/drawable/ic_pos10_state2.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/res/drawable/ic_pos11_state0.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/res/drawable/ic_pos11_state1.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/res/drawable/ic_pos11_state2.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/res/drawable/ic_pos12_state0.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/res/drawable/ic_pos12_state1.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/res/drawable/ic_pos12_state2.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/res/drawable/ic_pos13_state0.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/res/drawable/ic_pos13_state1.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/res/drawable/ic_pos13_state2.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/res/drawable/ic_pos1_state0.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/res/drawable/ic_pos1_state1.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/res/drawable/ic_pos1_state2.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/res/drawable/ic_pos2_state0.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/res/drawable/ic_pos2_state1.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/res/drawable/ic_pos2_state2.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/res/drawable/ic_pos3_state0.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/res/drawable/ic_pos3_state1.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/res/drawable/ic_pos3_state2.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/res/drawable/ic_pos4_state0.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/res/drawable/ic_pos4_state1.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/res/drawable/ic_pos4_state2.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/res/drawable/ic_pos5_state0.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/res/drawable/ic_pos5_state1.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/res/drawable/ic_pos5_state2.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/res/drawable/ic_pos6_state0.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/res/drawable/ic_pos6_state1.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/res/drawable/ic_pos6_state2.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/res/drawable/ic_pos7_state0.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/res/drawable/ic_pos7_state1.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/res/drawable/ic_pos7_state2.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/res/drawable/ic_pos8_state0.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/res/drawable/ic_pos8_state1.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/res/drawable/ic_pos8_state2.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/res/drawable/ic_pos9_state0.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/res/drawable/ic_pos9_state1.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/res/drawable/ic_pos9_state2.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/res/drawable/ic_power_off.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/res/drawable/ic_power_on.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/res/drawable/ic_red.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/res/drawable/ic_settings.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/res/drawable/ic_shuttle_down_off.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/res/drawable/ic_shuttle_down_on.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/res/drawable/ic_shuttle_forward_off.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/res/drawable/ic_shuttle_forward_on.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/res/drawable/ic_shuttle_reverse_off.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/res/drawable/ic_shuttle_reverse_on.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/res/drawable/ic_shuttle_up_off.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/res/drawable/ic_shuttle_up_on.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/res/drawable/ic_stack_pallets_a_off.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/res/drawable/ic_stack_pallets_a_on.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/res/drawable/ic_stack_pallets_b_off.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/res/drawable/ic_stack_pallets_b_on.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/res/drawable/ic_status_off.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/res/drawable/ic_status_on.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/res/drawable/ic_visibility_off.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/res/drawable/ic_visibility_on.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/res/mipmap-hdpi/ic_launcher.webp" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/res/mipmap-hdpi/ic_launcher_round.webp" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/res/mipmap-mdpi/ic_launcher.webp" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/res/mipmap-mdpi/ic_launcher_round.webp" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/res/mipmap-xhdpi/ic_launcher.webp" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/res/mipmap-xhdpi/ic_launcher_round.webp" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/res/mipmap-xxhdpi/ic_launcher.webp" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/res/mipmap-xxhdpi/ic_launcher_round.webp" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/res/mipmap-xxxhdpi/ic_launcher.webp" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/res/mipmap-xxxhdpi/ic_launcher_round.webp" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/res/values/attrs.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/res/values/colors.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/res/values/strings.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/res/values/themes.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/res/xml/backup_rules.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/res/xml/data_extraction_rules.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/test/java/com/example/s7opcuaapp/ExampleUnitTest.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/build.gradle.kts" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/gradle.properties" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/gradle/libs.versions.toml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/gradle/wrapper/gradle-wrapper.jar" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/gradle/wrapper/gradle-wrapper.properties" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/gradlew" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/gradlew.bat" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/settings.gradle.kts" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../bin/Debug/net8.0-windows/BouncyCastle.Cryptography.dll" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../bin/Debug/net8.0-windows/Certificates/own/certs/OPC UA Communication Engine [2632BCF65C00EA458FB517763846BBA091F97DF8].der" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../bin/Debug/net8.0-windows/Certificates/own/private/OPC UA Communication Engine [2632BCF65C00EA458FB517763846BBA091F97DF8].pfx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../bin/Debug/net8.0-windows/CommunityToolkit.Mvvm.dll" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../bin/Debug/net8.0-windows/Configurations/appsettings.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../bin/Debug/net8.0-windows/Configurations/plc_config.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../bin/Debug/net8.0-windows/Logs/app-20251216.log" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../bin/Debug/net8.0-windows/Microsoft.Extensions.DependencyInjection.Abstractions.dll" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../bin/Debug/net8.0-windows/Microsoft.Extensions.DependencyInjection.dll" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../bin/Debug/net8.0-windows/Microsoft.Extensions.Logging.Abstractions.dll" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../bin/Debug/net8.0-windows/Newtonsoft.Json.dll" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../bin/Debug/net8.0-windows/Opc.Ua.Client.dll" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../bin/Debug/net8.0-windows/Opc.Ua.Configuration.dll" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../bin/Debug/net8.0-windows/Opc.Ua.Core.dll" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../bin/Debug/net8.0-windows/Opc.Ua.Gds.Client.Common.dll" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../bin/Debug/net8.0-windows/Opc.Ua.Gds.Server.Common.dll" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../bin/Debug/net8.0-windows/Opc.Ua.Security.Certificates.dll" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../bin/Debug/net8.0-windows/Opc.Ua.Server.dll" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../bin/Debug/net8.0-windows/OpcUaCommunicationEngine.deps.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../bin/Debug/net8.0-windows/OpcUaCommunicationEngine.dll" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../bin/Debug/net8.0-windows/OpcUaCommunicationEngine.exe" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../bin/Debug/net8.0-windows/OpcUaCommunicationEngine.pdb" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../bin/Debug/net8.0-windows/OpcUaCommunicationEngine.runtimeconfig.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../bin/Debug/net8.0-windows/Serilog.Sinks.Console.dll" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../bin/Debug/net8.0-windows/Serilog.Sinks.Debug.dll" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../bin/Debug/net8.0-windows/Serilog.Sinks.File.dll" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../bin/Debug/net8.0-windows/Serilog.dll" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../obj/Debug/net8.0-windows/App.baml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../obj/Debug/net8.0-windows/App.g.cs" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../obj/Debug/net8.0-windows/App.g.i.cs" beforeDir="false" afterPath="$PROJECT_DIR$/../obj/Debug/net8.0-windows/App.g.i.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../obj/Debug/net8.0-windows/GeneratedInternalTypeHelper.g.cs" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../obj/Debug/net8.0-windows/OpcUaCom.8A2A5CE2.Up2Date" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../obj/Debug/net8.0-windows/OpcUaCommunicationEngine.AssemblyInfo.cs" beforeDir="false" afterPath="$PROJECT_DIR$/../obj/Debug/net8.0-windows/OpcUaCommunicationEngine.AssemblyInfo.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../obj/Debug/net8.0-windows/OpcUaCommunicationEngine.AssemblyInfoInputs.cache" beforeDir="false" afterPath="$PROJECT_DIR$/../obj/Debug/net8.0-windows/OpcUaCommunicationEngine.AssemblyInfoInputs.cache" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../obj/Debug/net8.0-windows/OpcUaCommunicationEngine.GeneratedMSBuildEditorConfig.editorconfig" beforeDir="false" afterPath="$PROJECT_DIR$/../obj/Debug/net8.0-windows/OpcUaCommunicationEngine.GeneratedMSBuildEditorConfig.editorconfig" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../obj/Debug/net8.0-windows/OpcUaCommunicationEngine.assets.cache" beforeDir="false" afterPath="$PROJECT_DIR$/../obj/Debug/net8.0-windows/OpcUaCommunicationEngine.assets.cache" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../obj/Debug/net8.0-windows/OpcUaCommunicationEngine.csproj.AssemblyReference.cache" beforeDir="false" afterPath="$PROJECT_DIR$/../obj/Debug/net8.0-windows/OpcUaCommunicationEngine.csproj.AssemblyReference.cache" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../obj/Debug/net8.0-windows/OpcUaCommunicationEngine.csproj.CoreCompileInputs.cache" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../obj/Debug/net8.0-windows/OpcUaCommunicationEngine.csproj.FileListAbsolute.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../obj/Debug/net8.0-windows/OpcUaCommunicationEngine.designer.deps.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../obj/Debug/net8.0-windows/OpcUaCommunicationEngine.designer.runtimeconfig.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../obj/Debug/net8.0-windows/OpcUaCommunicationEngine.dll" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../obj/Debug/net8.0-windows/OpcUaCommunicationEngine.g.resources" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../obj/Debug/net8.0-windows/OpcUaCommunicationEngine.genruntimeconfig.cache" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../obj/Debug/net8.0-windows/OpcUaCommunicationEngine.pdb" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../obj/Debug/net8.0-windows/OpcUaCommunicationEngine_04vausfz_wpftmp.AssemblyInfo.cs" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../obj/Debug/net8.0-windows/OpcUaCommunicationEngine_04vausfz_wpftmp.AssemblyInfoInputs.cache" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../obj/Debug/net8.0-windows/OpcUaCommunicationEngine_04vausfz_wpftmp.GeneratedMSBuildEditorConfig.editorconfig" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../obj/Debug/net8.0-windows/OpcUaCommunicationEngine_04vausfz_wpftmp.GlobalUsings.g.cs" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../obj/Debug/net8.0-windows/OpcUaCommunicationEngine_04vausfz_wpftmp.assets.cache" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../obj/Debug/net8.0-windows/OpcUaCommunicationEngine_0jsbv1di_wpftmp.AssemblyInfo.cs" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../obj/Debug/net8.0-windows/OpcUaCommunicationEngine_0jsbv1di_wpftmp.AssemblyInfoInputs.cache" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../obj/Debug/net8.0-windows/OpcUaCommunicationEngine_0jsbv1di_wpftmp.GeneratedMSBuildEditorConfig.editorconfig" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../obj/Debug/net8.0-windows/OpcUaCommunicationEngine_0jsbv1di_wpftmp.GlobalUsings.g.cs" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../obj/Debug/net8.0-windows/OpcUaCommunicationEngine_0jsbv1di_wpftmp.assets.cache" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../obj/Debug/net8.0-windows/OpcUaCommunicationEngine_MarkupCompile.cache" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../obj/Debug/net8.0-windows/OpcUaCommunicationEngine_MarkupCompile.i.cache" beforeDir="false" afterPath="$PROJECT_DIR$/../obj/Debug/net8.0-windows/OpcUaCommunicationEngine_MarkupCompile.i.cache" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../obj/Debug/net8.0-windows/OpcUaCommunicationEngine_MarkupCompile.i.lref" beforeDir="false" afterPath="$PROJECT_DIR$/../obj/Debug/net8.0-windows/OpcUaCommunicationEngine_MarkupCompile.i.lref" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../obj/Debug/net8.0-windows/OpcUaCommunicationEngine_MarkupCompile.lref" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../obj/Debug/net8.0-windows/OpcUaCommunicationEngine_ua4yyksw_wpftmp.AssemblyInfo.cs" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../obj/Debug/net8.0-windows/OpcUaCommunicationEngine_ua4yyksw_wpftmp.AssemblyInfoInputs.cache" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../obj/Debug/net8.0-windows/OpcUaCommunicationEngine_ua4yyksw_wpftmp.GeneratedMSBuildEditorConfig.editorconfig" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../obj/Debug/net8.0-windows/OpcUaCommunicationEngine_ua4yyksw_wpftmp.GlobalUsings.g.cs" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../obj/Debug/net8.0-windows/OpcUaCommunicationEngine_ua4yyksw_wpftmp.assets.cache" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../obj/Debug/net8.0-windows/OpcUaCommunicationEngine_zlokmni4_wpftmp.AssemblyInfo.cs" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../obj/Debug/net8.0-windows/OpcUaCommunicationEngine_zlokmni4_wpftmp.AssemblyInfoInputs.cache" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../obj/Debug/net8.0-windows/OpcUaCommunicationEngine_zlokmni4_wpftmp.GeneratedMSBuildEditorConfig.editorconfig" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../obj/Debug/net8.0-windows/OpcUaCommunicationEngine_zlokmni4_wpftmp.GlobalUsings.g.cs" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../obj/Debug/net8.0-windows/OpcUaCommunicationEngine_zlokmni4_wpftmp.assets.cache" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../obj/Debug/net8.0-windows/Views/MainWindow.baml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../obj/Debug/net8.0-windows/Views/MainWindow.g.cs" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../obj/Debug/net8.0-windows/Views/MainWindow.g.i.cs" beforeDir="false" afterPath="$PROJECT_DIR$/../obj/Debug/net8.0-windows/Views/MainWindow.g.i.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../obj/Debug/net8.0-windows/apphost.exe" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../obj/Debug/net8.0-windows/ref/OpcUaCommunicationEngine.dll" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../obj/Debug/net8.0-windows/refint/OpcUaCommunicationEngine.dll" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../obj/OpcUaCommunicationEngine.csproj.nuget.dgspec.json" beforeDir="false" afterPath="$PROJECT_DIR$/../obj/OpcUaCommunicationEngine.csproj.nuget.dgspec.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../obj/OpcUaCommunicationEngine.csproj.nuget.g.props" beforeDir="false" afterPath="$PROJECT_DIR$/../obj/OpcUaCommunicationEngine.csproj.nuget.g.props" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../obj/OpcUaCommunicationEngine.csproj.nuget.g.targets" beforeDir="false" afterPath="$PROJECT_DIR$/../obj/OpcUaCommunicationEngine.csproj.nuget.g.targets" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../obj/project.assets.json" beforeDir="false" afterPath="$PROJECT_DIR$/../obj/project.assets.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../obj/project.nuget.cache" beforeDir="false" afterPath="$PROJECT_DIR$/../obj/project.nuget.cache" afterDir="false" />
+    </list>
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="ClangdSettings">
+    <option name="formatViaClangd" value="false" />
+  </component>
+  <component name="ExecutionTargetManager" SELECTED_TARGET="device_and_snapshot_combo_box_target[]" />
+  <component name="Git.Settings">
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$/.." />
+  </component>
+  <component name="ProblemsViewState">
+    <option name="selectedTabId" value="ProjectErrors" />
+  </component>
+  <component name="ProjectColorInfo"><![CDATA[{
+  "associatedIndex": 1
+}]]></component>
+  <component name="ProjectId" id="379vM0J7PltWscVRId96URlGhHI" />
+  <component name="ProjectViewState">
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showLibraryContents" value="true" />
+  </component>
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "RunOnceActivity.cidr.known.project.marker": "true",
+    "RunOnceActivity.git.unshallow": "true",
+    "RunOnceActivity.readMode.enableVisualFormatting": "true",
+    "cf.first.check.clang-format": "false",
+    "cidr.known.project.marker": "true",
+    "git-widget-placeholder": "claude/fix-connected-selection-error-sHYXV",
+    "last_opened_file_path": "C:/Users/user/source/repos/Natony/OPCUACommDriver/AndroidApp"
+  }
+}]]></component>
+  <component name="RunManager">
+    <configuration name="app" type="AndroidRunConfigurationType" factoryName="Android App" activateToolWindowBeforeRun="false">
+      <module name="S7OpcUaApp.app" />
+      <option name="ANDROID_RUN_CONFIGURATION_SCHEMA_VERSION" value="1" />
+      <option name="DEPLOY" value="true" />
+      <option name="DEPLOY_APK_FROM_BUNDLE" value="false" />
+      <option name="DEPLOY_AS_INSTANT" value="false" />
+      <option name="ARTIFACT_NAME" value="" />
+      <option name="PM_INSTALL_OPTIONS" value="" />
+      <option name="ALL_USERS" value="false" />
+      <option name="ALWAYS_INSTALL_WITH_PM" value="false" />
+      <option name="ALLOW_ASSUME_VERIFIED" value="false" />
+      <option name="CLEAR_APP_STORAGE" value="false" />
+      <option name="DYNAMIC_FEATURES_DISABLED_LIST" value="" />
+      <option name="ACTIVITY_EXTRA_FLAGS" value="" />
+      <option name="MODE" value="default_activity" />
+      <option name="RESTORE_ENABLED" value="false" />
+      <option name="RESTORE_FILE" value="" />
+      <option name="RESTORE_FRESH_INSTALL_ONLY" value="false" />
+      <option name="CLEAR_LOGCAT" value="false" />
+      <option name="SHOW_LOGCAT_AUTOMATICALLY" value="false" />
+      <option name="TARGET_SELECTION_MODE" value="DEVICE_AND_SNAPSHOT_COMBO_BOX" />
+      <option name="SELECTED_CLOUD_MATRIX_CONFIGURATION_ID" value="-1" />
+      <option name="SELECTED_CLOUD_MATRIX_PROJECT_ID" value="" />
+      <option name="DEBUGGER_TYPE" value="Auto" />
+      <Auto>
+        <option name="USE_JAVA_AWARE_DEBUGGER" value="false" />
+        <option name="SHOW_STATIC_VARS" value="true" />
+        <option name="WORKING_DIR" value="" />
+        <option name="TARGET_LOGGING_CHANNELS" value="lldb process:gdb-remote packets" />
+        <option name="SHOW_OPTIMIZED_WARNING" value="true" />
+        <option name="ATTACH_ON_WAIT_FOR_DEBUGGER" value="false" />
+        <option name="DEBUG_SANDBOX_SDK" value="false" />
+      </Auto>
+      <Hybrid>
+        <option name="USE_JAVA_AWARE_DEBUGGER" value="false" />
+        <option name="SHOW_STATIC_VARS" value="true" />
+        <option name="WORKING_DIR" value="" />
+        <option name="TARGET_LOGGING_CHANNELS" value="lldb process:gdb-remote packets" />
+        <option name="SHOW_OPTIMIZED_WARNING" value="true" />
+        <option name="ATTACH_ON_WAIT_FOR_DEBUGGER" value="false" />
+        <option name="DEBUG_SANDBOX_SDK" value="false" />
+      </Hybrid>
+      <Java>
+        <option name="ATTACH_ON_WAIT_FOR_DEBUGGER" value="false" />
+        <option name="DEBUG_SANDBOX_SDK" value="false" />
+      </Java>
+      <Native>
+        <option name="USE_JAVA_AWARE_DEBUGGER" value="false" />
+        <option name="SHOW_STATIC_VARS" value="true" />
+        <option name="WORKING_DIR" value="" />
+        <option name="TARGET_LOGGING_CHANNELS" value="lldb process:gdb-remote packets" />
+        <option name="SHOW_OPTIMIZED_WARNING" value="true" />
+        <option name="ATTACH_ON_WAIT_FOR_DEBUGGER" value="false" />
+        <option name="DEBUG_SANDBOX_SDK" value="false" />
+      </Native>
+      <Profilers>
+        <option name="ADVANCED_PROFILING_ENABLED" value="false" />
+        <option name="STARTUP_PROFILING_ENABLED" value="false" />
+        <option name="STARTUP_CPU_PROFILING_ENABLED" value="false" />
+        <option name="STARTUP_CPU_PROFILING_CONFIGURATION_NAME" value="Java/Kotlin Method Sample (legacy)" />
+        <option name="STARTUP_NATIVE_MEMORY_PROFILING_ENABLED" value="false" />
+        <option name="NATIVE_MEMORY_SAMPLE_RATE_BYTES" value="2048" />
+      </Profilers>
+      <option name="DEEP_LINK" value="" />
+      <option name="ACTIVITY" value="" />
+      <option name="ACTIVITY_CLASS" value="" />
+      <option name="SEARCH_ACTIVITY_IN_GLOBAL_SCOPE" value="false" />
+      <option name="SKIP_ACTIVITY_VALIDATION" value="false" />
+      <method v="2">
+        <option name="Android.Gradle.BeforeRunTask" enabled="true" />
+      </method>
+    </configuration>
+  </component>
+  <component name="TaskManager">
+    <task active="true" id="Default" summary="Default task">
+      <changelist id="eb02fb2c-30d1-43a9-9f3f-04a0c3a4402f" name="Changes" comment="" />
+      <created>1766328050264</created>
+      <option name="number" value="Default" />
+      <option name="presentableId" value="Default" />
+      <updated>1766328050264</updated>
+    </task>
+    <servers />
+  </component>
+</project>

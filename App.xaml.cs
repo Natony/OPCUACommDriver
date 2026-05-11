@@ -1,11 +1,20 @@
+using System.Collections.ObjectModel;
+using System.IO;
 using System.Windows;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using Newtonsoft.Json;
+using OpcUaCommunicationEngine.Api;
 using OpcUaCommunicationEngine.Interfaces;
+using OpcUaCommunicationEngine.Models;
 using OpcUaCommunicationEngine.Services;
+using OpcUaCommunicationEngine.Services.Auth;
 using OpcUaCommunicationEngine.Services.OpcUa;
+using OpcUaCommunicationEngine.Services.Protocols;
 using OpcUaCommunicationEngine.ViewModels;
 using OpcUaCommunicationEngine.Views;
 using Serilog;
+using ILogger = Serilog.ILogger;
 
 namespace OpcUaCommunicationEngine;
 
@@ -16,14 +25,23 @@ namespace OpcUaCommunicationEngine;
 public partial class App : Application
 {
     private IServiceProvider? _serviceProvider;
+    private ApiHostService? _apiHostService;
+    private MainViewModel? _mainViewModel;
+    private User? _loggedInUser;
+    private ApiSettings _apiSettings = new();
 
     public IServiceProvider ServiceProvider => _serviceProvider ?? throw new InvalidOperationException("ServiceProvider not initialized");
+    public ApiHostService? ApiHost => _apiHostService;
+    public User? LoggedInUser => _loggedInUser;
 
     protected override void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
 
-        // Setup Logging
+        // Prevent app from shutting down when login window closes
+        ShutdownMode = ShutdownMode.OnExplicitShutdown;
+
+        // Setup initial logging (file and console only)
         Log.Logger = new LoggerConfiguration()
             .MinimumLevel.Debug()
             .WriteTo.Console()
@@ -46,17 +64,55 @@ public partial class App : Application
 
             Log.Information("Services configured successfully");
 
+            // Show login window first
+            var userService = _serviceProvider.GetRequiredService<UserService>();
+            var loginWindow = new LoginWindow(userService);
+
+            var loginResult = loginWindow.ShowDialog();
+            if (loginResult != true || loginWindow.LoggedInUser == null)
+            {
+                Log.Information("Login cancelled or failed, shutting down");
+                Shutdown(0);
+                return;
+            }
+
+            _loggedInUser = loginWindow.LoggedInUser;
+            Log.Information("User {Username} logged in with role {Role}", _loggedInUser.Username, _loggedInUser.Role);
+
             // Create and show main window
             var mainWindow = _serviceProvider.GetRequiredService<MainWindow>();
-            var mainViewModel = _serviceProvider.GetRequiredService<MainViewModel>();
-            
-            mainWindow.DataContext = mainViewModel;
+            _mainViewModel = _serviceProvider.GetRequiredService<MainViewModel>();
+
+            // Set logged in user info
+            _mainViewModel.SetLoggedInUser(_loggedInUser);
+
+            // Reconfigure logger to include UI sink
+            Log.Logger = new LoggerConfiguration()
+                .MinimumLevel.Debug()
+                .WriteTo.Console()
+                .WriteTo.Debug()
+                .WriteTo.File(
+                    path: "Logs/app-.log",
+                    rollingInterval: RollingInterval.Day,
+                    retainedFileCountLimit: 7,
+                    outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss.fff} [{Level:u3}] {Message:lj}{NewLine}{Exception}")
+                .WriteTo.UiSink(_mainViewModel.LogEntries, maxEntries: 500)
+                .CreateLogger();
+
+            Log.Information("UI Log sink configured");
+
+            mainWindow.DataContext = _mainViewModel;
+
+            // Set MainWindow and switch to normal shutdown mode
+            MainWindow = mainWindow;
+            ShutdownMode = ShutdownMode.OnMainWindowClose;
+
             mainWindow.Show();
 
             Log.Information("MainWindow shown");
 
             // Initialize ViewModel
-            _ = InitializeViewModelAsync(mainViewModel);
+            _ = InitializeViewModelAsync(_mainViewModel);
         }
         catch (Exception ex)
         {
@@ -74,11 +130,14 @@ public partial class App : Application
             await Task.Delay(100);
             await viewModel.InitializeAsync();
             Log.Information("ViewModel initialization completed");
+
+            // Start API server
+            await StartApiServerAsync();
         }
         catch (Exception ex)
         {
             Log.Error(ex, "Error during ViewModel initialization");
-            
+
             await Dispatcher.InvokeAsync(() =>
             {
                 MessageBox.Show($"Error loading configuration:\n{ex.Message}", "Warning", MessageBoxButton.OK, MessageBoxImage.Warning);
@@ -86,30 +145,107 @@ public partial class App : Application
         }
     }
 
+    private async Task StartApiServerAsync()
+    {
+        try
+        {
+            // Check if API is enabled
+            if (!_apiSettings.Enabled)
+            {
+                Log.Information("API Server is disabled in settings");
+                if (_mainViewModel != null)
+                {
+                    await Dispatcher.InvokeAsync(() => _mainViewModel.SetApiStatus(false));
+                }
+                return;
+            }
+
+            _apiHostService = _serviceProvider?.GetService<ApiHostService>();
+            if (_apiHostService != null)
+            {
+                await _apiHostService.StartAsync();
+                Log.Information("API Server started successfully at {Url}", _apiHostService.BaseUrl);
+
+                // Update API status in MainViewModel
+                if (_mainViewModel != null)
+                {
+                    await Dispatcher.InvokeAsync(() =>
+                    {
+                        _mainViewModel.SetApiStatus(true, _apiHostService.BaseUrl);
+                    });
+                }
+
+                // Connect MainViewModel to LockService for UI updates
+                if (_mainViewModel != null && _apiHostService.LockService != null)
+                {
+                    await Dispatcher.InvokeAsync(() =>
+                    {
+                        _mainViewModel.SetLockService(_apiHostService.LockService);
+                    });
+                    Log.Information("Lock service connected to UI");
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Failed to start API server");
+            if (_mainViewModel != null)
+            {
+                await Dispatcher.InvokeAsync(() => _mainViewModel.SetApiStatus(false));
+            }
+            // API server failure should not prevent the app from running
+        }
+    }
+
     private void ConfigureServices(IServiceCollection services)
     {
         Log.Debug("Configuring services...");
-        
+
         // Logging
         services.AddSingleton<ILogger>(Log.Logger);
 
+        // Load ApiSettings
+        _apiSettings = LoadApiSettings();
+        services.AddSingleton(_apiSettings);
+
+        // Load AuthSettings
+        var authSettings = LoadAuthSettings();
+        services.AddSingleton(authSettings);
+
+        // Auth Services
+        services.AddSingleton<UserService>();
+
         // Services
-        services.AddSingleton<IConfigurationService>(sp => 
+        services.AddSingleton<IConfigurationService>(sp =>
         {
             Log.Debug("Creating ConfigurationService...");
             return new ConfigurationService(sp.GetRequiredService<ILogger>());
         });
-        
+
         services.AddSingleton<IDataCache, DataCacheService>();
-        
-        // OPC UA Manager
+
+        // Add LoggerFactory for protocol connections
+        services.AddLogging(builder =>
+        {
+            builder.AddSerilog(Log.Logger, dispose: false);
+        });
+
+        // Protocol Connection Factory
+        services.AddSingleton<IProtocolConnectionFactory>(sp =>
+        {
+            Log.Debug("Creating ProtocolConnectionFactory...");
+            return new ProtocolConnectionFactory(sp.GetRequiredService<ILoggerFactory>());
+        });
+
+        // PLC Manager (supports multiple protocols)
         services.AddSingleton<IPlcManager>(sp =>
         {
-            Log.Debug("Creating PlcManager...");
+            Log.Debug("Creating PlcManager with protocol factory support...");
             return new PlcManager(
                 sp.GetRequiredService<ILogger>(),
                 sp.GetRequiredService<IConfigurationService>(),
-                sp.GetRequiredService<IDataCache>());
+                sp.GetRequiredService<IDataCache>(),
+                sp.GetRequiredService<IProtocolConnectionFactory>());
         });
 
         // ViewModels
@@ -117,21 +253,102 @@ public partial class App : Application
 
         // Views
         services.AddTransient<MainWindow>();
-        
+
+        // API Host Service
+        services.AddSingleton<ApiHostService>(sp =>
+        {
+            var apiSettings = sp.GetRequiredService<ApiSettings>();
+            Log.Debug("Creating ApiHostService on {BindAddress}:{Port}...", apiSettings.BindAddress, apiSettings.Port);
+            return new ApiHostService(
+                sp.GetRequiredService<IPlcManager>(),
+                sp.GetRequiredService<ILogger>(),
+                sp.GetRequiredService<AuthSettings>(),
+                port: apiSettings.Port,
+                bindAddress: apiSettings.BindAddress);
+        });
+
         Log.Debug("Services configured");
+    }
+
+    private AuthSettings LoadAuthSettings()
+    {
+        const string authSettingsPath = "Configurations/auth_settings.json";
+
+        try
+        {
+            if (File.Exists(authSettingsPath))
+            {
+                var json = File.ReadAllText(authSettingsPath);
+                var settings = JsonConvert.DeserializeObject<AuthSettings>(json);
+                if (settings != null)
+                {
+                    Log.Information("Loaded auth settings from {Path}", authSettingsPath);
+                    return settings;
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "Error loading auth settings, using defaults");
+        }
+
+        Log.Information("Using default auth settings");
+        return new AuthSettings();
+    }
+
+    private ApiSettings LoadApiSettings()
+    {
+        const string appSettingsPath = "Configurations/appsettings.json";
+
+        try
+        {
+            if (File.Exists(appSettingsPath))
+            {
+                var json = File.ReadAllText(appSettingsPath);
+                var doc = Newtonsoft.Json.Linq.JObject.Parse(json);
+                var apiSection = doc["Api"];
+                if (apiSection != null)
+                {
+                    var settings = new ApiSettings
+                    {
+                        Port = (int?)apiSection["Port"] ?? 5000,
+                        BindAddress = (string?)apiSection["BindAddress"] ?? "0.0.0.0",
+                        Enabled = (bool?)apiSection["Enabled"] ?? true
+                    };
+                    Log.Information("Loaded API settings: BindAddress={BindAddress}, Port={Port}, Enabled={Enabled}",
+                        settings.BindAddress, settings.Port, settings.Enabled);
+                    return settings;
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "Error loading API settings, using defaults");
+        }
+
+        Log.Information("Using default API settings (0.0.0.0:5000)");
+        return new ApiSettings();
     }
 
     protected override void OnExit(ExitEventArgs e)
     {
         Log.Information("=== Application Shutting Down ===");
-        
+
+        // Stop API server
+        if (_apiHostService != null)
+        {
+            Log.Information("Stopping API server...");
+            _apiHostService.StopAsync().GetAwaiter().GetResult();
+            _apiHostService.Dispose();
+        }
+
         // Dispose PlcManager
         if (_serviceProvider != null)
         {
             var plcManager = _serviceProvider.GetService<IPlcManager>();
             plcManager?.Dispose();
         }
-        
+
         Log.CloseAndFlush();
         base.OnExit(e);
     }

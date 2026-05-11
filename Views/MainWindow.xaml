@@ -4,6 +4,8 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:vm="clr-namespace:OpcUaCommunicationEngine.ViewModels"
+        xmlns:enums="clr-namespace:OpcUaCommunicationEngine.Enums"
+        xmlns:sys="clr-namespace:System;assembly=mscorlib"
         mc:Ignorable="d"
         Title="{Binding WindowTitle}" 
         Height="800" Width="1400"
@@ -11,11 +13,26 @@
         WindowStartupLocation="CenterScreen"
         Background="{StaticResource BackgroundBrush}">
 
+    <Window.Resources>
+        <!-- Enum values for ComboBox -->
+        <ObjectDataProvider x:Key="DataTypeValues" MethodName="GetValues" ObjectType="{x:Type sys:Enum}">
+            <ObjectDataProvider.MethodParameters>
+                <x:Type TypeName="enums:TagDataType"/>
+            </ObjectDataProvider.MethodParameters>
+        </ObjectDataProvider>
+        <ObjectDataProvider x:Key="AccessModeValues" MethodName="GetValues" ObjectType="{x:Type sys:Enum}">
+            <ObjectDataProvider.MethodParameters>
+                <x:Type TypeName="enums:TagAccessMode"/>
+            </ObjectDataProvider.MethodParameters>
+        </ObjectDataProvider>
+    </Window.Resources>
+
     <Window.InputBindings>
         <KeyBinding Key="S" Modifiers="Ctrl" Command="{Binding SaveConfigCommand}"/>
         <KeyBinding Key="O" Modifiers="Ctrl" Command="{Binding LoadConfigCommand}"/>
         <KeyBinding Key="N" Modifiers="Ctrl" Command="{Binding AddPlcCommand}"/>
         <KeyBinding Key="F5" Command="{Binding RefreshCommand}"/>
+        <KeyBinding Key="L" Modifiers="Ctrl" Command="{Binding ToggleLogPanelCommand}"/>
     </Window.InputBindings>
 
     <Grid>
@@ -23,6 +40,8 @@
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="180"/>
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
@@ -32,6 +51,9 @@
                 <MenuItem Header="_Load Configuration" Command="{Binding LoadConfigCommand}" InputGestureText="Ctrl+O"/>
                 <MenuItem Header="_Save Configuration" Command="{Binding SaveConfigCommand}" InputGestureText="Ctrl+S"/>
                 <MenuItem Header="Save _As..." Command="{Binding SaveConfigAsCommand}"/>
+                <Separator/>
+                <MenuItem Header="_Auto-Connect on Load" IsCheckable="True" IsChecked="{Binding AutoConnectOnStartup}"
+                          ToolTip="Automatically connect to all PLCs when configuration is loaded"/>
                 <Separator/>
                 <MenuItem Header="E_xit" Command="{Binding ExitCommand}" InputGestureText="Alt+F4"/>
             </MenuItem>
@@ -50,9 +72,19 @@
                 <Separator/>
                 <MenuItem Header="Connect _Selected" Command="{Binding ConnectSelectedCommand}"/>
                 <MenuItem Header="Disconnect S_elected" Command="{Binding DisconnectSelectedCommand}"/>
+                <Separator/>
+                <MenuItem Header="_Browse Server..." Command="{Binding BrowseServerCommand}"/>
+                <Separator/>
+                <MenuItem Header="_API Settings..." Click="ApiSettings_Click"/>
             </MenuItem>
             <MenuItem Header="_View">
                 <MenuItem Header="_Refresh" Command="{Binding RefreshCommand}" InputGestureText="F5"/>
+                <Separator/>
+                <MenuItem Header="_Toggle Log Panel" Command="{Binding ToggleLogPanelCommand}" InputGestureText="Ctrl+L"/>
+                <MenuItem Header="_Clear Logs" Command="{Binding ClearLogsCommand}"/>
+            </MenuItem>
+            <MenuItem Header="_Admin">
+                <MenuItem Header="_User Management" Click="UserManagement_Click"/>
             </MenuItem>
             <MenuItem Header="_Help">
                 <MenuItem Header="_About" Command="{Binding AboutCommand}"/>
@@ -107,6 +139,13 @@
                         <TextBlock Text="Refresh" VerticalAlignment="Center"/>
                     </StackPanel>
                 </Button>
+                <Separator/>
+                <Button Command="{Binding BrowseServerCommand}" ToolTip="Browse Server Nodes (Connect first)">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="🔍" FontSize="16" Margin="0,0,4,0"/>
+                        <TextBlock Text="Browse Server" VerticalAlignment="Center"/>
+                    </StackPanel>
+                </Button>
             </ToolBar>
         </ToolBarTray>
 
@@ -131,11 +170,43 @@
                                Margin="0,0,0,12"
                                Foreground="{StaticResource TextPrimaryBrush}"/>
 
-                    <ListBox Grid.Row="1" 
+                    <ListBox Grid.Row="1"
+                             x:Name="PlcListBox"
                              ItemsSource="{Binding PlcDevices}"
                              SelectedItem="{Binding SelectedPlc}"
                              BorderThickness="1"
                              BorderBrush="#E0E0E0">
+                        <ListBox.ContextMenu>
+                            <ContextMenu>
+                                <MenuItem Header="Connect" Command="{Binding ConnectSelectedCommand}">
+                                    <MenuItem.Icon>
+                                        <TextBlock Text="🔌" FontSize="14"/>
+                                    </MenuItem.Icon>
+                                </MenuItem>
+                                <MenuItem Header="Disconnect" Command="{Binding DisconnectSelectedCommand}">
+                                    <MenuItem.Icon>
+                                        <TextBlock Text="⛔" FontSize="14"/>
+                                    </MenuItem.Icon>
+                                </MenuItem>
+                                <Separator/>
+                                <MenuItem Header="Edit" Command="{Binding EditPlcCommand}">
+                                    <MenuItem.Icon>
+                                        <TextBlock Text="✏️" FontSize="14"/>
+                                    </MenuItem.Icon>
+                                </MenuItem>
+                                <MenuItem Header="Browse Server" Command="{Binding BrowseServerCommand}">
+                                    <MenuItem.Icon>
+                                        <TextBlock Text="🔍" FontSize="14"/>
+                                    </MenuItem.Icon>
+                                </MenuItem>
+                                <Separator/>
+                                <MenuItem Header="Delete" Command="{Binding DeletePlcCommand}" Foreground="Red">
+                                    <MenuItem.Icon>
+                                        <TextBlock Text="🗑️" FontSize="14"/>
+                                    </MenuItem.Icon>
+                                </MenuItem>
+                            </ContextMenu>
+                        </ListBox.ContextMenu>
                         <ListBox.ItemTemplate>
                             <DataTemplate>
                                 <Grid Margin="4">
@@ -161,9 +232,9 @@
                                                FontWeight="SemiBold"
                                                Foreground="{StaticResource TextPrimaryBrush}"/>
 
-                                    <!-- Endpoint URL -->
+                                    <!-- Connection Address (protocol-aware) -->
                                     <TextBlock Grid.Column="1" Grid.Row="1"
-                                               Text="{Binding EndpointUrl}"
+                                               Text="{Binding DisplayConnectionAddress}"
                                                FontSize="11"
                                                Foreground="{StaticResource TextSecondaryBrush}"
                                                TextTrimming="CharacterEllipsis"/>
@@ -212,7 +283,7 @@
                         <!-- Tag Toolbar -->
                         <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,8"
                                     Visibility="{Binding HasSelectedPlc, Converter={StaticResource BoolToVis}}">
-                            <Button Command="{Binding AddTagCommand}" 
+                            <Button Command="{Binding AddTagCommand}"
                                     Style="{StaticResource PrimaryButton}"
                                     Margin="0,0,8,0">
                                 <StackPanel Orientation="Horizontal">
@@ -228,23 +299,139 @@
                                     <TextBlock Text="Delete"/>
                                 </StackPanel>
                             </Button>
+                            <Button x:Name="DeleteSelectedTagsButton"
+                                    Click="DeleteSelectedTags_Click"
+                                    Padding="12,8"
+                                    Margin="0,0,8,0">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="🗑️" Margin="0,0,4,0"/>
+                                    <TextBlock Text="Delete Selected"/>
+                                </StackPanel>
+                            </Button>
+                            <Separator Margin="8,0"/>
+                            <Button Command="{Binding WriteTagCommand}"
+                                    Padding="12,8">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="✏️" Margin="0,0,4,0"/>
+                                    <TextBlock Text="Write Value"/>
+                                </StackPanel>
+                            </Button>
                         </StackPanel>
 
                         <!-- Tag DataGrid -->
                         <DataGrid Grid.Row="2"
+                                  x:Name="TagsDataGrid"
                                   ItemsSource="{Binding SelectedPlcTags}"
                                   SelectedItem="{Binding SelectedTag}"
-                                  Visibility="{Binding HasSelectedPlc, Converter={StaticResource BoolToVis}}">
+                                  SelectionMode="Extended"
+                                  Visibility="{Binding HasSelectedPlc, Converter={StaticResource BoolToVis}}"
+                                  CanUserAddRows="False"
+                                  CanUserDeleteRows="False"
+                                  AutoGenerateColumns="False">
                             <DataGrid.Columns>
-                                <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="150"/>
-                                <DataGridTextColumn Header="NodeId" Binding="{Binding NodeId}" Width="200"/>
-                                <DataGridTextColumn Header="Value" Binding="{Binding DisplayValue}" Width="100" IsReadOnly="True"/>
-                                <DataGridTextColumn Header="Quality" Binding="{Binding QualityText}" Width="80" IsReadOnly="True"/>
-                                <DataGridTextColumn Header="Timestamp" Binding="{Binding TimestampText}" Width="100" IsReadOnly="True"/>
-                                <DataGridTextColumn Header="Data Type" Binding="{Binding DataType}" Width="80"/>
-                                <DataGridTextColumn Header="Access" Binding="{Binding AccessMode}" Width="80"/>
-                                <DataGridTextColumn Header="Scan Rate" Binding="{Binding ScanRate}" Width="80"/>
-                                <DataGridCheckBoxColumn Header="Enabled" Binding="{Binding IsEnabled}" Width="70"/>
+                                <!-- Editable Name -->
+                                <DataGridTextColumn Header="Name"
+                                                    Binding="{Binding Name, UpdateSourceTrigger=PropertyChanged}"
+                                                    Width="120"/>
+
+                                <!-- Editable NodeId -->
+                                <DataGridTextColumn Header="NodeId"
+                                                    Binding="{Binding NodeId, UpdateSourceTrigger=PropertyChanged}"
+                                                    Width="180"/>
+
+                                <!-- Editable Value with Write button -->
+                                <DataGridTemplateColumn Header="Value" Width="150">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock Grid.Column="0" Text="{Binding DisplayValue}"
+                                                           VerticalAlignment="Center" Margin="2,0"/>
+                                                <!-- Toggle button for Boolean -->
+                                                <Button Grid.Column="1" Content="⟳" Width="22" Height="20"
+                                                        ToolTip="Toggle boolean value"
+                                                        Click="ToggleBooleanValue_Click"
+                                                        Margin="2,0">
+                                                    <Button.Style>
+                                                        <Style TargetType="Button">
+                                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                                            <Style.Triggers>
+                                                                <MultiDataTrigger>
+                                                                    <MultiDataTrigger.Conditions>
+                                                                        <Condition Binding="{Binding DataType}" Value="Boolean"/>
+                                                                        <Condition Binding="{Binding CanWrite}" Value="True"/>
+                                                                    </MultiDataTrigger.Conditions>
+                                                                    <Setter Property="Visibility" Value="Visible"/>
+                                                                </MultiDataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </Button.Style>
+                                                </Button>
+                                                <!-- Write button -->
+                                                <Button Grid.Column="2" Content="W" Width="22" Height="20"
+                                                        ToolTip="Write value to tag"
+                                                        Click="WriteTagButton_Click"
+                                                        Visibility="{Binding CanWrite, Converter={StaticResource BoolToVis}}"
+                                                        Margin="2,0"/>
+                                            </Grid>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                    <DataGridTemplateColumn.CellEditingTemplate>
+                                        <DataTemplate>
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                </Grid.ColumnDefinitions>
+                                                <TextBox Grid.Column="0" x:Name="ValueTextBox"
+                                                         Text="{Binding DisplayValue, Mode=OneWay}"
+                                                         VerticalAlignment="Center"
+                                                         KeyDown="ValueTextBox_KeyDown"/>
+                                                <Button Grid.Column="1" Content="OK" Width="30" Height="20"
+                                                        Click="WriteValueInline_Click"
+                                                        Margin="2,0"/>
+                                            </Grid>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellEditingTemplate>
+                                </DataGridTemplateColumn>
+
+                                <!-- Read-only Quality -->
+                                <DataGridTextColumn Header="Quality"
+                                                    Binding="{Binding QualityText}"
+                                                    Width="70"
+                                                    IsReadOnly="True"/>
+
+                                <!-- Read-only Timestamp -->
+                                <DataGridTextColumn Header="Timestamp"
+                                                    Binding="{Binding TimestampText}"
+                                                    Width="90"
+                                                    IsReadOnly="True"/>
+
+                                <!-- DataType ComboBox -->
+                                <DataGridComboBoxColumn Header="Data Type"
+                                                        ItemsSource="{Binding Source={StaticResource DataTypeValues}}"
+                                                        SelectedItemBinding="{Binding DataType, UpdateSourceTrigger=PropertyChanged}"
+                                                        Width="90"/>
+
+                                <!-- AccessMode ComboBox -->
+                                <DataGridComboBoxColumn Header="Access"
+                                                        ItemsSource="{Binding Source={StaticResource AccessModeValues}}"
+                                                        SelectedItemBinding="{Binding AccessMode, UpdateSourceTrigger=PropertyChanged}"
+                                                        Width="90"/>
+
+                                <!-- Editable Scan Rate -->
+                                <DataGridTextColumn Header="Scan Rate"
+                                                    Binding="{Binding ScanRate, UpdateSourceTrigger=PropertyChanged}"
+                                                    Width="80"/>
+
+                                <!-- Enabled Checkbox -->
+                                <DataGridCheckBoxColumn Header="Enabled"
+                                                        Binding="{Binding IsEnabled, UpdateSourceTrigger=PropertyChanged}"
+                                                        Width="60"/>
                             </DataGrid.Columns>
                         </DataGrid>
 
@@ -281,45 +468,102 @@
                         <!-- PLC Properties (when PLC selected but no Tag) -->
                         <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto"
                                       Visibility="{Binding HasSelectedPlc, Converter={StaticResource BoolToVis}}">
-                            <Grid DataContext="{Binding SelectedPlc}">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="120"/>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="120"/>
-                                    <ColumnDefinition Width="*"/>
-                                </Grid.ColumnDefinitions>
-                                <Grid.RowDefinitions>
-                                    <RowDefinition Height="Auto"/>
-                                    <RowDefinition Height="Auto"/>
-                                    <RowDefinition Height="Auto"/>
-                                    <RowDefinition Height="Auto"/>
-                                </Grid.RowDefinitions>
+                            <StackPanel DataContext="{Binding SelectedPlc}">
+                                <!-- Common Properties -->
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="120"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="120"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
 
-                                <TextBlock Grid.Row="0" Grid.Column="0" Text="Name:" FontWeight="SemiBold" Margin="0,4"/>
-                                <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding Name, UpdateSourceTrigger=PropertyChanged}" Margin="4"/>
+                                    <TextBlock Grid.Row="0" Grid.Column="0" Text="Name:" FontWeight="SemiBold" Margin="0,4"/>
+                                    <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding Name, UpdateSourceTrigger=PropertyChanged}" Margin="4"/>
 
-                                <TextBlock Grid.Row="0" Grid.Column="2" Text="Endpoint:" FontWeight="SemiBold" Margin="0,4"/>
-                                <TextBox Grid.Row="0" Grid.Column="3" Text="{Binding EndpointUrl, UpdateSourceTrigger=PropertyChanged}" Margin="4"/>
+                                    <TextBlock Grid.Row="0" Grid.Column="2" Text="Protocol:" FontWeight="SemiBold" Margin="0,4"/>
+                                    <TextBlock Grid.Row="0" Grid.Column="3" Text="{Binding ProtocolDisplayName}" Margin="4"/>
 
-                                <TextBlock Grid.Row="1" Grid.Column="0" Text="Status:" FontWeight="SemiBold" Margin="0,4"/>
-                                <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding ConnectionStateText}" Margin="4"
-                                           Foreground="{Binding ConnectionState, Converter={StaticResource StateToBrush}}"/>
+                                    <TextBlock Grid.Row="1" Grid.Column="0" Text="Status:" FontWeight="SemiBold" Margin="0,4"/>
+                                    <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding ConnectionStateText}" Margin="4"
+                                               Foreground="{Binding ConnectionState, Converter={StaticResource StateToBrush}}"/>
 
-                                <TextBlock Grid.Row="1" Grid.Column="2" Text="Auto Reconnect:" FontWeight="SemiBold" Margin="0,4"/>
-                                <CheckBox Grid.Row="1" Grid.Column="3" IsChecked="{Binding AutoReconnect}" Margin="4" VerticalAlignment="Center"/>
+                                    <TextBlock Grid.Row="1" Grid.Column="2" Text="Auto Reconnect:" FontWeight="SemiBold" Margin="0,4"/>
+                                    <CheckBox Grid.Row="1" Grid.Column="3" IsChecked="{Binding AutoReconnect}" Margin="4" VerticalAlignment="Center"/>
 
-                                <TextBlock Grid.Row="2" Grid.Column="0" Text="Session Timeout:" FontWeight="SemiBold" Margin="0,4"/>
-                                <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding SessionTimeout}" Margin="4"/>
+                                    <TextBlock Grid.Row="2" Grid.Column="0" Text="Tags Count:" FontWeight="SemiBold" Margin="0,4"/>
+                                    <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding Tags.Count}" Margin="4"/>
 
-                                <TextBlock Grid.Row="2" Grid.Column="2" Text="KeepAlive:" FontWeight="SemiBold" Margin="0,4"/>
-                                <TextBox Grid.Row="2" Grid.Column="3" Text="{Binding KeepAliveInterval}" Margin="4"/>
+                                    <TextBlock Grid.Row="2" Grid.Column="2" Text="Enabled:" FontWeight="SemiBold" Margin="0,4"/>
+                                    <CheckBox Grid.Row="2" Grid.Column="3" IsChecked="{Binding IsEnabled}" Margin="4" VerticalAlignment="Center"/>
+                                </Grid>
 
-                                <TextBlock Grid.Row="3" Grid.Column="0" Text="Tags Count:" FontWeight="SemiBold" Margin="0,4"/>
-                                <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding Tags.Count}" Margin="4"/>
+                                <!-- OPC UA Specific Properties -->
+                                <Grid Visibility="{Binding IsOpcUaProtocol, Converter={StaticResource BoolToVis}}" Margin="0,8,0,0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="120"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="120"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
 
-                                <TextBlock Grid.Row="3" Grid.Column="2" Text="Enabled:" FontWeight="SemiBold" Margin="0,4"/>
-                                <CheckBox Grid.Row="3" Grid.Column="3" IsChecked="{Binding IsEnabled}" Margin="4" VerticalAlignment="Center"/>
-                            </Grid>
+                                    <TextBlock Grid.Row="0" Grid.Column="0" Text="Endpoint:" FontWeight="SemiBold" Margin="0,4"/>
+                                    <TextBox Grid.Row="0" Grid.Column="1" Grid.ColumnSpan="3" Text="{Binding EndpointUrl, UpdateSourceTrigger=PropertyChanged}" Margin="4"/>
+
+                                    <TextBlock Grid.Row="1" Grid.Column="0" Text="Session Timeout:" FontWeight="SemiBold" Margin="0,4"/>
+                                    <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding SessionTimeout}" Margin="4"/>
+
+                                    <TextBlock Grid.Row="1" Grid.Column="2" Text="KeepAlive:" FontWeight="SemiBold" Margin="0,4"/>
+                                    <TextBox Grid.Row="1" Grid.Column="3" Text="{Binding KeepAliveInterval}" Margin="4"/>
+                                </Grid>
+
+                                <!-- TCP/IP Specific Properties -->
+                                <Grid Visibility="{Binding IsTcpIpProtocol, Converter={StaticResource BoolToVis}}" Margin="0,8,0,0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="120"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="120"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
+
+                                    <TextBlock Grid.Row="0" Grid.Column="0" Text="IP Address:" FontWeight="SemiBold" Margin="0,4"/>
+                                    <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding IpAddress, UpdateSourceTrigger=PropertyChanged}" Margin="4"/>
+
+                                    <TextBlock Grid.Row="0" Grid.Column="2" Text="Port:" FontWeight="SemiBold" Margin="0,4"/>
+                                    <TextBox Grid.Row="0" Grid.Column="3" Text="{Binding Port, UpdateSourceTrigger=PropertyChanged}" Margin="4"/>
+
+                                    <!-- Siemens S7 Specific: Rack/Slot -->
+                                    <TextBlock Grid.Row="1" Grid.Column="0" Text="Rack:" FontWeight="SemiBold" Margin="0,4"
+                                               Visibility="{Binding IsSiemensS7Protocol, Converter={StaticResource BoolToVis}}"/>
+                                    <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding Rack}" Margin="4"
+                                             Visibility="{Binding IsSiemensS7Protocol, Converter={StaticResource BoolToVis}}"/>
+
+                                    <TextBlock Grid.Row="1" Grid.Column="2" Text="Slot:" FontWeight="SemiBold" Margin="0,4"
+                                               Visibility="{Binding IsSiemensS7Protocol, Converter={StaticResource BoolToVis}}"/>
+                                    <TextBox Grid.Row="1" Grid.Column="3" Text="{Binding Slot}" Margin="4"
+                                             Visibility="{Binding IsSiemensS7Protocol, Converter={StaticResource BoolToVis}}"/>
+
+                                    <TextBlock Grid.Row="2" Grid.Column="0" Text="Conn Timeout:" FontWeight="SemiBold" Margin="0,4"/>
+                                    <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding ConnectionTimeout}" Margin="4"/>
+
+                                    <TextBlock Grid.Row="2" Grid.Column="2" Text="Read Timeout:" FontWeight="SemiBold" Margin="0,4"/>
+                                    <TextBox Grid.Row="2" Grid.Column="3" Text="{Binding ReadTimeout}" Margin="4"/>
+                                </Grid>
+                            </StackPanel>
                         </ScrollViewer>
 
                         <!-- No Selection Message -->
@@ -335,10 +579,95 @@
             </Grid>
         </Grid>
 
+        <!-- Log Panel Splitter -->
+        <GridSplitter Grid.Row="3" Height="4"
+                      HorizontalAlignment="Stretch"
+                      VerticalAlignment="Center"
+                      Background="#E0E0E0"
+                      Visibility="{Binding IsLogPanelVisible, Converter={StaticResource BoolToVis}}"/>
+
+        <!-- Log Panel -->
+        <Border Grid.Row="4" Style="{StaticResource CardBorder}"
+                Margin="8,0,8,8"
+                Visibility="{Binding IsLogPanelVisible, Converter={StaticResource BoolToVis}}">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+
+                <!-- Log Panel Header -->
+                <Grid Grid.Row="0" Margin="0,0,0,8">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="Logs"
+                                   FontSize="14" FontWeight="SemiBold"
+                                   Foreground="{StaticResource TextPrimaryBrush}"
+                                   VerticalAlignment="Center"/>
+                        <TextBlock Text="{Binding LogEntries.Count, StringFormat=' ({0} entries)'}"
+                                   FontSize="12"
+                                   Foreground="{StaticResource TextSecondaryBrush}"
+                                   VerticalAlignment="Center"
+                                   Margin="4,0,0,0"/>
+                    </StackPanel>
+
+                    <StackPanel Grid.Column="1" Orientation="Horizontal">
+                        <Button Command="{Binding ClearLogsCommand}"
+                                ToolTip="Clear Logs"
+                                Padding="8,4"
+                                Margin="0,0,4,0">
+                            <TextBlock Text="Clear"/>
+                        </Button>
+                        <Button Command="{Binding ToggleLogPanelCommand}"
+                                ToolTip="Hide Log Panel (Ctrl+L)"
+                                Padding="8,4">
+                            <TextBlock Text="✕"/>
+                        </Button>
+                    </StackPanel>
+                </Grid>
+
+                <!-- Log List -->
+                <ListBox Grid.Row="1"
+                         ItemsSource="{Binding LogEntries}"
+                         BorderThickness="1"
+                         BorderBrush="#E0E0E0"
+                         Background="#FAFAFA"
+                         FontFamily="Consolas"
+                         FontSize="11"
+                         ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                         ScrollViewer.VerticalScrollBarVisibility="Auto"
+                         VirtualizingPanel.IsVirtualizing="True"
+                         VirtualizingPanel.VirtualizationMode="Recycling"
+                         x:Name="LogListBox">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding DisplayText}"
+                                       Foreground="{Binding LevelColor, Converter={StaticResource StringToBrush}}"
+                                       TextWrapping="NoWrap"/>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+            </Grid>
+        </Border>
+
         <!-- Status Bar -->
-        <StatusBar Grid.Row="3" Background="White" Padding="8,4">
+        <StatusBar Grid.Row="5" Background="White" Padding="8,4">
             <StatusBarItem>
                 <TextBlock Text="{Binding StatusMessage}" Foreground="{StaticResource TextSecondaryBrush}"/>
+            </StatusBarItem>
+            <Separator/>
+            <!-- API Status -->
+            <StatusBarItem ToolTip="{Binding ApiStatusTooltip}">
+                <StackPanel Orientation="Horizontal">
+                    <Ellipse Width="8" Height="8" Margin="0,0,4,0"
+                             Fill="{Binding ApiStatusColor}"/>
+                    <TextBlock Text="{Binding ApiStatusText}"
+                               Foreground="{StaticResource TextSecondaryBrush}"/>
+                </StackPanel>
             </StatusBarItem>
             <Separator/>
             <StatusBarItem>
@@ -352,14 +681,47 @@
                 <StackPanel Orientation="Horizontal">
                     <Ellipse Width="8" Height="8" Margin="0,0,4,0"
                              Fill="{Binding IsConnected, Converter={StaticResource StateToBrush}}"/>
-                    <TextBlock Text="{Binding IsConnected, Converter={StaticResource BoolToVis}}"
+                    <TextBlock Text="{Binding ConnectionStatusText}"
                                Foreground="{StaticResource TextSecondaryBrush}"/>
+                </StackPanel>
+            </StatusBarItem>
+            <Separator/>
+            <!-- Lock Status -->
+            <StatusBarItem>
+                <StackPanel Orientation="Horizontal">
+                    <!-- Lock Icon -->
+                    <TextBlock Text="{Binding LockIcon}" FontSize="14" Margin="0,0,4,0" VerticalAlignment="Center"/>
+                    <!-- Lock Status Text -->
+                    <TextBlock Text="{Binding LockStatusText}"
+                               Foreground="{Binding LockStatusColor}"
+                               VerticalAlignment="Center"
+                               Margin="0,0,8,0"/>
+                    <!-- Acquire/Release Button -->
+                    <Button Command="{Binding AcquireLockCommand}"
+                            Visibility="{Binding CanAcquireLock, Converter={StaticResource BoolToVis}}"
+                            Padding="8,2"
+                            Margin="0,0,4,0"
+                            ToolTip="Take control of the system">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="🔓" Margin="0,0,4,0"/>
+                            <TextBlock Text="Acquire Lock"/>
+                        </StackPanel>
+                    </Button>
+                    <Button Command="{Binding ReleaseLockCommand}"
+                            Visibility="{Binding HasLock, Converter={StaticResource BoolToVis}}"
+                            Padding="8,2"
+                            ToolTip="Release control">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="🔒" Margin="0,0,4,0"/>
+                            <TextBlock Text="Release"/>
+                        </StackPanel>
+                    </Button>
                 </StackPanel>
             </StatusBarItem>
         </StatusBar>
 
         <!-- Busy Overlay -->
-        <Grid Grid.RowSpan="4" 
+        <Grid Grid.RowSpan="6"
               Background="#80000000"
               Visibility="{Binding IsBusy, Converter={StaticResource BoolToVis}, FallbackValue=Collapsed}">
             <Border Background="White" 

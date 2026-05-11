@@ -11,28 +11,56 @@
     <RootNamespace>OpcUaCommunicationEngine</RootNamespace>
     <Version>1.0.0</Version>
     <Authors>Your Company</Authors>
-    <Description>OPC UA Multi-PLC Communication Engine</Description>
+    <Description>OPC UA Multi-PLC Communication Engine with REST API</Description>
+
+    <!-- Publishing Configuration -->
+    <PublishSingleFile>true</PublishSingleFile>
+    <SelfContained>true</SelfContained>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <PublishReadyToRun>true</PublishReadyToRun>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+
+    <!-- Application Info -->
+    <Product>OPC UA Communication Engine</Product>
+    <Company>Your Company</Company>
+    <Copyright>Copyright 2024</Copyright>
   </PropertyGroup>
 
   <ItemGroup>
     <!-- OPC UA Foundation Library -->
     <PackageReference Include="OPCFoundation.NetStandard.Opc.Ua" Version="1.5.374.126" />
     <PackageReference Include="OPCFoundation.NetStandard.Opc.Ua.Client" Version="1.5.374.126" />
-    
+
     <!-- MVVM Toolkit -->
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.2.2" />
-    
+
     <!-- JSON Configuration -->
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
-    
+
     <!-- Logging -->
     <PackageReference Include="Serilog" Version="3.1.1" />
+    <PackageReference Include="Serilog.Extensions.Logging" Version="8.0.0" />
     <PackageReference Include="Serilog.Sinks.File" Version="5.0.0" />
     <PackageReference Include="Serilog.Sinks.Console" Version="5.0.1" />
     <PackageReference Include="Serilog.Sinks.Debug" Version="2.0.0" />
-    
+
     <!-- Dependency Injection -->
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="8.0.0" />
+
+  </ItemGroup>
+
+  <!-- ASP.NET Core for embedded API server -->
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Swashbuckle.AspNetCore" Version="6.5.0" />
+
+    <!-- Authentication -->
+    <PackageReference Include="BCrypt.Net-Next" Version="4.0.3" />
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="8.0.0" />
   </ItemGroup>
 
   <ItemGroup>
@@ -40,6 +68,12 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
     <None Update="Configurations\plc_config.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="Configurations\users.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="Configurations\auth_settings.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
   </ItemGroup>
