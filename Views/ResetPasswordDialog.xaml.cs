@@ -14,17 +14,16 @@ public partial class ResetPasswordDialog : Window
         UsernameText.Text = $"for user: {username}";
     }
 
-    private string GetValue(PasswordBox pb, TextBox tb)
-        => ShowPasswordCheckBox?.IsChecked == true ? tb.Text : pb.Password;
+    private static string GetValue(PasswordBox pb, TextBox tb)
+        => pb.Visibility == Visibility.Visible ? pb.Password : tb.Text;
 
-    private void ShowPassword_Changed(object sender, RoutedEventArgs e)
-    {
-        bool show = ShowPasswordCheckBox.IsChecked == true;
-        TogglePasswordPair(NewPasswordBox, NewPasswordTextBox, show);
-        TogglePasswordPair(ConfirmPasswordBox, ConfirmPasswordTextBox, show);
-    }
+    private void ShowNewBtn_Changed(object sender, RoutedEventArgs e)
+        => TogglePair(NewPasswordBox, NewPasswordTextBox, ShowNewBtn.IsChecked == true);
 
-    private static void TogglePasswordPair(PasswordBox pb, TextBox tb, bool show)
+    private void ShowConfirmBtn_Changed(object sender, RoutedEventArgs e)
+        => TogglePair(ConfirmPasswordBox, ConfirmPasswordTextBox, ShowConfirmBtn.IsChecked == true);
+
+    private static void TogglePair(PasswordBox pb, TextBox tb, bool show)
     {
         if (show)
         {

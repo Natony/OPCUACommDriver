@@ -12,15 +12,8 @@ public partial class EditUserDialog : Window
     private readonly User? _existingUser;
 
     public string Username => UsernameTextBox.Text.Trim();
-
-    public string Password => ShowPasswordCheckBox?.IsChecked == true
-        ? PasswordTextBox.Text
-        : PasswordBox.Password;
-
-    public string ConfirmPassword => ShowPasswordCheckBox?.IsChecked == true
-        ? ConfirmPasswordTextBox.Text
-        : ConfirmPasswordBox.Password;
-
+    public string Password => GetValue(PasswordBox, PasswordTextBox);
+    public string ConfirmPassword => GetValue(ConfirmPasswordBox, ConfirmPasswordTextBox);
     public string DisplayName => DisplayNameTextBox.Text.Trim();
     public UserRole SelectedRole => (UserRole)RoleComboBox.SelectedItem;
     public bool IsActive => IsActiveCheckBox.IsChecked == true;
@@ -57,25 +50,25 @@ public partial class EditUserDialog : Window
         IsActiveCheckBox.IsChecked = user.IsActive;
         LockDurationTextBox.Text = user.LockDurationMinutes?.ToString() ?? "";
 
-        // Hide password fields in edit mode
         PasswordLabel.Visibility = Visibility.Collapsed;
         PasswordFieldGrid.Visibility = Visibility.Collapsed;
         ConfirmPasswordLabel.Visibility = Visibility.Collapsed;
         ConfirmPasswordFieldGrid.Visibility = Visibility.Collapsed;
-        ShowPasswordCheckBox.Visibility = Visibility.Collapsed;
 
         if (user.Username == "admin")
             RoleComboBox.IsEnabled = false;
     }
 
-    private void ShowPassword_Changed(object sender, RoutedEventArgs e)
-    {
-        bool show = ShowPasswordCheckBox.IsChecked == true;
-        TogglePasswordPair(PasswordBox, PasswordTextBox, show);
-        TogglePasswordPair(ConfirmPasswordBox, ConfirmPasswordTextBox, show);
-    }
+    private static string GetValue(PasswordBox pb, TextBox tb)
+        => pb.Visibility == Visibility.Visible ? pb.Password : tb.Text;
 
-    private static void TogglePasswordPair(PasswordBox pb, TextBox tb, bool show)
+    private void ShowPwdBtn_Changed(object sender, RoutedEventArgs e)
+        => TogglePair(PasswordBox, PasswordTextBox, ShowPwdBtn.IsChecked == true);
+
+    private void ShowConfirmBtn_Changed(object sender, RoutedEventArgs e)
+        => TogglePair(ConfirmPasswordBox, ConfirmPasswordTextBox, ShowConfirmBtn.IsChecked == true);
+
+    private static void TogglePair(PasswordBox pb, TextBox tb, bool show)
     {
         if (show)
         {

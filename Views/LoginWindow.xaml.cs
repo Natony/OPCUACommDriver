@@ -1,5 +1,6 @@
 using System.IO;
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Input;
 using Newtonsoft.Json;
 using OpcUaCommunicationEngine.Models;
@@ -98,10 +99,30 @@ public partial class LoginWindow : Window
         await PerformLoginAsync();
     }
 
+    private static string GetPasswordValue(PasswordBox pb, TextBox tb)
+        => pb.Visibility == Visibility.Visible ? pb.Password : tb.Text;
+
+    private void ShowPwdBtn_Changed(object sender, RoutedEventArgs e)
+    {
+        bool show = ShowPwdBtn.IsChecked == true;
+        if (show)
+        {
+            PasswordTextBox.Text = PasswordBox.Password;
+            PasswordBox.Visibility = Visibility.Collapsed;
+            PasswordTextBox.Visibility = Visibility.Visible;
+        }
+        else
+        {
+            PasswordBox.Password = PasswordTextBox.Text;
+            PasswordTextBox.Visibility = Visibility.Collapsed;
+            PasswordBox.Visibility = Visibility.Visible;
+        }
+    }
+
     private async Task PerformLoginAsync()
     {
         var username = UsernameTextBox.Text.Trim();
-        var password = PasswordBox.Password;
+        var password = GetPasswordValue(PasswordBox, PasswordTextBox);
 
         // Validation
         if (string.IsNullOrEmpty(username))
@@ -152,6 +173,7 @@ public partial class LoginWindow : Window
             {
                 ShowError("Invalid username or password");
                 PasswordBox.Clear();
+                PasswordTextBox.Text = "";
                 PasswordBox.Focus();
             }
         }
@@ -182,6 +204,8 @@ public partial class LoginWindow : Window
         LoginButton.IsEnabled = !isLoading;
         UsernameTextBox.IsEnabled = !isLoading;
         PasswordBox.IsEnabled = !isLoading;
+        PasswordTextBox.IsEnabled = !isLoading;
+        ShowPwdBtn.IsEnabled = !isLoading;
         RememberMeCheckBox.IsEnabled = !isLoading;
         LoadingPanel.Visibility = isLoading ? Visibility.Visible : Visibility.Collapsed;
     }

@@ -46,13 +46,23 @@
                 <TextBlock Text="Password"
                            Foreground="{StaticResource TextPrimaryBrush}"
                            Margin="0,0,0,8"/>
-                <PasswordBox x:Name="PasswordBox"
-                             Padding="12,10"
+                <Grid Margin="0,0,0,8">
+                    <PasswordBox x:Name="PasswordBox"
+                                 Padding="12,10,38,10"
+                                 FontSize="14"
+                                 BorderBrush="#E0E0E0"
+                                 BorderThickness="1"
+                                 KeyDown="PasswordBox_KeyDown"/>
+                    <TextBox x:Name="PasswordTextBox"
+                             Padding="12,10,38,10"
                              FontSize="14"
                              BorderBrush="#E0E0E0"
                              BorderThickness="1"
-                             Margin="0,0,0,8"
+                             Visibility="Collapsed"
                              KeyDown="PasswordBox_KeyDown"/>
+                    <ToggleButton x:Name="ShowPwdBtn" Style="{StaticResource EyeToggle}"
+                                  Checked="ShowPwdBtn_Changed" Unchecked="ShowPwdBtn_Changed"/>
+                </Grid>
 
                 <!-- Remember Me -->
                 <CheckBox x:Name="RememberMeCheckBox"

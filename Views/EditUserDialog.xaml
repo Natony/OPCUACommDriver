@@ -7,7 +7,7 @@
         xmlns:sys="clr-namespace:System;assembly=mscorlib"
         mc:Ignorable="d"
         Title="User Details"
-        Height="530" Width="400"
+        Height="490" Width="400"
         WindowStartupLocation="CenterOwner"
         ResizeMode="NoResize"
         Background="#F5F5F5">
@@ -46,7 +46,6 @@
                 <RowDefinition Height="Auto"/>
                 <RowDefinition Height="Auto"/>
                 <RowDefinition Height="Auto"/>
-                <RowDefinition Height="Auto"/>
             </Grid.RowDefinitions>
 
             <!-- Username -->
@@ -59,40 +58,39 @@
             <TextBlock x:Name="PasswordLabel" Grid.Row="1" Grid.Column="0" Text="Password:"
                        VerticalAlignment="Center" Margin="0,0,8,12"/>
             <Grid x:Name="PasswordFieldGrid" Grid.Row="1" Grid.Column="1" Margin="0,0,0,12">
-                <PasswordBox x:Name="PasswordBox" Padding="8,6"/>
-                <TextBox x:Name="PasswordTextBox" Padding="8,6" Visibility="Collapsed"/>
+                <PasswordBox x:Name="PasswordBox" Padding="8,6,32,6"/>
+                <TextBox x:Name="PasswordTextBox" Padding="8,6,32,6" Visibility="Collapsed"/>
+                <ToggleButton x:Name="ShowPwdBtn" Style="{StaticResource EyeToggle}"
+                              Checked="ShowPwdBtn_Changed" Unchecked="ShowPwdBtn_Changed"/>
             </Grid>
 
             <!-- Confirm Password (only for new users) -->
             <TextBlock x:Name="ConfirmPasswordLabel" Grid.Row="2" Grid.Column="0" Text="Confirm:"
                        VerticalAlignment="Center" Margin="0,0,8,12"/>
             <Grid x:Name="ConfirmPasswordFieldGrid" Grid.Row="2" Grid.Column="1" Margin="0,0,0,12">
-                <PasswordBox x:Name="ConfirmPasswordBox" Padding="8,6"/>
-                <TextBox x:Name="ConfirmPasswordTextBox" Padding="8,6" Visibility="Collapsed"/>
+                <PasswordBox x:Name="ConfirmPasswordBox" Padding="8,6,32,6"/>
+                <TextBox x:Name="ConfirmPasswordTextBox" Padding="8,6,32,6" Visibility="Collapsed"/>
+                <ToggleButton x:Name="ShowConfirmBtn" Style="{StaticResource EyeToggle}"
+                              Checked="ShowConfirmBtn_Changed" Unchecked="ShowConfirmBtn_Changed"/>
             </Grid>
 
-            <!-- Show Password (only for new users) -->
-            <CheckBox x:Name="ShowPasswordCheckBox" Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="2"
-                      Content="Hiện mật khẩu" Margin="0,0,0,12"
-                      Checked="ShowPassword_Changed" Unchecked="ShowPassword_Changed"/>
-
             <!-- Display Name -->
-            <TextBlock Grid.Row="4" Grid.Column="0" Text="Display Name:"
+            <TextBlock Grid.Row="3" Grid.Column="0" Text="Display Name:"
                        VerticalAlignment="Center" Margin="0,0,8,12"/>
-            <TextBox x:Name="DisplayNameTextBox" Grid.Row="4" Grid.Column="1"
+            <TextBox x:Name="DisplayNameTextBox" Grid.Row="3" Grid.Column="1"
                      Padding="8,6" Margin="0,0,0,12"/>
 
             <!-- Role -->
-            <TextBlock Grid.Row="5" Grid.Column="0" Text="Role:"
+            <TextBlock Grid.Row="4" Grid.Column="0" Text="Role:"
                        VerticalAlignment="Center" Margin="0,0,8,12"/>
-            <ComboBox x:Name="RoleComboBox" Grid.Row="5" Grid.Column="1"
+            <ComboBox x:Name="RoleComboBox" Grid.Row="4" Grid.Column="1"
                       ItemsSource="{Binding Source={StaticResource UserRoleValues}}"
                       Padding="8,6" Margin="0,0,0,12"/>
 
             <!-- Lock Duration -->
-            <TextBlock Grid.Row="6" Grid.Column="0" Text="Lock Duration:"
+            <TextBlock Grid.Row="5" Grid.Column="0" Text="Lock Duration:"
                        VerticalAlignment="Center" Margin="0,0,8,12"/>
-            <StackPanel Grid.Row="6" Grid.Column="1" Orientation="Vertical" Margin="0,0,0,12">
+            <StackPanel Grid.Row="5" Grid.Column="1" Orientation="Vertical" Margin="0,0,0,12">
                 <StackPanel Orientation="Horizontal">
                     <TextBox x:Name="LockDurationTextBox" Width="80" Padding="8,6"/>
                     <TextBlock Text=" minutes" VerticalAlignment="Center" Margin="4,0,0,0"/>
@@ -101,9 +99,9 @@
             </StackPanel>
 
             <!-- Active -->
-            <TextBlock Grid.Row="7" Grid.Column="0" Text="Active:"
+            <TextBlock Grid.Row="6" Grid.Column="0" Text="Active:"
                        VerticalAlignment="Center" Margin="0,0,8,12"/>
-            <CheckBox x:Name="IsActiveCheckBox" Grid.Row="7" Grid.Column="1"
+            <CheckBox x:Name="IsActiveCheckBox" Grid.Row="6" Grid.Column="1"
                       IsChecked="True" VerticalAlignment="Center" Margin="0,0,0,12"/>
         </Grid>
 
