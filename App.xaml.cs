@@ -53,6 +53,11 @@ public partial class App : Application
                 outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss.fff} [{Level:u3}] {Message:lj}{NewLine}{Exception}")
             .CreateLogger();
 
+        // Global exception handlers — log everything to prevent silent crashes
+        DispatcherUnhandledException += App_DispatcherUnhandledException;
+        AppDomain.CurrentDomain.UnhandledException += AppDomain_UnhandledException;
+        TaskScheduler.UnobservedTaskException += TaskScheduler_UnobservedTaskException;
+
         Log.Information("=== Application Starting ===");
 
         try
@@ -328,6 +333,46 @@ public partial class App : Application
 
         Log.Information("Using default API settings (0.0.0.0:5000)");
         return new ApiSettings();
+    }
+
+    private void App_DispatcherUnhandledException(object sender, System.Windows.Threading.DispatcherUnhandledExceptionEventArgs e)
+    {
+        Log.Error(e.Exception, "[Dispatcher] Unhandled UI exception: {Type} — {Message}",
+            e.Exception.GetType().FullName, e.Exception.Message);
+
+        var inner = e.Exception.InnerException;
+        while (inner != null)
+        {
+            Log.Error("  → Inner: {Type} — {Message}", inner.GetType().FullName, inner.Message);
+            inner = inner.InnerException;
+        }
+
+        MessageBox.Show(
+            $"Đã xảy ra lỗi không mong muốn:\n\n{e.Exception.Message}\n\nChi tiết đã ghi vào Logs/app-*.log",
+            "Lỗi",
+            MessageBoxButton.OK,
+            MessageBoxImage.Error);
+
+        e.Handled = true;
+    }
+
+    private void AppDomain_UnhandledException(object sender, UnhandledExceptionEventArgs e)
+    {
+        var ex = e.ExceptionObject as Exception;
+        Log.Fatal(ex, "[AppDomain] Unhandled exception (IsTerminating={IsTerminating}): {Message}",
+            e.IsTerminating, ex?.Message ?? "(unknown)");
+        Log.CloseAndFlush();
+    }
+
+    private void TaskScheduler_UnobservedTaskException(object? sender, UnobservedTaskExceptionEventArgs e)
+    {
+        Log.Error(e.Exception, "[Task] Unobserved task exception: {Message}", e.Exception.Message);
+        foreach (var inner in e.Exception.InnerExceptions)
+        {
+            Log.Error(inner, "  → Inner task exception: {Type} — {Message}",
+                inner.GetType().FullName, inner.Message);
+        }
+        e.SetObserved();
     }
 
     protected override void OnExit(ExitEventArgs e)

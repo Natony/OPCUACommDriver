@@ -57,13 +57,20 @@ public class PlcConnection : IPlcConnection
                 _connectionState = value;
                 _device.ConnectionState = value;
                 
-                ConnectionStateChanged?.Invoke(this, new ConnectionStateChangedEventArgs
+                try
                 {
-                    PlcId = _device.Id,
-                    PlcName = _device.Name,
-                    OldState = oldState,
-                    NewState = value
-                });
+                    ConnectionStateChanged?.Invoke(this, new ConnectionStateChangedEventArgs
+                    {
+                        PlcId = _device.Id,
+                        PlcName = _device.Name,
+                        OldState = oldState,
+                        NewState = value
+                    });
+                }
+                catch (Exception ex)
+                {
+                    Logger.Error(ex, "Error in ConnectionStateChanged handler for {PlcName}: {Error}", _device.Name, ex.Message);
+                }
             }
         }
     }
@@ -183,8 +190,29 @@ public class PlcConnection : IPlcConnection
         {
             LastError = ex.Message;
             ConnectionState = PlcConnectionState.Error;
-            Logger.Error(ex, "Failed to connect to {PlcName}: {Error}", _device.Name, ex.Message);
-            
+
+            Logger.Error("✗ Failed to connect to {PlcName} ({Endpoint})", _device.Name, _device.EndpointUrl);
+            Logger.Error("  → Exception type: {Type}", ex.GetType().FullName);
+            Logger.Error("  → Message: {Message}", ex.Message);
+
+            if (ex is ServiceResultException sre)
+            {
+                Logger.Error("  → OPC UA StatusCode: 0x{Code:X8} ({Symbol})",
+                    sre.StatusCode, StatusCodes.GetBrowseName(sre.StatusCode));
+            }
+
+            var inner = ex.InnerException;
+            int depth = 1;
+            while (inner != null && depth <= 5)
+            {
+                Logger.Error("  → Inner [{Depth}] {Type}: {Message}", depth, inner.GetType().FullName, inner.Message);
+                inner = inner.InnerException;
+                depth++;
+            }
+
+            Logger.Debug(ex, "Full connection failure stack trace for {PlcName}", _device.Name);
+            Logger.Information("═══════════════════════════════════════════════════════════");
+
             RaiseError(ex.Message, ex, isCritical: true);
 
             // Only start auto-reconnect if not already in reconnect loop
@@ -1685,14 +1713,21 @@ public class PlcConnection : IPlcConnection
 
     private void RaiseError(string message, Exception? ex = null, bool isCritical = false)
     {
-        ErrorOccurred?.Invoke(this, new PlcErrorEventArgs
+        try
         {
-            PlcId = _device.Id,
-            PlcName = _device.Name,
-            ErrorMessage = message,
-            Exception = ex,
-            IsCritical = isCritical
-        });
+            ErrorOccurred?.Invoke(this, new PlcErrorEventArgs
+            {
+                PlcId = _device.Id,
+                PlcName = _device.Name,
+                ErrorMessage = message,
+                Exception = ex,
+                IsCritical = isCritical
+            });
+        }
+        catch (Exception handlerEx)
+        {
+            Logger.Error(handlerEx, "Error in ErrorOccurred handler for {PlcName}: {Error}", _device.Name, handlerEx.Message);
+        }
     }
 
     #endregion
