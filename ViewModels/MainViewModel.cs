@@ -1230,7 +1230,18 @@ public class MainViewModel : ViewModelBase
         try
         {
             // Get the underlying PlcConnection to access Session
-            if (connection is not Services.OpcUa.PlcConnection plcConnection || plcConnection.Session == null)
+            if (connection is not Services.OpcUa.PlcConnection plcConnection)
+            {
+                System.Windows.MessageBox.Show(
+                    "Cannot access OPC UA session.",
+                    "Error",
+                    System.Windows.MessageBoxButton.OK,
+                    System.Windows.MessageBoxImage.Error);
+                return;
+            }
+
+            var session = plcConnection.Session;
+            if (session is null)
             {
                 System.Windows.MessageBox.Show(
                     "Cannot access OPC UA session.",
@@ -1243,7 +1254,7 @@ public class MainViewModel : ViewModelBase
             StatusMessage = "Opening Browse Server window...";
 
             // Open Browse Server window
-            var browseWindow = new Views.BrowseServerWindow(plcConnection.Session, SelectedPlc);
+            var browseWindow = new Views.BrowseServerWindow(session, SelectedPlc);
             browseWindow.Owner = System.Windows.Application.Current.MainWindow;
 
             var result = browseWindow.ShowDialog();
