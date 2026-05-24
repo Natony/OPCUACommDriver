@@ -1,21 +1,12 @@
 <!--
-  MainWindow.xaml v2 — Junction dockable workspace
-  Replaces Views/MainWindow.xaml.
+  MainWindow.xaml v2 — Junction dockable workspace.
 
-  Layout (uses CSS-grid-like Grid + GridSplitters):
-    +---------+ titlebar (chromeless if WindowStyle=None)
-    | menu    |
-    | toolbar | + panel-toggle buttons (left/right/bottom)
-    +---------+-----------+-------+
-    |         | tag grid  |       |
-    |  left   +-----------+ props |
-    |  PLCs   | logger    |       |
-    +---------+-----------+-------+
-    | statusbar (brand-blue)      |
-    +-----------------------------+
+  Layout: menu + toolbar on top, left PLC list / center tag grid / right
+  properties panel split by GridSplitters, logger panel at the bottom, brand
+  status bar at the very bottom.
 
-  Collapse model: each panel column/row has min-width 36 (rail).
-  PanelHelper.Collapse(target, on) animates Width/Height between RestoreSize and 36.
+  Collapse model: each panel column/row has MinWidth/MinHeight 36 (rail).
+  ToggleLeft/Right/BottomPanel animates Width/Height between RestoreSize and 36.
 -->
 <Window x:Class="OpcUaCommunicationEngine.Views.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
