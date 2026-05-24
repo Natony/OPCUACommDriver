@@ -452,7 +452,7 @@
                 <Rectangle Width="1" Height="14" Fill="#3A4699" Margin="14,0"/>
                 <TextBlock FontSize="11" Foreground="#E4E7F4">
                     <Run Text="Tags "/>
-                    <Run Text="{Binding TotalTagCount}" FontWeight="SemiBold" Foreground="White"/>
+                    <Run Text="{Binding TotalTagCount, Mode=OneWay}" FontWeight="SemiBold" Foreground="White"/>
                 </TextBlock>
             </StackPanel>
         </Border>
