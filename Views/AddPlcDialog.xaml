@@ -115,15 +115,16 @@
             <!-- ============ Tabs ============ -->
             <Border Grid.Row="1" Margin="24,18,24,0" BorderBrush="{StaticResource BorderHairlineBrush}" BorderThickness="0,0,0,1">
                 <StackPanel Orientation="Horizontal">
-                    <RadioButton x:Name="TabManual"  IsChecked="True"  Style="{StaticResource TabRadio}" Content="Nhập thủ công"/>
-                    <RadioButton x:Name="TabScan"                       Style="{StaticResource TabRadio}" Content="Quét mạng"/>
-                    <RadioButton x:Name="TabImport"                     Style="{StaticResource TabRadio}" Content="Nhập từ file"/>
+                    <RadioButton x:Name="TabManual"  IsChecked="True"  Style="{StaticResource TabRadio}" Content="Nhập thủ công" Checked="TabManual_Checked"/>
+                    <RadioButton x:Name="TabScan"                       Style="{StaticResource TabRadio}" Content="Quét mạng" Checked="TabScan_Checked"/>
+                    <RadioButton x:Name="TabImport"                     Style="{StaticResource TabRadio}" Content="Nhập từ file" Checked="TabImport_Checked"/>
                 </StackPanel>
             </Border>
 
-            <!-- ============ Body (only manual tab shown — scan/import are placeholder routes the VM handles) ============ -->
+            <!-- ============ Body ============ -->
             <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto" Padding="24,18,24,18">
-                <StackPanel>
+              <Grid>
+                <StackPanel x:Name="ManualPanel">
                     <!-- Name + Type -->
                     <Grid>
                         <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="16"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
@@ -134,15 +135,29 @@
                         <StackPanel Grid.Column="2">
                             <TextBlock Text="Loại PLC" Style="{StaticResource FieldLabel}"/>
                             <ComboBox x:Name="TypeBox" Height="34">
-                                <ComboBoxItem IsSelected="True">Siemens S7-1500</ComboBoxItem>
+                                <ComboBoxItem>Generic / Other</ComboBoxItem>
+                                <ComboBoxItem>Siemens S7-300</ComboBoxItem>
+                                <ComboBoxItem>Siemens S7-400</ComboBoxItem>
                                 <ComboBoxItem>Siemens S7-1200</ComboBoxItem>
-                                <ComboBoxItem>Beckhoff TwinCAT</ComboBoxItem>
-                                <ComboBoxItem>Allen-Bradley CompactLogix</ComboBoxItem>
+                                <ComboBoxItem IsSelected="True">Siemens S7-1500</ComboBoxItem>
+                                <ComboBoxItem>Mitsubishi FX3U</ComboBoxItem>
+                                <ComboBoxItem>Mitsubishi FX5U</ComboBoxItem>
                                 <ComboBoxItem>Mitsubishi Q-series</ComboBoxItem>
-                                <ComboBoxItem>Khác / Generic OPC UA</ComboBoxItem>
+                                <ComboBoxItem>Mitsubishi iQ-R</ComboBoxItem>
                             </ComboBox>
                         </StackPanel>
                     </Grid>
+
+                    <!-- Connection (Protocol) Type -->
+                    <StackPanel Margin="0,14,0,0">
+                        <TextBlock Text="Loại kết nối *" Style="{StaticResource FieldLabel}"/>
+                        <ComboBox x:Name="ProtocolBox" Height="34" SelectionChanged="ProtocolBox_SelectionChanged">
+                            <ComboBoxItem IsSelected="True">OPC UA (chuẩn mở · port 4840)</ComboBoxItem>
+                            <ComboBoxItem>Siemens S7 (TCP/IP · port 102)</ComboBoxItem>
+                            <ComboBoxItem>Mitsubishi MC Protocol (port 5000)</ComboBoxItem>
+                            <ComboBoxItem>Modbus TCP (port 502)</ComboBoxItem>
+                        </ComboBox>
+                    </StackPanel>
 
                     <!-- Endpoint -->
                     <StackPanel Margin="0,14,0,0">
@@ -258,6 +273,52 @@
                         </Border>
                     </StackPanel>
                 </StackPanel>
+
+                <StackPanel x:Name="ScanPanel" Visibility="Collapsed">
+                    <Border Background="{StaticResource SurfaceAltBrush}" BorderBrush="{StaticResource BorderHairlineBrush}"
+                            BorderThickness="1" CornerRadius="8" Padding="16">
+                        <StackPanel>
+                            <TextBlock Text="Quét mạng tìm PLC" FontSize="14" FontWeight="SemiBold"
+                                       Foreground="{StaticResource TextPrimaryBrush}"/>
+                            <TextBlock Text="Nhập dải địa chỉ IP để quét các thiết bị OPC UA trong mạng nội bộ."
+                                       FontSize="12" Foreground="{StaticResource TextTertiaryBrush}" Margin="0,4,0,12" TextWrapping="Wrap"/>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="8"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="8"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBox x:Name="ScanFromBox" Grid.Column="0" Height="34" Style="{StaticResource MonoTextBox}" Text="192.168.1.1"/>
+                                <TextBox x:Name="ScanToBox"   Grid.Column="2" Height="34" Style="{StaticResource MonoTextBox}" Text="192.168.1.254"/>
+                                <Button Grid.Column="4" Style="{StaticResource PrimaryButton}" Height="34" Content="▶ Bắt đầu quét"
+                                        Click="StartScan_Click"/>
+                            </Grid>
+                            <TextBlock x:Name="ScanStatusText" Margin="0,12,0,0" FontSize="12"
+                                       Foreground="{StaticResource TextTertiaryBrush}"
+                                       Text="Chưa quét. Bấm 'Bắt đầu quét' để tìm PLC trong dải IP."/>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+
+                <StackPanel x:Name="ImportPanel" Visibility="Collapsed">
+                    <Border Background="{StaticResource SurfaceAltBrush}" BorderBrush="{StaticResource BorderHairlineBrush}"
+                            BorderThickness="1" CornerRadius="8" Padding="16">
+                        <StackPanel>
+                            <TextBlock Text="Nhập cấu hình từ file" FontSize="14" FontWeight="SemiBold"
+                                       Foreground="{StaticResource TextPrimaryBrush}"/>
+                            <TextBlock Text="Chọn file JSON đã xuất từ Junction trước đó để nhanh chóng thêm PLC."
+                                       FontSize="12" Foreground="{StaticResource TextTertiaryBrush}" Margin="0,4,0,12" TextWrapping="Wrap"/>
+                            <Button Style="{StaticResource PrimaryButton}" Height="34" Content="📂 Chọn file…"
+                                    HorizontalAlignment="Left" Click="BrowseImport_Click"/>
+                            <TextBlock x:Name="ImportStatusText" Margin="0,12,0,0" FontSize="12"
+                                       Foreground="{StaticResource TextTertiaryBrush}"
+                                       Text="Chưa chọn file."/>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+              </Grid>
             </ScrollViewer>
 
             <!-- ============ Footer ============ -->

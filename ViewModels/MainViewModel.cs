@@ -703,7 +703,27 @@ public class MainViewModel : ViewModelBase
 
         if (dialog.ConnectAfterAdd)
         {
-            _ = _plcManager.ConnectAsync(newPlc.Id);
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    var ok = await _plcManager.ConnectAsync(newPlc.Id);
+                    System.Windows.Application.Current?.Dispatcher.InvokeAsync(() =>
+                    {
+                        StatusMessage = ok
+                            ? $"Connected to {newPlc.Name}"
+                            : $"Failed to connect to {newPlc.Name}. See logger for details.";
+                    });
+                }
+                catch (Exception ex)
+                {
+                    _logger.Error(ex, "Unhandled error connecting to {PlcName}", newPlc.Name);
+                    System.Windows.Application.Current?.Dispatcher.InvokeAsync(() =>
+                    {
+                        StatusMessage = $"Failed to connect to {newPlc.Name}. See logger for details.";
+                    });
+                }
+            });
         }
     }
 

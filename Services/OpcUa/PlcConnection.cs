@@ -1236,14 +1236,14 @@ public class PlcConnection : IPlcConnection
 
                 // Create endpoint configuration with timeout
                 var endpointConfig = EndpointConfiguration.Create();
-                endpointConfig.OperationTimeout = 30000 * attempt; // 30s, 60s, 90s
+                endpointConfig.OperationTimeout = 5000 * attempt; // 5s, 10s, 15s
 
                 // Use discovery client to get available endpoints
                 using var discoveryClient = DiscoveryClient.Create(new Uri(endpointUrl), endpointConfig);
 
                 // Run discovery with timeout
                 using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-                timeoutCts.CancelAfter(TimeSpan.FromSeconds(30 * attempt));
+                timeoutCts.CancelAfter(TimeSpan.FromSeconds(5 * attempt));
 
                 endpoints = await Task.Run(() =>    discoveryClient.GetEndpoints(null), timeoutCts.Token);
 

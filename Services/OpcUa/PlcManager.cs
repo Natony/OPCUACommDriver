@@ -144,13 +144,22 @@ public class PlcManager : IPlcManager
 
     public async Task<bool> ConnectAsync(string plcId, CancellationToken cancellationToken = default)
     {
-        if (_connections.TryGetValue(plcId, out var connection))
+        if (!_connections.TryGetValue(plcId, out var connection))
+        {
+            Logger.Warning("PLC {Id} not found", plcId);
+            return false;
+        }
+
+        try
         {
             return await connection.ConnectAsync(cancellationToken);
         }
-        
-        Logger.Warning("PLC {Id} not found", plcId);
-        return false;
+        catch (Exception ex)
+        {
+            Logger.Error("Connection attempt failed for {PlcName}: {Error}", connection.Device.Name, ex.Message);
+            Logger.Debug(ex, "Full exception details");
+            return false;
+        }
     }
 
     public async Task DisconnectAsync(string plcId, CancellationToken cancellationToken = default)
