@@ -710,9 +710,15 @@ public class MainViewModel : ViewModelBase
                     var ok = await _plcManager.ConnectAsync(newPlc.Id);
                     System.Windows.Application.Current?.Dispatcher.InvokeAsync(() =>
                     {
-                        StatusMessage = ok
-                            ? $"Connected to {newPlc.Name}"
-                            : $"Failed to connect to {newPlc.Name}. See logger for details.";
+                        if (ok)
+                        {
+                            StatusMessage = $"Connected to {newPlc.Name}. Đang mở Browse Server...";
+                            OpenBrowseServerForNewPlc(newPlc);
+                        }
+                        else
+                        {
+                            StatusMessage = $"Failed to connect to {newPlc.Name}. See logger for details.";
+                        }
                     });
                 }
                 catch (Exception ex)
@@ -724,6 +730,47 @@ public class MainViewModel : ViewModelBase
                     });
                 }
             });
+        }
+    }
+
+    private void OpenBrowseServerForNewPlc(PlcDevice plc)
+    {
+        try
+        {
+            var connection = _plcManager.GetConnection(plc.Id);
+            if (connection is not Services.OpcUa.PlcConnection plcConnection || plcConnection.Session is null)
+            {
+                StatusMessage = $"Connected to {plc.Name}";
+                return;
+            }
+
+            SelectedPlc = plc;
+
+            var browseWindow = new Views.BrowseServerWindow(plcConnection.Session, plc)
+            {
+                Owner = System.Windows.Application.Current.MainWindow
+            };
+            var result = browseWindow.ShowDialog();
+
+            if (result == true && browseWindow.AddedTags.Any())
+            {
+                OnPropertyChanged(nameof(SelectedPlcTags));
+                OnPropertyChanged(nameof(TotalTagCount));
+                OnPropertyChanged(nameof(WindowTitle));
+                OnPropertyChanged(nameof(HasUnsavedChanges));
+                StatusMessage = $"Đã thêm {browseWindow.AddedTags.Count} tag từ server {plc.Name}";
+                _logger.Information("Added {Count} tags from BrowseServer after AddPlc {Name}",
+                    browseWindow.AddedTags.Count, plc.Name);
+            }
+            else
+            {
+                StatusMessage = $"Connected to {plc.Name}";
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.Error(ex, "Error opening BrowseServer after AddPlc {Name}", plc.Name);
+            StatusMessage = $"Connected to {plc.Name}";
         }
     }
 
