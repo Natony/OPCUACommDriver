@@ -213,7 +213,7 @@ public class PlcConnection : IPlcConnection
             Logger.Debug(ex, "Full connection failure stack trace for {PlcName}", _device.Name);
             Logger.Information("═══════════════════════════════════════════════════════════");
 
-            RaiseError(ex.Message, ex, isCritical: true);
+            RaiseError(ex.Message, ex, isCritical: false);
 
             // Only start auto-reconnect if not already in reconnect loop
             // This prevents nested reconnect loops
