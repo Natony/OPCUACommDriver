@@ -7,10 +7,6 @@ using OpcUaCommunicationEngine.ViewModels;
 
 namespace OpcUaCommunicationEngine.Views;
 
-/// <summary>
-/// Browse Server Window - allows browsing OPC UA server nodes
-/// and adding them as tags via drag-drop or double-click
-/// </summary>
 public partial class BrowseServerWindow : Window
 {
     private readonly BrowseServerViewModel _viewModel;
@@ -21,6 +17,11 @@ public partial class BrowseServerWindow : Window
 
         _viewModel = new BrowseServerViewModel(session, device);
         DataContext = _viewModel;
+    }
+
+    private void Head_Drag(object sender, MouseButtonEventArgs e)
+    {
+        if (e.ChangedButton == MouseButton.Left) DragMove();
     }
 
     /// <summary>

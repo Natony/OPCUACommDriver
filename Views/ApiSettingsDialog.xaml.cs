@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using System.Windows;
+using System.Windows.Input;
 using OpcUaCommunicationEngine.Models;
 
 namespace OpcUaCommunicationEngine.Views;
@@ -16,6 +17,11 @@ public partial class ApiSettingsDialog : Window
     /// The resulting API settings after user configuration
     /// </summary>
     public ApiSettings? Result { get; private set; }
+
+    private void Head_Drag(object sender, MouseButtonEventArgs e)
+    {
+        if (e.ChangedButton == MouseButton.Left) DragMove();
+    }
 
     public ApiSettingsDialog(
         ApiSettings currentSettings,

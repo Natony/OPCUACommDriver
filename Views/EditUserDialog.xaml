@@ -6,11 +6,15 @@
         xmlns:enums="clr-namespace:OpcUaCommunicationEngine.Enums"
         xmlns:sys="clr-namespace:System;assembly=mscorlib"
         mc:Ignorable="d"
-        Title="User Details"
-        Height="490" Width="400"
+        Title="Người dùng"
+        Height="580" Width="440"
         WindowStartupLocation="CenterOwner"
         ResizeMode="NoResize"
-        Background="#F5F5F5">
+        ShowInTaskbar="False"
+        WindowStyle="None"
+        Background="Transparent"
+        AllowsTransparency="True"
+        FontFamily="{StaticResource FontSans}">
 
     <Window.Resources>
         <ObjectDataProvider x:Key="UserRoleValues" MethodName="GetValues" ObjectType="{x:Type sys:Enum}">
@@ -18,99 +22,141 @@
                 <x:Type TypeName="enums:UserRole"/>
             </ObjectDataProvider.MethodParameters>
         </ObjectDataProvider>
+
+        <BooleanToVisibilityConverter x:Key="BoolToVis"/>
+
+        <Style x:Key="FieldLabel" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}"/>
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="FontWeight" Value="Medium"/>
+            <Setter Property="Margin" Value="0,0,0,5"/>
+        </Style>
     </Window.Resources>
 
-    <Grid Margin="20">
-        <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="*"/>
-            <RowDefinition Height="Auto"/>
-        </Grid.RowDefinitions>
+    <Border Background="White" CornerRadius="12"
+            BorderBrush="{StaticResource BorderHairlineBrush}" BorderThickness="1">
+        <Border.Effect>
+            <DropShadowEffect BlurRadius="40" ShadowDepth="8" Opacity="0.25"/>
+        </Border.Effect>
 
-        <!-- Header -->
-        <TextBlock x:Name="HeaderText" Grid.Row="0" Text="Add New User"
-                   FontSize="18" FontWeight="SemiBold" Foreground="#333"
-                   Margin="0,0,0,20"/>
-
-        <!-- Form -->
-        <Grid Grid.Row="1">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="100"/>
-                <ColumnDefinition Width="*"/>
-            </Grid.ColumnDefinitions>
+        <Grid>
             <Grid.RowDefinitions>
-                <RowDefinition Height="Auto"/>
-                <RowDefinition Height="Auto"/>
-                <RowDefinition Height="Auto"/>
-                <RowDefinition Height="Auto"/>
-                <RowDefinition Height="Auto"/>
-                <RowDefinition Height="Auto"/>
-                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>  <!-- header -->
+                <RowDefinition Height="*"/>     <!-- body -->
+                <RowDefinition Height="Auto"/>  <!-- footer -->
             </Grid.RowDefinitions>
 
-            <!-- Username -->
-            <TextBlock Grid.Row="0" Grid.Column="0" Text="Username:"
-                       VerticalAlignment="Center" Margin="0,0,8,12"/>
-            <TextBox x:Name="UsernameTextBox" Grid.Row="0" Grid.Column="1"
-                     Padding="8,6" Margin="0,0,0,12"/>
+            <!-- ======== Header ======== -->
+            <Grid Grid.Row="0" Margin="24,20,16,0" MouseLeftButtonDown="Head_Drag">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
 
-            <!-- Password (only for new users) -->
-            <TextBlock x:Name="PasswordLabel" Grid.Row="1" Grid.Column="0" Text="Password:"
-                       VerticalAlignment="Center" Margin="0,0,8,12"/>
-            <Grid x:Name="PasswordFieldGrid" Grid.Row="1" Grid.Column="1" Margin="0,0,0,12">
-                <PasswordBox x:Name="PasswordBox" Padding="8,6,32,6"/>
-                <TextBox x:Name="PasswordTextBox" Padding="8,6,32,6" Visibility="Collapsed"/>
-                <ToggleButton x:Name="ShowPwdBtn" Style="{StaticResource EyeToggle}"
-                              Checked="ShowPwdBtn_Changed" Unchecked="ShowPwdBtn_Changed"/>
-            </Grid>
-
-            <!-- Confirm Password (only for new users) -->
-            <TextBlock x:Name="ConfirmPasswordLabel" Grid.Row="2" Grid.Column="0" Text="Confirm:"
-                       VerticalAlignment="Center" Margin="0,0,8,12"/>
-            <Grid x:Name="ConfirmPasswordFieldGrid" Grid.Row="2" Grid.Column="1" Margin="0,0,0,12">
-                <PasswordBox x:Name="ConfirmPasswordBox" Padding="8,6,32,6"/>
-                <TextBox x:Name="ConfirmPasswordTextBox" Padding="8,6,32,6" Visibility="Collapsed"/>
-                <ToggleButton x:Name="ShowConfirmBtn" Style="{StaticResource EyeToggle}"
-                              Checked="ShowConfirmBtn_Changed" Unchecked="ShowConfirmBtn_Changed"/>
-            </Grid>
-
-            <!-- Display Name -->
-            <TextBlock Grid.Row="3" Grid.Column="0" Text="Display Name:"
-                       VerticalAlignment="Center" Margin="0,0,8,12"/>
-            <TextBox x:Name="DisplayNameTextBox" Grid.Row="3" Grid.Column="1"
-                     Padding="8,6" Margin="0,0,0,12"/>
-
-            <!-- Role -->
-            <TextBlock Grid.Row="4" Grid.Column="0" Text="Role:"
-                       VerticalAlignment="Center" Margin="0,0,8,12"/>
-            <ComboBox x:Name="RoleComboBox" Grid.Row="4" Grid.Column="1"
-                      ItemsSource="{Binding Source={StaticResource UserRoleValues}}"
-                      Padding="8,6" Margin="0,0,0,12"/>
-
-            <!-- Lock Duration -->
-            <TextBlock Grid.Row="5" Grid.Column="0" Text="Lock Duration:"
-                       VerticalAlignment="Center" Margin="0,0,8,12"/>
-            <StackPanel Grid.Row="5" Grid.Column="1" Orientation="Vertical" Margin="0,0,0,12">
-                <StackPanel Orientation="Horizontal">
-                    <TextBox x:Name="LockDurationTextBox" Width="80" Padding="8,6"/>
-                    <TextBlock Text=" minutes" VerticalAlignment="Center" Margin="4,0,0,0"/>
+                <Border Grid.Column="0" Width="38" Height="38" CornerRadius="8"
+                        Background="{StaticResource PrimarySoftBrush}" VerticalAlignment="Center">
+                    <TextBlock Text="👤" FontSize="18"
+                               HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                </Border>
+                <StackPanel Grid.Column="1" Margin="12,0,0,0" VerticalAlignment="Center">
+                    <TextBlock x:Name="HeaderText" Text="Thêm người dùng mới"
+                               FontSize="16" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}"/>
+                    <TextBlock Text="Cấu hình thông tin tài khoản và phân quyền"
+                               FontSize="12" Foreground="{StaticResource TextTertiaryBrush}" Margin="0,2,0,0"/>
                 </StackPanel>
-                <TextBlock Text="(Empty=Default, 0=Unlimited)" FontSize="10" Foreground="#666" Margin="0,2,0,0"/>
-            </StackPanel>
+                <Button Grid.Column="2" Style="{StaticResource ToolbarButton}" Width="32" Height="32"
+                        Click="Cancel_Click" Content="✕"/>
+            </Grid>
 
-            <!-- Active -->
-            <TextBlock Grid.Row="6" Grid.Column="0" Text="Active:"
-                       VerticalAlignment="Center" Margin="0,0,8,12"/>
-            <CheckBox x:Name="IsActiveCheckBox" Grid.Row="6" Grid.Column="1"
-                      IsChecked="True" VerticalAlignment="Center" Margin="0,0,0,12"/>
+            <!-- ======== Body ======== -->
+            <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Padding="24,18,24,6">
+                <StackPanel>
+
+                    <!-- Username -->
+                    <TextBlock Text="Tên đăng nhập *" Style="{StaticResource FieldLabel}"/>
+                    <TextBox x:Name="UsernameTextBox" Style="{StaticResource MonoTextBox}"
+                             Height="34" Margin="0,0,0,14"/>
+
+                    <!-- Password -->
+                    <TextBlock x:Name="PasswordLabel" Text="Mật khẩu *" Style="{StaticResource FieldLabel}"/>
+                    <Grid x:Name="PasswordFieldGrid" Margin="0,0,0,14">
+                        <PasswordBox x:Name="PasswordBox" Height="34" Padding="10,5,40,5"
+                                     BorderBrush="{StaticResource BorderStrongBrush}" BorderThickness="1"
+                                     FontFamily="{StaticResource FontMono}" FontSize="13"/>
+                        <TextBox x:Name="PasswordTextBox" Height="34"
+                                 Style="{StaticResource MonoTextBox}" Visibility="Collapsed"/>
+                        <ToggleButton x:Name="ShowPwdBtn" Style="{StaticResource EyeToggle}"
+                                      Checked="ShowPwdBtn_Changed" Unchecked="ShowPwdBtn_Changed"/>
+                    </Grid>
+
+                    <!-- Confirm password -->
+                    <TextBlock x:Name="ConfirmPasswordLabel" Text="Xác nhận mật khẩu *"
+                               Style="{StaticResource FieldLabel}"/>
+                    <Grid x:Name="ConfirmPasswordFieldGrid" Margin="0,0,0,14">
+                        <PasswordBox x:Name="ConfirmPasswordBox" Height="34" Padding="10,5,40,5"
+                                     BorderBrush="{StaticResource BorderStrongBrush}" BorderThickness="1"
+                                     FontFamily="{StaticResource FontMono}" FontSize="13"/>
+                        <TextBox x:Name="ConfirmPasswordTextBox" Height="34"
+                                 Style="{StaticResource MonoTextBox}" Visibility="Collapsed"/>
+                        <ToggleButton x:Name="ShowConfirmBtn" Style="{StaticResource EyeToggle}"
+                                      Checked="ShowConfirmBtn_Changed" Unchecked="ShowConfirmBtn_Changed"/>
+                    </Grid>
+
+                    <!-- Display name -->
+                    <TextBlock Text="Tên hiển thị *" Style="{StaticResource FieldLabel}"/>
+                    <TextBox x:Name="DisplayNameTextBox" Height="34" Margin="0,0,0,14"/>
+
+                    <!-- Role -->
+                    <TextBlock Text="Vai trò" Style="{StaticResource FieldLabel}"/>
+                    <ComboBox x:Name="RoleComboBox" Height="34" Margin="0,0,0,14"
+                              ItemsSource="{Binding Source={StaticResource UserRoleValues}}"/>
+
+                    <!-- Lock duration -->
+                    <TextBlock Text="Thời gian khoá (phút)" Style="{StaticResource FieldLabel}"/>
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,14">
+                        <TextBox x:Name="LockDurationTextBox" Style="{StaticResource MonoTextBox}"
+                                 Width="100" Height="34"/>
+                        <TextBlock Text="phút   (trống = mặc định · 0 = không giới hạn)"
+                                   FontSize="11" Foreground="{StaticResource TextTertiaryBrush}"
+                                   VerticalAlignment="Center" Margin="10,0,0,0"/>
+                    </StackPanel>
+
+                    <!-- Active status -->
+                    <Border Background="{StaticResource SurfaceAltBrush}"
+                            BorderBrush="{StaticResource BorderHairlineBrush}"
+                            BorderThickness="1" CornerRadius="8" Padding="12,10" Margin="0,0,0,6">
+                        <StackPanel Orientation="Horizontal">
+                            <CheckBox x:Name="IsActiveCheckBox" IsChecked="True" VerticalAlignment="Center"/>
+                            <StackPanel Margin="10,0,0,0">
+                                <TextBlock Text="Tài khoản đang hoạt động" FontSize="12" FontWeight="SemiBold"
+                                           Foreground="{StaticResource TextPrimaryBrush}"/>
+                                <TextBlock Text="Bỏ chọn để khoá tài khoản ngay lập tức"
+                                           FontSize="11" Foreground="{StaticResource TextTertiaryBrush}"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+
+                </StackPanel>
+            </ScrollViewer>
+
+            <!-- ======== Footer ======== -->
+            <Border Grid.Row="2" Background="{StaticResource SurfaceAltBrush}"
+                    BorderBrush="{StaticResource BorderHairlineBrush}" BorderThickness="0,1,0,0"
+                    CornerRadius="0,0,12,12">
+                <Grid Margin="20,12">
+                    <TextBlock VerticalAlignment="Center"
+                               FontFamily="{StaticResource FontMono}" FontSize="11"
+                               Foreground="{StaticResource TextTertiaryBrush}">
+                        <Run Text="Esc"/> <Run Text=" huỷ"/>
+                    </TextBlock>
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                        <Button Style="{StaticResource ToolbarButton}" Content="Huỷ" Click="Cancel_Click"/>
+                        <Button x:Name="SaveButton" Style="{StaticResource PrimaryButton}"
+                                Content="Lưu" Click="Save_Click" Margin="6,0,0,0"/>
+                    </StackPanel>
+                </Grid>
+            </Border>
         </Grid>
-
-        <!-- Buttons -->
-        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,20,0,0">
-            <Button Content="Cancel" Click="Cancel_Click" Padding="16,8" Margin="0,0,8,0"
-                    Background="#757575" Foreground="White" BorderThickness="0" Width="80"/>
-            <Button x:Name="SaveButton" Content="Save" Click="Save_Click" Padding="16,8"
-                    Background="#4CAF50" Foreground="White" BorderThickness="0" Width="80"/>
-        </StackPanel>
-    </Grid>
+    </Border>
 </Window>

@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
 using OpcUaCommunicationEngine.Enums;
 using OpcUaCommunicationEngine.Helpers;
 using OpcUaCommunicationEngine.Models;
@@ -25,6 +26,11 @@ public partial class EditUserDialog : Window
             if (string.IsNullOrEmpty(text)) return null;
             return int.TryParse(text, out var val) ? val : null;
         }
+    }
+
+    private void Head_Drag(object sender, MouseButtonEventArgs e)
+    {
+        if (e.ChangedButton == MouseButton.Left) DragMove();
     }
 
     public EditUserDialog()
