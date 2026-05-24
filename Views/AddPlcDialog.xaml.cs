@@ -63,8 +63,18 @@ public partial class AddPlcDialog : Window
             NameBox.Text?.Trim() ?? "New PLC",
             EndpointBox.Text?.Trim() ?? "opc.tcp://localhost:4840");
 
-        plc.SecurityPolicy = (OpcUaSecurityPolicy)PolicyBox.SelectedIndex;
-        plc.SecurityMode   = ModeBox.SelectedIndex switch { 1 => 2, 2 => 3, _ => 1 };
+        plc.SecurityPolicy = PolicyBox.SelectedIndex switch
+        {
+            1 => OpcUaSecurityPolicy.Basic256Sha256,
+            2 => OpcUaSecurityPolicy.Aes256Sha256RsaPss,
+            _ => OpcUaSecurityPolicy.None
+        };
+        plc.SecurityMode = ModeBox.SelectedIndex switch
+        {
+            1 => OpcUaSecurityMode.Sign,
+            2 => OpcUaSecurityMode.SignAndEncrypt,
+            _ => OpcUaSecurityMode.None
+        };
 
         if (AuthUsername.IsChecked == true)
         {

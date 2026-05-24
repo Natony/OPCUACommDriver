@@ -16,6 +16,7 @@
             <helpers:ConnectionStateToBrushConverter x:Key="StateToBrush"/>
             <helpers:QualityToBrushConverter x:Key="QualityToBrush"/>
             <helpers:NullToVisibilityConverter x:Key="NullToVis"/>
+            <helpers:StringToBrushConverter x:Key="StringToBrush"/>
 
             <!-- ================ AVS palette ================ -->
             <Color x:Key="PrimaryColor">#1B2C7E</Color>
@@ -302,6 +303,43 @@
 
             <Style x:Key="SectionLabelText" TargetType="TextBlock" BasedOn="{StaticResource PanelHeaderText}">
                 <Setter Property="Foreground" Value="{StaticResource TextDisabledBrush}"/>
+            </Style>
+
+            <!-- ================ Eye toggle button (show/hide password) ================ -->
+            <Style x:Key="EyeToggle" TargetType="ToggleButton">
+                <Setter Property="Focusable" Value="False"/>
+                <Setter Property="Background" Value="Transparent"/>
+                <Setter Property="BorderThickness" Value="0"/>
+                <Setter Property="Cursor" Value="Hand"/>
+                <Setter Property="Width" Value="28"/>
+                <Setter Property="HorizontalAlignment" Value="Right"/>
+                <Setter Property="VerticalAlignment" Value="Center"/>
+                <Setter Property="Margin" Value="0,0,4,0"/>
+                <Setter Property="ToolTip" Value="Hiện/ẩn mật khẩu"/>
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="ToggleButton">
+                            <Border Background="Transparent" Padding="4">
+                                <TextBlock x:Name="Icon"
+                                           FontFamily="Segoe MDL2 Assets"
+                                           Text="&#xE7B3;"
+                                           FontSize="14"
+                                           Foreground="#AAAAAA"
+                                           VerticalAlignment="Center"
+                                           HorizontalAlignment="Center"/>
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsChecked" Value="True">
+                                    <Setter TargetName="Icon" Property="Text" Value="&#xED1A;"/>
+                                    <Setter TargetName="Icon" Property="Foreground" Value="#555555"/>
+                                </Trigger>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="Icon" Property="Foreground" Value="#333333"/>
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
             </Style>
 
         </ResourceDictionary>

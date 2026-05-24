@@ -177,20 +177,29 @@
                 <!-- Username -->
                 <TextBlock Text="Tên đăng nhập" FontSize="11" FontWeight="Medium"
                            Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,5"/>
-                <TextBox x:Name="UserBox" Height="38" Padding="12,0" Text="engineer@avs"/>
+                <TextBox x:Name="UserBox" Height="38" Padding="12,0" KeyDown="UserBox_KeyDown"/>
 
                 <!-- Password -->
                 <TextBlock Text="Mật khẩu" FontSize="11" FontWeight="Medium"
                            Foreground="{StaticResource TextSecondaryBrush}" Margin="0,14,0,5"/>
                 <Grid>
-                    <PasswordBox x:Name="PasswordBox" Height="38" Padding="12,0"
+                    <PasswordBox x:Name="PasswordBox" Height="38" Padding="12,0,38,0"
                                  FontFamily="{StaticResource FontSans}" FontSize="13"
-                                 BorderBrush="{StaticResource BorderStrongBrush}" BorderThickness="1"/>
+                                 BorderBrush="{StaticResource BorderStrongBrush}" BorderThickness="1"
+                                 KeyDown="PasswordBox_KeyDown"/>
+                    <TextBox x:Name="PasswordTextBox" Height="38" Padding="12,0,38,0"
+                             FontFamily="{StaticResource FontSans}" FontSize="13"
+                             BorderBrush="{StaticResource BorderStrongBrush}" BorderThickness="1"
+                             Visibility="Collapsed"
+                             KeyDown="PasswordBox_KeyDown"/>
+                    <ToggleButton x:Name="ShowPwdBtn" Style="{StaticResource EyeToggle}"
+                                  Checked="ShowPwdBtn_Changed" Unchecked="ShowPwdBtn_Changed"/>
                 </Grid>
 
                 <!-- Remember + forgot -->
                 <Grid Margin="0,14,0,24">
-                    <CheckBox VerticalAlignment="Center" Foreground="{StaticResource TextSecondaryBrush}" FontSize="12" IsChecked="True">
+                    <CheckBox x:Name="RememberMeCheckBox" VerticalAlignment="Center"
+                              Foreground="{StaticResource TextSecondaryBrush}" FontSize="12">
                         <TextBlock Text="Ghi nhớ tôi trên thiết bị này"/>
                     </CheckBox>
                     <TextBlock HorizontalAlignment="Right" VerticalAlignment="Center" FontSize="12"
@@ -200,7 +209,8 @@
                 </Grid>
 
                 <!-- Sign in -->
-                <Button Style="{StaticResource PrimaryButton}" Height="42" Click="SignIn_Click" Content="Đăng nhập"/>
+                <Button x:Name="LoginButton" Style="{StaticResource PrimaryButton}" Height="42"
+                        Click="SignIn_Click" Content="Đăng nhập"/>
 
                 <!-- Status -->
                 <StackPanel Orientation="Horizontal" Margin="0,12,0,0" HorizontalAlignment="Center">

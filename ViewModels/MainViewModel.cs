@@ -21,6 +21,7 @@ public class MainViewModel : ViewModelBase
     private readonly IConfigurationService _configService;
     private readonly IDataCache _dataCache;
     private readonly IPlcManager _plcManager;
+    private readonly UserService _userService;
     private readonly ILogger _logger;
 
     private PlcDevice? _selectedPlc;
@@ -122,6 +123,10 @@ public class MainViewModel : ViewModelBase
     }
 
     public string ConnectionStatusText => $"PLCs: {ConnectedPlcCount}/{TotalPlcCount} connected";
+
+    public int LogCount => LogEntries.Count;
+
+    public int TotalTagCount => PlcDevices.Sum(p => p.Tags?.Count ?? 0);
 
     public PlcStatus? SelectedPlcStatus => SelectedPlc != null 
         ? _plcManager.GetStatus(SelectedPlc.Id) 
@@ -340,6 +345,10 @@ public class MainViewModel : ViewModelBase
     public ICommand ExitCommand { get; }
     public ICommand AboutCommand { get; }
     public ICommand ToggleLogPanelCommand { get; }
+    public ICommand ToggleLeftPanelCommand { get; }
+    public ICommand ToggleRightPanelCommand { get; }
+    public ICommand ToggleBottomPanelCommand { get; }
+    public ICommand OpenUserManagementCommand { get; }
     public ICommand ClearLogsCommand { get; }
 
     // Lock commands
@@ -352,11 +361,13 @@ public class MainViewModel : ViewModelBase
         IConfigurationService configService,
         IDataCache dataCache,
         IPlcManager plcManager,
+        UserService userService,
         ILogger logger)
     {
         _configService = configService;
         _dataCache = dataCache;
         _plcManager = plcManager;
+        _userService = userService;
         _logger = logger;
 
         _logger.Debug("MainViewModel constructor starting...");
@@ -365,6 +376,12 @@ public class MainViewModel : ViewModelBase
         _plcManager.ConnectionStateChanged += OnPlcConnectionStateChanged;
         _plcManager.TagValueChanged += OnTagValueChanged;
         _plcManager.ErrorOccurred += OnPlcErrorOccurred;
+
+        // Surface LogCount changes when LogEntries collection mutates
+        LogEntries.CollectionChanged += (_, _) =>
+        {
+            OnPropertyChanged(nameof(LogCount));
+        };
 
         // Initialize commands
         LoadConfigCommand = new AsyncRelayCommand(LoadConfigurationAsync);
@@ -387,6 +404,13 @@ public class MainViewModel : ViewModelBase
         ExitCommand = new RelayCommand(Exit);
         AboutCommand = new RelayCommand(ShowAbout);
         ToggleLogPanelCommand = new RelayCommand(ToggleLogPanel);
+        ToggleLeftPanelCommand = new RelayCommand(() =>
+            (System.Windows.Application.Current.MainWindow as Views.MainWindow)?.ToggleLeftPanel());
+        ToggleRightPanelCommand = new RelayCommand(() =>
+            (System.Windows.Application.Current.MainWindow as Views.MainWindow)?.ToggleRightPanel());
+        ToggleBottomPanelCommand = new RelayCommand(() =>
+            (System.Windows.Application.Current.MainWindow as Views.MainWindow)?.ToggleBottomPanel());
+        OpenUserManagementCommand = new RelayCommand(OpenUserManagement);
         ClearLogsCommand = new RelayCommand(ClearLogs);
 
         // Lock commands
@@ -418,6 +442,7 @@ public class MainViewModel : ViewModelBase
             }
             
             TotalPlcCount = PlcDevices.Count;
+            OnPropertyChanged(nameof(TotalTagCount));
             
             // Initialize PlcManager with PLCs from configuration
             await _plcManager.InitializeAsync();
@@ -545,6 +570,7 @@ public class MainViewModel : ViewModelBase
             }
 
             TotalPlcCount = PlcDevices.Count;
+            OnPropertyChanged(nameof(TotalTagCount));
             StatusMessage = $"Loaded {PlcDevices.Count} PLCs from {Path.GetFileName(dialog.FileName)}";
             OnPropertyChanged(nameof(WindowTitle));
             OnPropertyChanged(nameof(HasUnsavedChanges));
@@ -652,39 +678,51 @@ public class MainViewModel : ViewModelBase
     {
         _logger.Information("AddPlc called");
 
-        var newPlc = PlcDevice.Create(
-            $"New PLC {PlcDevices.Count + 1}",
-            "opc.tcp://localhost:4840");
-
-        foreach (var group in SubscriptionGroup.CreateDefaultGroups(newPlc.Id))
-        {
-            newPlc.SubscriptionGroups.Add(group);
-        }
-
-        // Show edit dialog immediately so user can configure the new PLC
-        var dialog = new Views.EditPlcDialog(newPlc);
-        dialog.Owner = System.Windows.Application.Current.MainWindow;
-
-        if (dialog.ShowDialog() == true)
-        {
-            // Only add PLC if user confirms the dialog
-            PlcDevices.Add(newPlc);
-            _configService.CurrentConfiguration.PlcDevices.Add(newPlc);
-            _configService.MarkAsModified();
-
-            _ = _plcManager.AddPlcAsync(newPlc);
-
-            TotalPlcCount = PlcDevices.Count;
-            SelectedPlc = newPlc;
-            StatusMessage = $"Added new PLC: {newPlc.Name}";
-
-            OnPropertyChanged(nameof(WindowTitle));
-            OnPropertyChanged(nameof(HasUnsavedChanges));
-            OnPropertyChanged(nameof(ConnectionStatusText));
-        }
-        else
+        var dialog = new Views.AddPlcDialog { Owner = System.Windows.Application.Current.MainWindow };
+        if (dialog.ShowDialog() != true || dialog.Result == null)
         {
             _logger.Information("Add PLC cancelled by user");
+            return;
+        }
+
+        var newPlc = dialog.Result;
+        PlcDevices.Add(newPlc);
+        _configService.CurrentConfiguration.PlcDevices.Add(newPlc);
+        _configService.MarkAsModified();
+
+        _ = _plcManager.AddPlcAsync(newPlc);
+
+        TotalPlcCount = PlcDevices.Count;
+            OnPropertyChanged(nameof(TotalTagCount));
+        SelectedPlc = newPlc;
+        StatusMessage = $"Added new PLC: {newPlc.Name}";
+
+        OnPropertyChanged(nameof(WindowTitle));
+        OnPropertyChanged(nameof(HasUnsavedChanges));
+        OnPropertyChanged(nameof(ConnectionStatusText));
+
+        if (dialog.ConnectAfterAdd)
+        {
+            _ = _plcManager.ConnectAsync(newPlc.Id);
+        }
+    }
+
+    private void OpenUserManagement()
+    {
+        try
+        {
+            var window = new Views.UserManagementWindow(_userService)
+            {
+                Owner = System.Windows.Application.Current.MainWindow
+            };
+            window.ShowDialog();
+        }
+        catch (Exception ex)
+        {
+            _logger.Error(ex, "Failed to open user management window");
+            System.Windows.MessageBox.Show(
+                $"Không mở được User Management: {ex.Message}",
+                "Lỗi", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Error);
         }
     }
 
@@ -732,6 +770,7 @@ public class MainViewModel : ViewModelBase
         _configService.MarkAsModified();
         SelectedPlc = null;
         TotalPlcCount = PlcDevices.Count;
+            OnPropertyChanged(nameof(TotalTagCount));
 
         StatusMessage = $"Deleted PLC: {plcName}";
         
