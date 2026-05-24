@@ -1,0 +1,282 @@
+<!--
+  AddPlcDialog.xaml — modal for adding a new PLC
+  Path: Views/AddPlcDialog.xaml
+  Usage: var dlg = new AddPlcDialog { Owner = this };
+         if (dlg.ShowDialog() == true) viewModel.AddPlc(dlg.Result);
+-->
+<Window x:Class="OpcUaCommunicationEngine.Views.AddPlcDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Thêm PLC"
+        Height="640" Width="760"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize"
+        ShowInTaskbar="False"
+        WindowStyle="None"
+        Background="Transparent"
+        AllowsTransparency="True"
+        FontFamily="{StaticResource FontSans}">
+
+    <Border Background="White" CornerRadius="12" BorderBrush="{StaticResource BorderHairlineBrush}" BorderThickness="1">
+        <Border.Effect>
+            <DropShadowEffect BlurRadius="40" ShadowDepth="8" Opacity="0.25"/>
+        </Border.Effect>
+
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>   <!-- head -->
+                <RowDefinition Height="Auto"/>   <!-- tabs -->
+                <RowDefinition Height="*"/>      <!-- body -->
+                <RowDefinition Height="Auto"/>   <!-- footer -->
+            </Grid.RowDefinitions>
+
+            <!-- ============ Head ============ -->
+            <Grid Grid.Row="0" Margin="24,20,16,0" MouseLeftButtonDown="Head_Drag">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <Border Grid.Column="0" Width="38" Height="38" CornerRadius="8" Background="{StaticResource PrimarySoftBrush}" VerticalAlignment="Center">
+                    <TextBlock Text="◫" FontSize="18" Foreground="{StaticResource PrimaryBrush}"
+                               HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                </Border>
+                <StackPanel Grid.Column="1" Margin="12,0,0,0" VerticalAlignment="Center">
+                    <TextBlock Text="Thêm PLC mới" FontSize="18" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}"/>
+                    <TextBlock Text="Cấu hình kết nối OPC UA đến một PLC trong dây chuyền"
+                               FontSize="12" Foreground="{StaticResource TextTertiaryBrush}" Margin="0,2,0,0"/>
+                </StackPanel>
+                <Button Grid.Column="2" Style="{StaticResource ToolbarButton}" Width="32" Height="32"
+                        Click="Close_Click" Content="✕"/>
+            </Grid>
+
+            <!-- ============ Tabs ============ -->
+            <Border Grid.Row="1" Margin="24,18,24,0" BorderBrush="{StaticResource BorderHairlineBrush}" BorderThickness="0,0,0,1">
+                <StackPanel Orientation="Horizontal">
+                    <RadioButton x:Name="TabManual"  IsChecked="True"  Style="{StaticResource TabRadio}" Content="Nhập thủ công"/>
+                    <RadioButton x:Name="TabScan"                       Style="{StaticResource TabRadio}" Content="Quét mạng"/>
+                    <RadioButton x:Name="TabImport"                     Style="{StaticResource TabRadio}" Content="Nhập từ file"/>
+                </StackPanel>
+            </Border>
+
+            <!-- ============ Body (only manual tab shown — scan/import are placeholder routes the VM handles) ============ -->
+            <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto" Padding="24,18,24,18">
+                <StackPanel>
+                    <!-- Name + Type -->
+                    <Grid>
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="16"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0">
+                            <TextBlock Text="Tên hiển thị *" Style="{StaticResource FieldLabel}"/>
+                            <TextBox x:Name="NameBox" Height="34" Text="New PLC"/>
+                        </StackPanel>
+                        <StackPanel Grid.Column="2">
+                            <TextBlock Text="Loại PLC" Style="{StaticResource FieldLabel}"/>
+                            <ComboBox x:Name="TypeBox" Height="34">
+                                <ComboBoxItem IsSelected="True">Siemens S7-1500</ComboBoxItem>
+                                <ComboBoxItem>Siemens S7-1200</ComboBoxItem>
+                                <ComboBoxItem>Beckhoff TwinCAT</ComboBoxItem>
+                                <ComboBoxItem>Allen-Bradley CompactLogix</ComboBoxItem>
+                                <ComboBoxItem>Mitsubishi Q-series</ComboBoxItem>
+                                <ComboBoxItem>Khác / Generic OPC UA</ComboBoxItem>
+                            </ComboBox>
+                        </StackPanel>
+                    </Grid>
+
+                    <!-- Endpoint -->
+                    <StackPanel Margin="0,14,0,0">
+                        <TextBlock Text="Endpoint URL *" Style="{StaticResource FieldLabel}"/>
+                        <Grid>
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <TextBox x:Name="EndpointBox" Grid.Column="0" Style="{StaticResource MonoTextBox}" Height="34"
+                                     Text="opc.tcp://192.168.1.100:4840"/>
+                            <Button Grid.Column="1" Style="{StaticResource SecondaryButton}" Height="34" Margin="8,0,0,0"
+                                    Content="Kiểm tra" Click="TestEndpoint_Click"/>
+                        </Grid>
+                        <Border x:Name="EndpointStatus" Margin="0,8,0,0" CornerRadius="6" Padding="10,6"
+                                Background="{StaticResource SuccessSoftBrush}"
+                                BorderBrush="#B7E5B7" BorderThickness="1" Visibility="Collapsed">
+                            <StackPanel Orientation="Horizontal">
+                                <Ellipse Width="8" Height="8" Fill="{StaticResource SuccessBrush}" VerticalAlignment="Center"/>
+                                <TextBlock Margin="8,0,0,0" Foreground="#0E5C0E" FontSize="12"
+                                           Text="Endpoint khả dụng · 12 ms · OPC UA 1.05"/>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+
+                    <!-- Security policy / mode -->
+                    <Grid Margin="0,14,0,0">
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="16"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0">
+                            <TextBlock Text="Security Policy" Style="{StaticResource FieldLabel}"/>
+                            <ComboBox x:Name="PolicyBox" Height="34">
+                                <ComboBoxItem IsSelected="True">None — không mã hóa</ComboBoxItem>
+                                <ComboBoxItem>Basic256Sha256 (khuyên dùng)</ComboBoxItem>
+                                <ComboBoxItem>Aes256_Sha256_RsaPss</ComboBoxItem>
+                            </ComboBox>
+                        </StackPanel>
+                        <StackPanel Grid.Column="2">
+                            <TextBlock Text="Security Mode" Style="{StaticResource FieldLabel}"/>
+                            <ComboBox x:Name="ModeBox" Height="34">
+                                <ComboBoxItem IsSelected="True">None</ComboBoxItem>
+                                <ComboBoxItem>Sign</ComboBoxItem>
+                                <ComboBoxItem>SignAndEncrypt</ComboBoxItem>
+                            </ComboBox>
+                        </StackPanel>
+                    </Grid>
+
+                    <!-- Auth mode segmented -->
+                    <StackPanel Margin="0,14,0,0">
+                        <TextBlock Text="Xác thực — áp dụng cho PLC này" Style="{StaticResource FieldLabel}"/>
+                        <Border BorderBrush="{StaticResource BorderStrongBrush}" BorderThickness="1" CornerRadius="6" Height="34"
+                                Background="{StaticResource SurfaceAltBrush}">
+                            <UniformGrid Rows="1">
+                                <RadioButton x:Name="AuthAnonymous" Style="{StaticResource SegRadio}" Content="Anonymous"/>
+                                <RadioButton x:Name="AuthUsername"  Style="{StaticResource SegRadio}" Content="UserName" IsChecked="True"/>
+                                <RadioButton x:Name="AuthCert"      Style="{StaticResource SegRadio}" Content="Certificate"/>
+                            </UniformGrid>
+                        </Border>
+                    </StackPanel>
+
+                    <!-- Credentials -->
+                    <Grid Margin="0,12,0,0" Visibility="{Binding ElementName=AuthUsername, Path=IsChecked, Converter={StaticResource BoolToVis}}">
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="16"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0">
+                            <TextBlock Text="UserName" Style="{StaticResource FieldLabel}"/>
+                            <TextBox x:Name="UserBox" Style="{StaticResource MonoTextBox}" Height="34"/>
+                        </StackPanel>
+                        <StackPanel Grid.Column="2">
+                            <TextBlock Text="Password" Style="{StaticResource FieldLabel}"/>
+                            <PasswordBox x:Name="PassBox" Height="34" Padding="8,5"
+                                         BorderBrush="{StaticResource BorderStrongBrush}" BorderThickness="1"
+                                         FontFamily="{StaticResource FontMono}" FontSize="12"/>
+                        </StackPanel>
+                    </Grid>
+
+                    <!-- Advanced toggle -->
+                    <ToggleButton x:Name="AdvancedToggle" Margin="0,18,0,0" HorizontalAlignment="Left"
+                                  Background="Transparent" BorderThickness="0" Cursor="Hand"
+                                  Foreground="{StaticResource PrimaryBrush}" FontWeight="SemiBold" FontSize="12"
+                                  Content="▸ Tuỳ chọn nâng cao"/>
+
+                    <StackPanel Visibility="{Binding ElementName=AdvancedToggle, Path=IsChecked, Converter={StaticResource BoolToVis}}"
+                                Margin="0,12,0,0">
+                        <Border Background="{StaticResource SurfaceAltBrush}" BorderBrush="{StaticResource BorderHairlineBrush}"
+                                BorderThickness="1" CornerRadius="8" Padding="14">
+                            <StackPanel>
+                                <TextBlock Text="TIMING" Style="{StaticResource SectionLabelText}" Margin="0,0,0,10"/>
+                                <Grid>
+                                    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="12"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                                    <StackPanel Grid.Row="0" Grid.Column="0">
+                                        <TextBlock Text="Session timeout (ms)" Style="{StaticResource FieldLabel}"/>
+                                        <TextBox x:Name="TimeoutBox" Style="{StaticResource MonoTextBox}" Height="30" Text="60000"/>
+                                    </StackPanel>
+                                    <StackPanel Grid.Row="0" Grid.Column="2">
+                                        <TextBlock Text="KeepAlive (ms)" Style="{StaticResource FieldLabel}"/>
+                                        <TextBox x:Name="KeepAliveBox" Style="{StaticResource MonoTextBox}" Height="30" Text="5000"/>
+                                    </StackPanel>
+                                    <StackPanel Grid.Row="1" Grid.Column="0" Margin="0,10,0,0">
+                                        <TextBlock Text="Reconnect interval (ms)" Style="{StaticResource FieldLabel}"/>
+                                        <TextBox x:Name="ReconnectBox" Style="{StaticResource MonoTextBox}" Height="30" Text="5000"/>
+                                    </StackPanel>
+                                    <StackPanel Grid.Row="1" Grid.Column="2" Margin="0,10,0,0">
+                                        <TextBlock Text="Max reconnect attempts" Style="{StaticResource FieldLabel}"/>
+                                        <TextBox x:Name="MaxRetriesBox" Style="{StaticResource MonoTextBox}" Height="30" Text="10"/>
+                                    </StackPanel>
+                                </Grid>
+
+                                <Border Margin="0,14,0,0" Background="{StaticResource AccentSoftBrush}" BorderBrush="#F3D871" BorderThickness="1"
+                                        CornerRadius="6" Padding="10">
+                                    <TextBlock TextWrapping="Wrap" Foreground="#8A5200" FontSize="12">
+                                        <Run Text="3 nhóm subscription mặc định (Critical · Process · Status) sẽ được tạo tự động. "/>
+                                        <Run Text="Cấu hình chi tiết tại " /><Run Text="Properties › Subscription Groups" FontWeight="SemiBold"/><Run Text=" sau khi thêm PLC."/>
+                                    </TextBlock>
+                                </Border>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </StackPanel>
+            </ScrollViewer>
+
+            <!-- ============ Footer ============ -->
+            <Border Grid.Row="3" Background="{StaticResource SurfaceAltBrush}" BorderBrush="{StaticResource BorderHairlineBrush}" BorderThickness="0,1,0,0" CornerRadius="0,0,12,12">
+                <Grid Margin="20,12">
+                    <TextBlock VerticalAlignment="Center" FontFamily="{StaticResource FontMono}" FontSize="11"
+                               Foreground="{StaticResource TextTertiaryBrush}">
+                        <Run Text="Phím tắt: "/>
+                        <Run Text="Esc" FontWeight="SemiBold"/><Run Text=" huỷ · "/>
+                        <Run Text="Enter" FontWeight="SemiBold"/><Run Text=" thêm"/>
+                    </TextBlock>
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                        <Button Style="{StaticResource ToolbarButton}"   Content="Huỷ"           Click="Cancel_Click"/>
+                        <Button Style="{StaticResource SecondaryButton}" Content="Chỉ thêm"      Click="AddOnly_Click" Margin="6,0,0,0"/>
+                        <Button Style="{StaticResource PrimaryButton}"   Content="Thêm &amp; Kết nối" Click="AddConnect_Click" Margin="6,0,0,0"/>
+                    </StackPanel>
+                </Grid>
+            </Border>
+        </Grid>
+    </Border>
+
+    <!-- Local styles -->
+    <Window.Resources>
+        <Style x:Key="FieldLabel" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}"/>
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="FontWeight" Value="Medium"/>
+            <Setter Property="Margin" Value="0,0,0,5"/>
+        </Style>
+
+        <!-- Tab radio (used for Manual/Scan/Import) -->
+        <Style x:Key="TabRadio" TargetType="RadioButton">
+            <Setter Property="Foreground" Value="{StaticResource TextTertiaryBrush}"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="FontWeight" Value="Medium"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Padding" Value="14,10"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="RadioButton">
+                        <Border x:Name="Bd" Background="Transparent" Padding="{TemplateBinding Padding}"
+                                BorderBrush="Transparent" BorderThickness="0,0,0,2">
+                            <ContentPresenter/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource PrimaryBrush}"/>
+                                <Setter Property="Foreground" Value="{StaticResource PrimaryBrush}"/>
+                                <Setter Property="FontWeight" Value="SemiBold"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Segmented radio (used for auth mode) -->
+        <Style x:Key="SegRadio" TargetType="RadioButton">
+            <Setter Property="Foreground" Value="{StaticResource TextTertiaryBrush}"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="FontWeight" Value="Medium"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="RadioButton">
+                        <Border x:Name="Bd" Background="Transparent">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="White"/>
+                                <Setter Property="Foreground" Value="{StaticResource PrimaryBrush}"/>
+                                <Setter Property="FontWeight" Value="SemiBold"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
+</Window>

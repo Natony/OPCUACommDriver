@@ -1,270 +1,151 @@
-using System.Collections.Specialized;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Input;
-using OpcUaCommunicationEngine.Models;
-using OpcUaCommunicationEngine.ViewModels;
+using System.Windows.Media.Animation;
 
 namespace OpcUaCommunicationEngine.Views;
 
 /// <summary>
-/// MainWindow code-behind
-/// Trong MVVM, code-behind nên được giữ tối thiểu
-/// Logic chính nằm trong ViewModel
+/// MainWindow code-behind — keeps MVVM purity except for one piece of pure UI state:
+/// the collapse/restore size of the three dockable panels. This is view-only state
+/// (no business logic), so it lives here rather than in the view-model.
 /// </summary>
 public partial class MainWindow : Window
 {
+    private GridLength _leftRestore   = new(260);
+    private GridLength _rightRestore  = new(320);
+    private GridLength _bottomRestore = new(200);
+    private const double RailSize = 36;
+
     public MainWindow()
     {
         InitializeComponent();
-        Loaded += MainWindow_Loaded;
     }
 
-    private void MainWindow_Loaded(object sender, RoutedEventArgs e)
+    /// <summary>Toggle the left PLC Devices panel between rail (36px) and last restored width.</summary>
+    public void ToggleLeftPanel()
     {
-        // Setup auto-scroll for log list
-        if (DataContext is MainViewModel viewModel)
+        if (LeftCol.Width.Value > RailSize + 1)
         {
-            viewModel.LogEntries.CollectionChanged += LogEntries_CollectionChanged;
+            _leftRestore = LeftCol.Width;
+            AnimateColumn(LeftCol, _leftRestore.Value, RailSize);
+        }
+        else
+        {
+            AnimateColumn(LeftCol, RailSize, _leftRestore.Value);
         }
     }
 
-    private void LogEntries_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    /// <summary>Toggle the right Properties panel.</summary>
+    public void ToggleRightPanel()
     {
-        // Auto-scroll to bottom when new items are added
-        if (e.Action == NotifyCollectionChangedAction.Add && LogListBox.Items.Count > 0)
+        if (RightCol.Width.Value > RailSize + 1)
         {
-            LogListBox.ScrollIntoView(LogListBox.Items[^1]);
+            _rightRestore = RightCol.Width;
+            AnimateColumn(RightCol, _rightRestore.Value, RailSize);
+        }
+        else
+        {
+            AnimateColumn(RightCol, RailSize, _rightRestore.Value);
         }
     }
 
-    /// <summary>
-    /// Handle Write button click in DataGrid cell
-    /// </summary>
-    private void WriteTagButton_Click(object sender, RoutedEventArgs e)
+    /// <summary>Toggle the bottom Logger panel.</summary>
+    public void ToggleBottomPanel()
     {
-        if (sender is Button button && button.DataContext is TagItem tag)
+        if (BottomRow.Height.Value > RailSize + 1)
         {
-            if (DataContext is MainViewModel viewModel && viewModel.SelectedPlc != null)
-            {
-                viewModel.SelectedTag = tag;
-                viewModel.WriteTagCommand.Execute(null);
-            }
+            _bottomRestore = BottomRow.Height;
+            AnimateRow(BottomRow, _bottomRestore.Value, RailSize);
+        }
+        else
+        {
+            AnimateRow(BottomRow, RailSize, _bottomRestore.Value);
         }
     }
 
-    /// <summary>
-    /// Handle inline value write
-    /// </summary>
-    private async void WriteValueInline_Click(object sender, RoutedEventArgs e)
+    // 220ms cubic ease — matches the standard motion token.
+    private static readonly Duration PanelDuration = new(System.TimeSpan.FromMilliseconds(220));
+    private static readonly IEasingFunction PanelEase = new CubicEase { EasingMode = EasingMode.EaseOut };
+
+    private static void AnimateColumn(ColumnDefinition col, double from, double to)
     {
-        if (sender is Button button && button.DataContext is TagItem tag)
+        var anim = new GridLengthAnimation
         {
-            if (DataContext is MainViewModel viewModel && viewModel.SelectedPlc != null)
-            {
-                // Find the TextBox in the same cell
-                var parent = button.Parent as Grid;
-                var textBox = parent?.Children.OfType<TextBox>().FirstOrDefault();
-
-                if (textBox != null)
-                {
-                    var newValue = textBox.Text;
-                    await viewModel.WriteTagValueAsync(tag, newValue);
-                }
-            }
-        }
-
-        // Exit edit mode
-        TagsDataGrid.CommitEdit();
+            From = new GridLength(from),
+            To = new GridLength(to),
+            Duration = PanelDuration,
+            EasingFunction = PanelEase
+        };
+        col.BeginAnimation(ColumnDefinition.WidthProperty, anim);
     }
 
-    /// <summary>
-    /// Handle delete selected tags
-    /// </summary>
-    private void DeleteSelectedTags_Click(object sender, RoutedEventArgs e)
+    private static void AnimateRow(RowDefinition row, double from, double to)
     {
-        if (DataContext is not MainViewModel viewModel || viewModel.SelectedPlc == null)
-            return;
-
-        var selectedTags = TagsDataGrid.SelectedItems.Cast<TagItem>().ToList();
-
-        if (selectedTags.Count == 0)
+        var anim = new GridLengthAnimation
         {
-            MessageBox.Show("Please select one or more tags to delete.", "No Selection",
-                MessageBoxButton.OK, MessageBoxImage.Information);
-            return;
-        }
-
-        var result = MessageBox.Show(
-            $"Are you sure you want to delete {selectedTags.Count} selected tag(s)?",
-            "Confirm Delete",
-            MessageBoxButton.YesNo,
-            MessageBoxImage.Question);
-
-        if (result != MessageBoxResult.Yes) return;
-
-        viewModel.DeleteSelectedTags(selectedTags);
+            From = new GridLength(from),
+            To = new GridLength(to),
+            Duration = PanelDuration,
+            EasingFunction = PanelEase
+        };
+        row.BeginAnimation(RowDefinition.HeightProperty, anim);
     }
 
-    /// <summary>
-    /// Toggle boolean value quickly
-    /// </summary>
-    private async void ToggleBooleanValue_Click(object sender, RoutedEventArgs e)
-    {
-        if (sender is Button button && button.DataContext is TagItem tag)
-        {
-            if (DataContext is MainViewModel viewModel && viewModel.SelectedPlc != null)
-            {
-                // Toggle the boolean value
-                var currentValue = tag.Value as bool? ?? false;
-                var newValue = !currentValue;
-                await viewModel.WriteTagValueAsync(tag, newValue.ToString());
-            }
-        }
-    }
-
-    /// <summary>
-    /// Handle Enter key in value TextBox to submit
-    /// </summary>
-    private async void ValueTextBox_KeyDown(object sender, KeyEventArgs e)
-    {
-        if (e.Key == Key.Enter)
-        {
-            if (sender is TextBox textBox && textBox.DataContext is TagItem tag)
-            {
-                if (DataContext is MainViewModel viewModel && viewModel.SelectedPlc != null)
-                {
-                    var newValue = textBox.Text;
-                    await viewModel.WriteTagValueAsync(tag, newValue);
-
-                    // Exit edit mode
-                    TagsDataGrid.CommitEdit();
-                    e.Handled = true;
-                }
-            }
-        }
-        else if (e.Key == Key.Escape)
-        {
-            // Cancel edit mode
-            TagsDataGrid.CancelEdit();
-            e.Handled = true;
-        }
-    }
-
-    /// <summary>
-    /// Open User Management window
-    /// </summary>
-    private void UserManagement_Click(object sender, RoutedEventArgs e)
-    {
-        var app = Application.Current as App;
-        var userService = app?.ApiHost?.UserService;
-
-        if (userService == null)
-        {
-            MessageBox.Show("User service is not available. API server may not be running.",
-                "Service Unavailable", MessageBoxButton.OK, MessageBoxImage.Warning);
-            return;
-        }
-
-        var window = new UserManagementWindow(userService);
-        window.Owner = this;
-        window.ShowDialog();
-    }
-
-    /// <summary>
-    /// Open API Settings dialog
-    /// </summary>
-    private void ApiSettings_Click(object sender, RoutedEventArgs e)
-    {
-        if (DataContext is not MainViewModel viewModel)
-            return;
-
-        // Load current settings
-        var currentSettings = LoadCurrentApiSettings();
-
-        // Open dialog with current settings and PLC list
-        var dialog = new ApiSettingsDialog(currentSettings, viewModel.PlcDevices);
-        dialog.Owner = this;
-
-        if (dialog.ShowDialog() == true && dialog.Result != null)
-        {
-            // Save new settings
-            SaveApiSettings(dialog.Result);
-
-            MessageBox.Show(
-                $"API settings saved.\nNew address: {dialog.Result.BindAddress}:{dialog.Result.Port}\n\nRestart the application to apply changes.",
-                "Settings Saved",
-                MessageBoxButton.OK,
-                MessageBoxImage.Information);
-        }
-    }
-
-    private ApiSettings LoadCurrentApiSettings()
-    {
-        const string appSettingsPath = "Configurations/appsettings.json";
-        try
-        {
-            if (System.IO.File.Exists(appSettingsPath))
-            {
-                var json = System.IO.File.ReadAllText(appSettingsPath);
-                var doc = Newtonsoft.Json.Linq.JObject.Parse(json);
-                var apiSection = doc["Api"];
-                if (apiSection != null)
-                {
-                    return new ApiSettings
-                    {
-                        Port = (int?)apiSection["Port"] ?? 5000,
-                        BindAddress = (string?)apiSection["BindAddress"] ?? "0.0.0.0",
-                        Enabled = (bool?)apiSection["Enabled"] ?? true
-                    };
-                }
-            }
-        }
-        catch { }
-        return new ApiSettings();
-    }
-
-    private void SaveApiSettings(ApiSettings settings)
-    {
-        const string appSettingsPath = "Configurations/appsettings.json";
-        try
-        {
-            Newtonsoft.Json.Linq.JObject doc;
-            if (System.IO.File.Exists(appSettingsPath))
-            {
-                var json = System.IO.File.ReadAllText(appSettingsPath);
-                doc = Newtonsoft.Json.Linq.JObject.Parse(json);
-            }
-            else
-            {
-                doc = new Newtonsoft.Json.Linq.JObject();
-            }
-
-            // Update Api section
-            doc["Api"] = new Newtonsoft.Json.Linq.JObject
-            {
-                ["BindAddress"] = settings.BindAddress,
-                ["Port"] = settings.Port,
-                ["Enabled"] = settings.Enabled
-            };
-
-            // Save back to file
-            System.IO.File.WriteAllText(appSettingsPath, doc.ToString(Newtonsoft.Json.Formatting.Indented));
-        }
-        catch (Exception ex)
-        {
-            MessageBox.Show($"Error saving settings: {ex.Message}", "Error",
-                MessageBoxButton.OK, MessageBoxImage.Error);
-        }
-    }
+    // Header-button click handlers (toolbar + menu use commands; these wire the header chevrons).
+    private void ToggleLeft_Click(object sender, RoutedEventArgs e)   => ToggleLeftPanel();
+    private void ToggleRight_Click(object sender, RoutedEventArgs e)  => ToggleRightPanel();
+    private void ToggleBottom_Click(object sender, RoutedEventArgs e) => ToggleBottomPanel();
 
     protected override void OnClosing(System.ComponentModel.CancelEventArgs e)
     {
-        // Cleanup event handler
-        if (DataContext is MainViewModel viewModel)
-        {
-            viewModel.LogEntries.CollectionChanged -= LogEntries_CollectionChanged;
-        }
+        // Persist panel sizes to appsettings here if desired
         base.OnClosing(e);
+    }
+}
+
+/// <summary>
+/// WPF doesn't ship a built-in GridLength animation. Tiny helper:
+/// interpolates GridLength.Value between two fixed lengths.
+/// </summary>
+public sealed class GridLengthAnimation : AnimationTimeline
+{
+    public override System.Type TargetPropertyType => typeof(GridLength);
+
+    public GridLength From
+    {
+        get => (GridLength)GetValue(FromProperty);
+        set => SetValue(FromProperty, value);
+    }
+
+    public GridLength To
+    {
+        get => (GridLength)GetValue(ToProperty);
+        set => SetValue(ToProperty, value);
+    }
+
+    public IEasingFunction? EasingFunction
+    {
+        get => (IEasingFunction?)GetValue(EasingFunctionProperty);
+        set => SetValue(EasingFunctionProperty, value);
+    }
+
+    public static readonly DependencyProperty FromProperty =
+        DependencyProperty.Register(nameof(From), typeof(GridLength), typeof(GridLengthAnimation));
+
+    public static readonly DependencyProperty ToProperty =
+        DependencyProperty.Register(nameof(To), typeof(GridLength), typeof(GridLengthAnimation));
+
+    public static readonly DependencyProperty EasingFunctionProperty =
+        DependencyProperty.Register(nameof(EasingFunction), typeof(IEasingFunction), typeof(GridLengthAnimation));
+
+    protected override Freezable CreateInstanceCore() => new GridLengthAnimation();
+
+    public override object GetCurrentValue(object defaultOriginValue, object defaultDestinationValue, AnimationClock animationClock)
+    {
+        double from = From.Value;
+        double to   = To.Value;
+        double progress = animationClock.CurrentProgress ?? 0;
+        if (EasingFunction is not null) progress = EasingFunction.Ease(progress);
+        return new GridLength(from + (to - from) * progress, GridUnitType.Pixel);
     }
 }

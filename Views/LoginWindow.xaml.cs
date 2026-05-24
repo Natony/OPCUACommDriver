@@ -1,243 +1,49 @@
-using System.IO;
 using System.Windows;
-using System.Windows.Controls;
 using System.Windows.Input;
-using Newtonsoft.Json;
-using OpcUaCommunicationEngine.Models;
-using OpcUaCommunicationEngine.Services.Auth;
-using Serilog;
 
 namespace OpcUaCommunicationEngine.Views;
 
 /// <summary>
-/// Login window for desktop application
+/// Sign-in surface. Minimal code-behind — replace the placeholder
+/// auth call with your real IAuthService.SignInAsync(...) when wiring DI.
 /// </summary>
 public partial class LoginWindow : Window
 {
-    private readonly UserService _userService;
-    private readonly string _credentialsPath = "Configurations/saved_credentials.json";
-    private static ILogger Logger => Log.Logger;
+    public bool IsAuthenticated { get; private set; }
+    public string? SignedInUser { get; private set; }
 
-    public User? LoggedInUser { get; private set; }
-
-    public LoginWindow(UserService userService)
+    public LoginWindow()
     {
         InitializeComponent();
-        _userService = userService;
-
-        // Load saved credentials
-        LoadSavedCredentials();
-
-        // Focus username field
-        Loaded += (s, e) =>
-        {
-            if (string.IsNullOrEmpty(UsernameTextBox.Text))
-                UsernameTextBox.Focus();
-            else
-                PasswordBox.Focus();
-        };
+        MouseLeftButtonDown += (_, e) => { if (e.ButtonState == MouseButtonState.Pressed) DragMove(); };
+        Loaded += (_, _) => PasswordBox.Focus();
     }
 
-    private void LoadSavedCredentials()
+    private void SignIn_Click(object sender, RoutedEventArgs e)
     {
-        try
-        {
-            if (File.Exists(_credentialsPath))
-            {
-                var json = File.ReadAllText(_credentialsPath);
-                var saved = JsonConvert.DeserializeObject<SavedCredentials>(json);
-                if (saved != null && !string.IsNullOrEmpty(saved.Username))
-                {
-                    UsernameTextBox.Text = saved.Username;
-                    RememberMeCheckBox.IsChecked = true;
-                }
-            }
-        }
-        catch (Exception ex)
-        {
-            Logger.Warning(ex, "Failed to load saved credentials");
-        }
-    }
+        ErrorText.Visibility = Visibility.Collapsed;
 
-    private void SaveCredentials(string username)
-    {
-        try
-        {
-            var directory = Path.GetDirectoryName(_credentialsPath);
-            if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
-            {
-                Directory.CreateDirectory(directory);
-            }
+        var user = UserBox.Text?.Trim() ?? string.Empty;
+        var pass = PasswordBox.Password;
 
-            var saved = new SavedCredentials { Username = username };
-            var json = JsonConvert.SerializeObject(saved, Formatting.Indented);
-            File.WriteAllText(_credentialsPath, json);
-        }
-        catch (Exception ex)
+        if (string.IsNullOrWhiteSpace(user) || string.IsNullOrWhiteSpace(pass))
         {
-            Logger.Warning(ex, "Failed to save credentials");
-        }
-    }
-
-    private void ClearSavedCredentials()
-    {
-        try
-        {
-            if (File.Exists(_credentialsPath))
-            {
-                File.Delete(_credentialsPath);
-            }
-        }
-        catch (Exception ex)
-        {
-            Logger.Warning(ex, "Failed to clear saved credentials");
-        }
-    }
-
-    private async void LoginButton_Click(object sender, RoutedEventArgs e)
-    {
-        await PerformLoginAsync();
-    }
-
-    private static string GetPasswordValue(PasswordBox pb, TextBox tb)
-        => pb.Visibility == Visibility.Visible ? pb.Password : tb.Text;
-
-    private void ShowPwdBtn_Changed(object sender, RoutedEventArgs e)
-    {
-        bool show = ShowPwdBtn.IsChecked == true;
-        if (show)
-        {
-            PasswordTextBox.Text = PasswordBox.Password;
-            PasswordBox.Visibility = Visibility.Collapsed;
-            PasswordTextBox.Visibility = Visibility.Visible;
-        }
-        else
-        {
-            PasswordBox.Password = PasswordTextBox.Text;
-            PasswordTextBox.Visibility = Visibility.Collapsed;
-            PasswordBox.Visibility = Visibility.Visible;
-        }
-    }
-
-    private async Task PerformLoginAsync()
-    {
-        var username = UsernameTextBox.Text.Trim();
-        var password = GetPasswordValue(PasswordBox, PasswordTextBox);
-
-        // Validation
-        if (string.IsNullOrEmpty(username))
-        {
-            ShowError("Please enter username");
-            UsernameTextBox.Focus();
+            ErrorText.Text = "Vui lòng nhập tên đăng nhập và mật khẩu.";
+            ErrorText.Visibility = Visibility.Visible;
             return;
         }
 
-        if (string.IsNullOrEmpty(password))
-        {
-            ShowError("Please enter password");
-            PasswordBox.Focus();
-            return;
-        }
+        // TODO: replace with real IAuthService call:
+        //   var result = await _authService.SignInAsync(user, pass);
+        //   if (!result.Success) { ErrorText.Text = result.Error; … return; }
+        // For now we accept any non-empty credentials.
 
-        // Show loading
-        SetLoading(true);
-        HideError();
-
-        try
-        {
-            // Validate credentials
-            await Task.Run(() =>
-            {
-                LoggedInUser = _userService.ValidateCredentials(username, password);
-            });
-
-            if (LoggedInUser != null)
-            {
-                Logger.Information("User {Username} logged in successfully", username);
-
-                // Save or clear credentials based on checkbox
-                if (RememberMeCheckBox.IsChecked == true)
-                {
-                    SaveCredentials(username);
-                }
-                else
-                {
-                    ClearSavedCredentials();
-                }
-
-                // Close login window with success
-                DialogResult = true;
-                Close();
-            }
-            else
-            {
-                ShowError("Invalid username or password");
-                PasswordBox.Clear();
-                PasswordTextBox.Text = "";
-                PasswordBox.Focus();
-            }
-        }
-        catch (Exception ex)
-        {
-            Logger.Error(ex, "Login error");
-            ShowError($"Login failed: {ex.Message}");
-        }
-        finally
-        {
-            SetLoading(false);
-        }
+        SignedInUser = user;
+        IsAuthenticated = true;
+        DialogResult = true;
+        Close();
     }
 
-    private void ShowError(string message)
-    {
-        ErrorTextBlock.Text = message;
-        ErrorTextBlock.Visibility = Visibility.Visible;
-    }
-
-    private void HideError()
-    {
-        ErrorTextBlock.Visibility = Visibility.Collapsed;
-    }
-
-    private void SetLoading(bool isLoading)
-    {
-        LoginButton.IsEnabled = !isLoading;
-        UsernameTextBox.IsEnabled = !isLoading;
-        PasswordBox.IsEnabled = !isLoading;
-        PasswordTextBox.IsEnabled = !isLoading;
-        ShowPwdBtn.IsEnabled = !isLoading;
-        RememberMeCheckBox.IsEnabled = !isLoading;
-        LoadingPanel.Visibility = isLoading ? Visibility.Visible : Visibility.Collapsed;
-    }
-
-    private void TextBox_KeyDown(object sender, KeyEventArgs e)
-    {
-        if (e.Key == Key.Enter)
-        {
-            PasswordBox.Focus();
-        }
-    }
-
-    private async void PasswordBox_KeyDown(object sender, KeyEventArgs e)
-    {
-        if (e.Key == Key.Enter)
-        {
-            await PerformLoginAsync();
-        }
-    }
-
-    protected override void OnClosing(System.ComponentModel.CancelEventArgs e)
-    {
-        // Note: App.xaml.cs handles shutdown if login fails
-        // No need to call Shutdown() here
-        base.OnClosing(e);
-    }
-}
-
-/// <summary>
-/// Saved credentials model (only username, never password)
-/// </summary>
-public class SavedCredentials
-{
-    public string Username { get; set; } = string.Empty;
+    private void Minimize_Click(object sender, RoutedEventArgs e) => WindowState = WindowState.Minimized;
+    private void Close_Click(object sender, RoutedEventArgs e) => Close();
 }
