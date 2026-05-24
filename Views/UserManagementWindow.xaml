@@ -3,8 +3,7 @@
   Path: Views/UserManagementWindow.xaml
   Open from Admin menu → Users & Permissions.
 -->
-<Window x:Class="OpcUaCommunicationEngine.Views.UsSystem.Windows.Markup.XamlParseException: ''Provide value on 'System.Windows.StaticResourceExtension' threw an exception.' Line number '44' and line position '30'.'
-erManagementWindow"
+<Window x:Class="OpcUaCommunicationEngine.Views.UserManagementWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Junction — Quản lý người dùng"
