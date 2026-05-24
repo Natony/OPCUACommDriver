@@ -3,6 +3,10 @@
   "WorkspaceRootPath": "C:\\Users\\user\\source\\repos\\Natony\\OPCUACommDriver\\",
   "Documents": [
     {
+      "AbsoluteMoniker": "D:0:0:{0ABFD57C-E3CC-4F08-81EE-6FE9AAF66A37}|OpcUaCommunicationEngine.csproj|c:\\users\\user\\source\\repos\\natony\\opcuacommdriver\\views\\usermanagementwindow.xaml||{F11ACC28-31D1-4C80-A34B-F4E09D3D753C}",
+      "RelativeMoniker": "D:0:0:{0ABFD57C-E3CC-4F08-81EE-6FE9AAF66A37}|OpcUaCommunicationEngine.csproj|solutionrelative:views\\usermanagementwindow.xaml||{F11ACC28-31D1-4C80-A34B-F4E09D3D753C}"
+    },
+    {
       "AbsoluteMoniker": "D:0:0:{0ABFD57C-E3CC-4F08-81EE-6FE9AAF66A37}|OpcUaCommunicationEngine.csproj|c:\\users\\user\\source\\repos\\natony\\opcuacommdriver\\views\\apisettingsdialog.xaml||{F11ACC28-31D1-4C80-A34B-F4E09D3D753C}",
       "RelativeMoniker": "D:0:0:{0ABFD57C-E3CC-4F08-81EE-6FE9AAF66A37}|OpcUaCommunicationEngine.csproj|solutionrelative:views\\apisettingsdialog.xaml||{F11ACC28-31D1-4C80-A34B-F4E09D3D753C}"
     },
@@ -38,15 +42,39 @@
       "DocumentGroups": [
         {
           "DockedWidth": 200,
-          "SelectedChildIndex": 1,
+          "SelectedChildIndex": 4,
           "Children": [
             {
               "$type": "Bookmark",
               "Name": "ST:128:0:{75188d03-9892-4ae2-abf1-207126247ce5}"
             },
             {
+              "$type": "Bookmark",
+              "Name": "ST:128:0:{1fc202d4-d401-403c-9834-5b218574bb67}"
+            },
+            {
+              "$type": "Bookmark",
+              "Name": "ST:129:0:{1fc202d4-d401-403c-9834-5b218574bb67}"
+            },
+            {
+              "$type": "Bookmark",
+              "Name": "ST:130:0:{1fc202d4-d401-403c-9834-5b218574bb67}"
+            },
+            {
               "$type": "Document",
               "DocumentIndex": 0,
+              "Title": "UserManagementWindow.xaml",
+              "DocumentMoniker": "C:\\Users\\user\\source\\repos\\Natony\\OPCUACommDriver\\Views\\UserManagementWindow.xaml",
+              "RelativeDocumentMoniker": "Views\\UserManagementWindow.xaml",
+              "ToolTip": "C:\\Users\\user\\source\\repos\\Natony\\OPCUACommDriver\\Views\\UserManagementWindow.xaml",
+              "RelativeToolTip": "Views\\UserManagementWindow.xaml",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.003549|",
+              "WhenOpened": "2026-05-24T07:19:25.246Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 1,
               "Title": "ApiSettingsDialog.xaml",
               "DocumentMoniker": "C:\\Users\\user\\source\\repos\\Natony\\OPCUACommDriver\\Views\\ApiSettingsDialog.xaml",
               "RelativeDocumentMoniker": "Views\\ApiSettingsDialog.xaml",
@@ -58,7 +86,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 1,
+              "DocumentIndex": 2,
               "Title": "MainViewModel.cs",
               "DocumentMoniker": "C:\\Users\\user\\source\\repos\\Natony\\OPCUACommDriver\\ViewModels\\MainViewModel.cs",
               "RelativeDocumentMoniker": "ViewModels\\MainViewModel.cs",
@@ -71,7 +99,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 2,
+              "DocumentIndex": 3,
               "Title": "EditUserDialog.xaml",
               "DocumentMoniker": "C:\\Users\\user\\source\\repos\\Natony\\OPCUACommDriver\\Views\\EditUserDialog.xaml",
               "RelativeDocumentMoniker": "Views\\EditUserDialog.xaml",
@@ -83,7 +111,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 3,
+              "DocumentIndex": 4,
               "Title": "ResetPasswordDialog.xaml.cs",
               "DocumentMoniker": "C:\\Users\\user\\source\\repos\\Natony\\OPCUACommDriver\\Views\\ResetPasswordDialog.xaml.cs",
               "RelativeDocumentMoniker": "Views\\ResetPasswordDialog.xaml.cs",
@@ -95,7 +123,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 4,
+              "DocumentIndex": 5,
               "Title": "EditUserDialog.xaml.cs",
               "DocumentMoniker": "C:\\Users\\user\\source\\repos\\Natony\\OPCUACommDriver\\Views\\EditUserDialog.xaml.cs",
               "RelativeDocumentMoniker": "Views\\EditUserDialog.xaml.cs",
@@ -107,7 +135,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 5,
+              "DocumentIndex": 6,
               "Title": "ChangePasswordDialog.xaml.cs",
               "DocumentMoniker": "C:\\Users\\user\\source\\repos\\Natony\\OPCUACommDriver\\Views\\ChangePasswordDialog.xaml.cs",
               "RelativeDocumentMoniker": "Views\\ChangePasswordDialog.xaml.cs",
@@ -119,7 +147,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 6,
+              "DocumentIndex": 7,
               "Title": "appsettings.json",
               "DocumentMoniker": "C:\\Users\\user\\source\\repos\\Natony\\OPCUACommDriver\\Configurations\\appsettings.json",
               "RelativeDocumentMoniker": "Configurations\\appsettings.json",
