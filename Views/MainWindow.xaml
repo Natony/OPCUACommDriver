@@ -101,6 +101,8 @@
                 <Separator/>
                 <MenuItem Header="Connect _Selected"     Command="{Binding ConnectSelectedCommand}"/>
                 <MenuItem Header="Disconnect S_elected"  Command="{Binding DisconnectSelectedCommand}"/>
+                <Separator/>
+                <MenuItem Header="_API Settings..." Click="ApiSettings_Click"/>
             </MenuItem>
             <MenuItem Header="_Admin">
                 <MenuItem Header="_Users &amp; Permissions" Command="{Binding OpenUserManagementCommand}"/>
