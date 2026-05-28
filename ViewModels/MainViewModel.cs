@@ -738,7 +738,7 @@ public class MainViewModel : ViewModelBase
         try
         {
             var connection = _plcManager.GetConnection(plc.Id);
-            if (connection is not Services.OpcUa.PlcConnection plcConnection || plcConnection.Session is null)
+            if (connection is not Services.OpcUa.PlcConnection plcConnection)
             {
                 StatusMessage = $"Connected to {plc.Name}";
                 return;
@@ -746,7 +746,7 @@ public class MainViewModel : ViewModelBase
 
             SelectedPlc = plc;
 
-            var browseWindow = new Views.BrowseServerWindow(plcConnection.Session, plc)
+            var browseWindow = new Views.BrowseServerWindow(plcConnection)
             {
                 Owner = System.Windows.Application.Current.MainWindow
             };
@@ -1296,51 +1296,37 @@ public class MainViewModel : ViewModelBase
 
         try
         {
-            // Get the underlying PlcConnection to access Session
             if (connection is not Services.OpcUa.PlcConnection plcConnection)
             {
                 System.Windows.MessageBox.Show(
-                    "Cannot access OPC UA session.",
-                    "Error",
+                    "PLC này không dùng OPC UA — Browse Server chỉ hỗ trợ OPC UA.",
+                    "Không hỗ trợ",
                     System.Windows.MessageBoxButton.OK,
-                    System.Windows.MessageBoxImage.Error);
+                    System.Windows.MessageBoxImage.Warning);
                 return;
             }
 
-            var session = plcConnection.Session;
-            if (session is null)
+            StatusMessage = "Đang mở Browse Server...";
+
+            var browseWindow = new Views.BrowseServerWindow(plcConnection)
             {
-                System.Windows.MessageBox.Show(
-                    "Cannot access OPC UA session.",
-                    "Error",
-                    System.Windows.MessageBoxButton.OK,
-                    System.Windows.MessageBoxImage.Error);
-                return;
-            }
-
-            StatusMessage = "Opening Browse Server window...";
-
-            // Open Browse Server window
-            var browseWindow = new Views.BrowseServerWindow(session, SelectedPlc);
-            browseWindow.Owner = System.Windows.Application.Current.MainWindow;
+                Owner = System.Windows.Application.Current.MainWindow
+            };
 
             var result = browseWindow.ShowDialog();
 
             if (result == true && browseWindow.AddedTags.Any())
             {
-                // Refresh the tag list
                 OnPropertyChanged(nameof(SelectedPlcTags));
-
-                StatusMessage = $"Added {browseWindow.AddedTags.Count} tags from server browser";
-                _logger.Information("Added {Count} tags from server browser", browseWindow.AddedTags.Count);
-
-                // Mark as unsaved
+                OnPropertyChanged(nameof(TotalTagCount));
                 OnPropertyChanged(nameof(WindowTitle));
                 OnPropertyChanged(nameof(HasUnsavedChanges));
+                StatusMessage = $"Đã thêm {browseWindow.AddedTags.Count} tag từ server {SelectedPlc.Name}";
+                _logger.Information("BrowseServer: added {Count} tags for {PlcName}", browseWindow.AddedTags.Count, SelectedPlc.Name);
             }
             else
             {
-                StatusMessage = "Browse server closed";
+                StatusMessage = "Browse Server đã đóng";
             }
         }
         catch (Exception ex)

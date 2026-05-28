@@ -889,9 +889,9 @@ public class PlcConnection : IPlcConnection
 
         try
         {
-            var startNode = string.IsNullOrEmpty(nodeId) 
-                ? ObjectIds.ObjectsFolder 
-                : new NodeId(nodeId);
+            var startNode = string.IsNullOrEmpty(nodeId)
+                ? ObjectIds.ObjectsFolder
+                : NodeId.Parse(nodeId);
 
             _session.Browse(
                 null,
@@ -946,8 +946,8 @@ public class PlcConnection : IPlcConnection
 
         try
         {
-            var node = _session.ReadNode(new NodeId(nodeId));
-            
+            var node = _session.ReadNode(NodeId.Parse(nodeId));
+
             var nodeInfo = new NodeInfo
             {
                 NodeId = nodeId,

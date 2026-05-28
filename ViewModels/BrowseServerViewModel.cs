@@ -1,51 +1,42 @@
 using System.Collections.ObjectModel;
 using System.Windows.Input;
-using Opc.Ua;
-using Opc.Ua.Client;
 using OpcUaCommunicationEngine.Helpers;
 using OpcUaCommunicationEngine.Models;
+using OpcUaCommunicationEngine.Services.OpcUa;
 using Serilog;
 
 namespace OpcUaCommunicationEngine.ViewModels;
 
-/// <summary>
-/// ViewModel for the Browse Server window
-/// Allows browsing OPC UA server nodes and adding them as tags
-/// </summary>
 public class BrowseServerViewModel : ObservableObject
 {
-    private readonly Session _session;
+    private readonly PlcConnection _connection;
     private readonly PlcDevice _device;
     private readonly ILogger _logger = Log.Logger;
 
     private BrowseNodeItem? _selectedNode;
     private string _statusMessage = string.Empty;
     private bool _isBusy;
-    private string _searchText = string.Empty;
     private string _selectedNodeDetails = string.Empty;
 
-    public BrowseServerViewModel(Session session, PlcDevice device)
+    public BrowseServerViewModel(PlcConnection connection)
     {
-        _session = session ?? throw new ArgumentNullException(nameof(session));
-        _device = device ?? throw new ArgumentNullException(nameof(device));
+        _connection = connection ?? throw new ArgumentNullException(nameof(connection));
+        _device = connection.Device;
 
-        // Initialize commands
-        RefreshCommand = new AsyncRelayCommand(RefreshAsync);
-        AddSelectedTagCommand = new RelayCommand(AddSelectedTag, () => CanAddSelectedTag);
+        RefreshCommand         = new AsyncRelayCommand(RefreshAsync);
+        AddSelectedTagCommand  = new RelayCommand(AddSelectedTag, () => CanAddSelectedTag);
         AddAllVariablesCommand = new AsyncRelayCommand(AddAllVariablesAsync, () => SelectedNode != null);
-        CopyNodeIdCommand = new RelayCommand(CopyNodeId, () => SelectedNode != null);
-        ReadValueCommand = new AsyncRelayCommand(ReadSelectedValueAsync, () => SelectedNode?.IsVariable == true);
-        ExpandAllCommand = new RelayCommand(ExpandAll);
-        CollapseAllCommand = new RelayCommand(CollapseAll);
+        CopyNodeIdCommand      = new RelayCommand(CopyNodeId, () => SelectedNode != null);
+        ReadValueCommand       = new AsyncRelayCommand(ReadSelectedValueAsync, () => SelectedNode?.IsVariable == true);
+        ExpandAllCommand       = new RelayCommand(ExpandAll);
+        CollapseAllCommand     = new RelayCommand(CollapseAll);
 
-        // Load root nodes
         _ = LoadRootNodesAsync();
     }
 
     #region Properties
 
     public ObservableCollection<BrowseNodeItem> RootNodes { get; } = new();
-
     public ObservableCollection<TagItem> SelectedTags { get; } = new();
 
     public BrowseNodeItem? SelectedNode
@@ -57,9 +48,9 @@ public class BrowseServerViewModel : ObservableObject
             {
                 OnPropertyChanged(nameof(CanAddSelectedTag));
                 UpdateSelectedNodeDetails();
-                (AddSelectedTagCommand as RelayCommand)?.RaiseCanExecuteChanged();
-                (CopyNodeIdCommand as RelayCommand)?.RaiseCanExecuteChanged();
-                (ReadValueCommand as AsyncRelayCommand)?.RaiseCanExecuteChanged();
+                (AddSelectedTagCommand  as RelayCommand)?.RaiseCanExecuteChanged();
+                (CopyNodeIdCommand      as RelayCommand)?.RaiseCanExecuteChanged();
+                (ReadValueCommand       as AsyncRelayCommand)?.RaiseCanExecuteChanged();
             }
         }
     }
@@ -76,12 +67,6 @@ public class BrowseServerViewModel : ObservableObject
         set => SetProperty(ref _isBusy, value);
     }
 
-    public string SearchText
-    {
-        get => _searchText;
-        set => SetProperty(ref _searchText, value);
-    }
-
     public string SelectedNodeDetails
     {
         get => _selectedNodeDetails;
@@ -89,66 +74,73 @@ public class BrowseServerViewModel : ObservableObject
     }
 
     public bool CanAddSelectedTag => SelectedNode?.CanAddAsTag == true;
-
-    public string WindowTitle => $"Browse Server - {_device.Name} ({_session.Endpoint.EndpointUrl})";
+    public string WindowTitle => $"Browse Server — {_device.Name}  ({_device.EndpointUrl})";
 
     #endregion
 
     #region Commands
 
-    public ICommand RefreshCommand { get; }
-    public ICommand AddSelectedTagCommand { get; }
+    public ICommand RefreshCommand         { get; }
+    public ICommand AddSelectedTagCommand  { get; }
     public ICommand AddAllVariablesCommand { get; }
-    public ICommand CopyNodeIdCommand { get; }
-    public ICommand ReadValueCommand { get; }
-    public ICommand ExpandAllCommand { get; }
-    public ICommand CollapseAllCommand { get; }
+    public ICommand CopyNodeIdCommand      { get; }
+    public ICommand ReadValueCommand       { get; }
+    public ICommand ExpandAllCommand       { get; }
+    public ICommand CollapseAllCommand     { get; }
 
     #endregion
 
-    #region Methods
+    #region Loading
 
     private async Task LoadRootNodesAsync()
     {
         IsBusy = true;
-        StatusMessage = "Loading server nodes...";
+        StatusMessage = "Đang tải cây node OPC UA...";
 
         try
         {
             RootNodes.Clear();
 
-            // Browse from Objects folder
-            var objectsNode = await BrowseNodeAsync(ObjectIds.ObjectsFolder.ToString());
-            if (objectsNode != null)
+            // Standard OPC UA root folders (well-known numeric NodeIds)
+            var rootFolders = new[]
             {
-                objectsNode.DisplayName = "Objects";
-                objectsNode.IsExpanded = true;
-                RootNodes.Add(objectsNode);
+                ("i=85", "Objects"),
+                ("i=86", "Types"),
+                ("i=87", "Views")
+            };
+
+            foreach (var (nodeIdStr, fallbackName) in rootFolders)
+            {
+                var info = await _connection.GetNodeInfoAsync(nodeIdStr);
+                var folderNode = new BrowseNodeItem
+                {
+                    NodeId      = nodeIdStr,
+                    DisplayName = info?.DisplayName ?? fallbackName,
+                    BrowseName  = info?.BrowseName  ?? fallbackName,
+                    NodeClass   = info?.NodeClass   ?? "Object",
+                    Description = info?.Description ?? "",
+                    HasChildren = true
+                };
+                folderNode.OnExpandRequested += OnNodeExpandRequested;
+                folderNode.AddLoadingPlaceholder();
+
+                // Eager-load the Objects folder; the rest load on demand
+                if (nodeIdStr == "i=85")
+                {
+                    await LoadChildrenAsync(folderNode);
+                    folderNode.IsExpanded = true;
+                }
+
+                RootNodes.Add(folderNode);
             }
 
-            // Also add Types folder for reference
-            var typesNode = await BrowseNodeAsync(ObjectIds.TypesFolder.ToString());
-            if (typesNode != null)
-            {
-                typesNode.DisplayName = "Types";
-                RootNodes.Add(typesNode);
-            }
-
-            // Add Views folder
-            var viewsNode = await BrowseNodeAsync(ObjectIds.ViewsFolder.ToString());
-            if (viewsNode != null)
-            {
-                viewsNode.DisplayName = "Views";
-                RootNodes.Add(viewsNode);
-            }
-
-            StatusMessage = $"Loaded {RootNodes.Count} root folders";
-            _logger.Information("Browse server loaded {Count} root folders", RootNodes.Count);
+            StatusMessage = $"Đã tải {RootNodes.Count} thư mục gốc";
+            _logger.Information("BrowseServer: loaded {Count} root folders for {PlcName}", RootNodes.Count, _device.Name);
         }
         catch (Exception ex)
         {
-            StatusMessage = $"Error loading nodes: {ex.Message}";
-            _logger.Error(ex, "Error loading root nodes");
+            StatusMessage = $"Lỗi tải node: {ex.Message}";
+            _logger.Error(ex, "BrowseServer: error loading root nodes for {PlcName}", _device.Name);
         }
         finally
         {
@@ -156,109 +148,52 @@ public class BrowseServerViewModel : ObservableObject
         }
     }
 
-    private async Task<BrowseNodeItem?> BrowseNodeAsync(string nodeId)
-    {
-        try
-        {
-            var node = _session.ReadNode(new NodeId(nodeId));
-
-            var browseNode = new BrowseNodeItem
-            {
-                NodeId = nodeId,
-                DisplayName = node.DisplayName?.Text ?? nodeId,
-                BrowseName = node.BrowseName?.ToString() ?? "",
-                NodeClass = node.NodeClass.ToString(),
-                Description = node.Description?.Text ?? "",
-                HasChildren = true
-            };
-
-            // Subscribe to expand event for lazy loading
-            browseNode.OnExpandRequested += OnNodeExpandRequested;
-
-            // Add placeholder for lazy loading
-            browseNode.AddLoadingPlaceholder();
-
-            // Load children for root level
-            await LoadChildrenAsync(browseNode);
-
-            return browseNode;
-        }
-        catch (Exception ex)
-        {
-            _logger.Warning("Error browsing node {NodeId}: {Error}", nodeId, ex.Message);
-            return null;
-        }
-    }
-
     private async void OnNodeExpandRequested(BrowseNodeItem node)
     {
         if (node.ChildrenLoaded) return;
-
         await LoadChildrenAsync(node);
     }
 
     private async Task LoadChildrenAsync(BrowseNodeItem parentNode)
     {
         if (parentNode.ChildrenLoaded) return;
-
         parentNode.IsLoading = true;
 
         try
         {
-            var nodeId = new NodeId(parentNode.NodeId);
-
-            _session.Browse(
-                null,
-                null,
-                nodeId,
-                0,
-                BrowseDirection.Forward,
-                ReferenceTypeIds.HierarchicalReferences,
-                true,
-                (uint)Opc.Ua.NodeClass.Object | (uint)Opc.Ua.NodeClass.Variable | (uint)Opc.Ua.NodeClass.Method,
-                out byte[] continuationPoint,
-                out ReferenceDescriptionCollection references);
-
+            // Use PlcConnection.BrowseAsync — keeps all OPC UA logic in the service layer
+            var children = await _connection.BrowseAsync(parentNode.NodeId);
             parentNode.ClearLoadingPlaceholder();
 
-            foreach (var reference in references)
+            foreach (var child in children)
             {
                 var childNode = new BrowseNodeItem
                 {
-                    NodeId = reference.NodeId.ToString(),
-                    DisplayName = reference.DisplayName?.Text ?? reference.NodeId.ToString(),
-                    BrowseName = reference.BrowseName?.ToString() ?? "",
-                    NodeClass = reference.NodeClass.ToString(),
-                    Parent = parentNode,
-                    HasChildren = reference.NodeClass == Opc.Ua.NodeClass.Object ||
-                                 (reference.NodeClass == Opc.Ua.NodeClass.Variable && HasVariableChildren(reference.NodeId))
+                    NodeId      = child.NodeId,
+                    DisplayName = child.DisplayName,
+                    BrowseName  = child.BrowseName,
+                    NodeClass   = child.NodeClass,
+                    Description = child.Description ?? "",
+                    HasChildren = child.HasChildren,
+                    Parent      = parentNode
                 };
-
-                // Subscribe to expand event
                 childNode.OnExpandRequested += OnNodeExpandRequested;
 
-                // Get additional info for variables
-                if (reference.NodeClass == Opc.Ua.NodeClass.Variable)
-                {
-                    await LoadVariableDetailsAsync(childNode, reference.NodeId);
-                }
+                if (child.NodeClass == "Variable")
+                    await LoadVariableDetailsAsync(childNode);
 
-                // Add placeholder for children
                 if (childNode.HasChildren)
-                {
                     childNode.AddLoadingPlaceholder();
-                }
 
                 parentNode.Children.Add(childNode);
             }
 
             parentNode.HasChildren = parentNode.Children.Count > 0;
-
-            _logger.Debug("Loaded {Count} children for {NodeName}", parentNode.Children.Count, parentNode.DisplayName);
+            _logger.Debug("BrowseServer: loaded {Count} children for {NodeName}", parentNode.Children.Count, parentNode.DisplayName);
         }
         catch (Exception ex)
         {
-            _logger.Warning("Error loading children for {NodeId}: {Error}", parentNode.NodeId, ex.Message);
+            _logger.Warning("BrowseServer: error loading children for {NodeId}: {Error}", parentNode.NodeId, ex.Message);
             parentNode.ClearLoadingPlaceholder();
             parentNode.HasChildren = false;
         }
@@ -268,94 +203,53 @@ public class BrowseServerViewModel : ObservableObject
         }
     }
 
-    private bool HasVariableChildren(ExpandedNodeId nodeId)
+    // Use PlcConnection.GetNodeInfoAsync — reads DataType, access level, current value
+    private async Task LoadVariableDetailsAsync(BrowseNodeItem node)
     {
         try
         {
-            _session.Browse(
-                null, null, (NodeId)nodeId, 1, BrowseDirection.Forward,
-                ReferenceTypeIds.HierarchicalReferences, true,
-                (uint)Opc.Ua.NodeClass.Variable,
-                out _, out ReferenceDescriptionCollection refs);
-            return refs.Count > 0;
-        }
-        catch
-        {
-            return false;
-        }
-    }
+            var info = await _connection.GetNodeInfoAsync(node.NodeId);
+            if (info == null) return;
 
-    private async Task LoadVariableDetailsAsync(BrowseNodeItem node, ExpandedNodeId nodeId)
-    {
-        try
-        {
-            var readNode = _session.ReadNode((NodeId)nodeId);
+            node.DataType = info.DataType ?? "";
 
-            if (readNode is VariableNode varNode)
-            {
-                // Get data type
-                if (varNode.DataType != null)
-                {
-                    try
-                    {
-                        var dataTypeNode = _session.ReadNode(varNode.DataType);
-                        node.DataType = dataTypeNode?.DisplayName?.Text ?? varNode.DataType.ToString();
-                    }
-                    catch
-                    {
-                        node.DataType = varNode.DataType.ToString();
-                    }
-                }
+            var access = new List<string>();
+            if (info.IsReadable) access.Add("Read");
+            if (info.IsWritable) access.Add("Write");
+            node.AccessLevel = string.Join("/", access);
 
-                // Get access level
-                var accessLevel = varNode.AccessLevel;
-                var accessParts = new List<string>();
-                if ((accessLevel & AccessLevels.CurrentRead) != 0) accessParts.Add("Read");
-                if ((accessLevel & AccessLevels.CurrentWrite) != 0) accessParts.Add("Write");
-                node.AccessLevel = string.Join("/", accessParts);
-
-                // Read current value
-                try
-                {
-                    var value = _session.ReadValue((NodeId)nodeId);
-                    node.CurrentValue = value?.Value;
-                }
-                catch { /* Ignore read errors */ }
-            }
+            node.CurrentValue = info.CurrentValue;
         }
         catch (Exception ex)
         {
-            _logger.Debug("Error loading variable details for {NodeId}: {Error}", nodeId, ex.Message);
+            _logger.Debug("BrowseServer: error loading variable details for {NodeId}: {Error}", node.NodeId, ex.Message);
         }
     }
 
+    #endregion
+
+    #region Commands Implementation
+
     private void UpdateSelectedNodeDetails()
     {
-        if (SelectedNode == null)
-        {
-            SelectedNodeDetails = string.Empty;
-            return;
-        }
+        if (SelectedNode == null) { SelectedNodeDetails = string.Empty; return; }
 
-        var details = new System.Text.StringBuilder();
-        details.AppendLine($"NodeId: {SelectedNode.NodeId}");
-        details.AppendLine($"DisplayName: {SelectedNode.DisplayName}");
-        details.AppendLine($"BrowseName: {SelectedNode.BrowseName}");
-        details.AppendLine($"NodeClass: {SelectedNode.NodeClass}");
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine($"NodeId:      {SelectedNode.NodeId}");
+        sb.AppendLine($"DisplayName: {SelectedNode.DisplayName}");
+        sb.AppendLine($"BrowseName:  {SelectedNode.BrowseName}");
+        sb.AppendLine($"NodeClass:   {SelectedNode.NodeClass}");
 
         if (SelectedNode.IsVariable)
         {
-            details.AppendLine($"DataType: {SelectedNode.DataType}");
-            details.AppendLine($"AccessLevel: {SelectedNode.AccessLevel}");
-            details.AppendLine($"Value: {SelectedNode.ValueDisplay}");
+            sb.AppendLine($"DataType:    {SelectedNode.DataType}");
+            sb.AppendLine($"Access:      {SelectedNode.AccessLevel}");
+            sb.AppendLine($"Value:       {SelectedNode.ValueDisplay}");
         }
-
         if (!string.IsNullOrEmpty(SelectedNode.Description))
-        {
-            details.AppendLine($"Description: {SelectedNode.Description}");
-        }
+            sb.AppendLine($"Description: {SelectedNode.Description}");
 
-        SelectedNodeDetails = details.ToString();
+        SelectedNodeDetails = sb.ToString();
     }
 
     private async Task RefreshAsync()
@@ -367,18 +261,16 @@ public class BrowseServerViewModel : ObservableObject
     {
         if (SelectedNode == null || !SelectedNode.CanAddAsTag) return;
 
-        // Get or create default subscription group
         var subscriptionGroup = _device.SubscriptionGroups.FirstOrDefault(g => g.IsEnabled);
         if (subscriptionGroup == null)
         {
-            StatusMessage = "No subscription group available";
+            StatusMessage = "Không có subscription group nào khả dụng";
             return;
         }
 
-        // Check if tag already exists
         if (_device.Tags.Any(t => t.NodeId == SelectedNode.NodeId))
         {
-            StatusMessage = $"Tag '{SelectedNode.DisplayName}' already exists";
+            StatusMessage = $"Tag '{SelectedNode.DisplayName}' đã tồn tại";
             return;
         }
 
@@ -386,8 +278,8 @@ public class BrowseServerViewModel : ObservableObject
         _device.Tags.Add(tag);
         SelectedTags.Add(tag);
 
-        StatusMessage = $"Added tag: {tag.Name}";
-        _logger.Information("Added tag {TagName} with NodeId {NodeId}", tag.Name, tag.NodeId);
+        StatusMessage = $"Đã thêm tag: {tag.Name}";
+        _logger.Information("BrowseServer: added tag {TagName} (NodeId={NodeId})", tag.Name, tag.NodeId);
     }
 
     private async Task AddAllVariablesAsync()
@@ -395,26 +287,21 @@ public class BrowseServerViewModel : ObservableObject
         if (SelectedNode == null) return;
 
         IsBusy = true;
-        StatusMessage = "Adding all variables...";
+        StatusMessage = "Đang thêm tất cả biến...";
 
         try
         {
             var subscriptionGroup = _device.SubscriptionGroups.FirstOrDefault(g => g.IsEnabled);
-            if (subscriptionGroup == null)
-            {
-                StatusMessage = "No subscription group available";
-                return;
-            }
+            if (subscriptionGroup == null) { StatusMessage = "Không có subscription group nào"; return; }
 
             var count = await AddVariablesRecursiveAsync(SelectedNode, subscriptionGroup.Id);
-
-            StatusMessage = $"Added {count} variables";
-            _logger.Information("Added {Count} variables from {NodeName}", count, SelectedNode.DisplayName);
+            StatusMessage = $"Đã thêm {count} biến từ '{SelectedNode.DisplayName}'";
+            _logger.Information("BrowseServer: bulk-added {Count} variables from {NodeName}", count, SelectedNode.DisplayName);
         }
         catch (Exception ex)
         {
-            StatusMessage = $"Error: {ex.Message}";
-            _logger.Error(ex, "Error adding all variables");
+            StatusMessage = $"Lỗi: {ex.Message}";
+            _logger.Error(ex, "BrowseServer: error adding all variables");
         }
         finally
         {
@@ -426,13 +313,9 @@ public class BrowseServerViewModel : ObservableObject
     {
         var count = 0;
 
-        // Load children if not loaded
         if (!node.ChildrenLoaded && node.HasChildren)
-        {
             await LoadChildrenAsync(node);
-        }
 
-        // Add this node if it's a variable
         if (node.IsVariable && !_device.Tags.Any(t => t.NodeId == node.NodeId))
         {
             var tag = node.ToTagItem(_device.Id, subscriptionGroupId);
@@ -441,11 +324,8 @@ public class BrowseServerViewModel : ObservableObject
             count++;
         }
 
-        // Process children
         foreach (var child in node.Children.ToList())
-        {
             count += await AddVariablesRecursiveAsync(child, subscriptionGroupId);
-        }
 
         return count;
     }
@@ -453,70 +333,58 @@ public class BrowseServerViewModel : ObservableObject
     private void CopyNodeId()
     {
         if (SelectedNode == null) return;
-
         try
         {
             System.Windows.Clipboard.SetText(SelectedNode.NodeId);
-            StatusMessage = $"Copied: {SelectedNode.NodeId}";
+            StatusMessage = $"Đã sao chép: {SelectedNode.NodeId}";
         }
         catch (Exception ex)
         {
-            StatusMessage = $"Error copying: {ex.Message}";
+            StatusMessage = $"Lỗi sao chép: {ex.Message}";
         }
     }
 
+    // Use PlcConnection.ReadTagAsync — keeps read logic in the service layer
     private async Task ReadSelectedValueAsync()
     {
         if (SelectedNode == null || !SelectedNode.IsVariable) return;
-
         try
         {
-            var value = _session.ReadValue(new NodeId(SelectedNode.NodeId));
-            SelectedNode.CurrentValue = value?.Value;
+            var tagValue = await _connection.ReadTagAsync(SelectedNode.NodeId);
+            SelectedNode.CurrentValue = tagValue?.Value;
             UpdateSelectedNodeDetails();
-            StatusMessage = $"Value: {SelectedNode.ValueDisplay}";
+            StatusMessage = $"Giá trị: {SelectedNode.ValueDisplay}";
         }
         catch (Exception ex)
         {
-            StatusMessage = $"Error reading value: {ex.Message}";
+            StatusMessage = $"Lỗi đọc giá trị: {ex.Message}";
         }
     }
 
     private void ExpandAll()
     {
         foreach (var node in RootNodes)
-        {
             ExpandNodeRecursive(node);
-        }
     }
 
     private void ExpandNodeRecursive(BrowseNodeItem node)
     {
         node.IsExpanded = true;
         foreach (var child in node.Children)
-        {
-            if (child.NodeClass != "Loading")
-            {
-                ExpandNodeRecursive(child);
-            }
-        }
+            if (child.NodeClass != "Loading") ExpandNodeRecursive(child);
     }
 
     private void CollapseAll()
     {
         foreach (var node in RootNodes)
-        {
             CollapseNodeRecursive(node);
-        }
     }
 
     private void CollapseNodeRecursive(BrowseNodeItem node)
     {
         node.IsExpanded = false;
         foreach (var child in node.Children)
-        {
             CollapseNodeRecursive(child);
-        }
     }
 
     #endregion
