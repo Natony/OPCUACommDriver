@@ -183,6 +183,22 @@
                             <Style TargetType="ListBoxItem">
                                 <Setter Property="Padding" Value="0"/>
                                 <Setter Property="Margin" Value="6,1"/>
+                                <!-- Tag = MainViewModel so ContextMenu can bind to commands -->
+                                <Setter Property="Tag" Value="{Binding DataContext, RelativeSource={RelativeSource AncestorType=ListBox}}"/>
+                                <EventSetter Event="PreviewMouseRightButtonDown" Handler="PlcItem_RightClick"/>
+                                <Setter Property="ContextMenu">
+                                    <Setter.Value>
+                                        <ContextMenu DataContext="{Binding PlacementTarget.Tag, RelativeSource={RelativeSource Self}}">
+                                            <MenuItem Header="⚡  Kết nối"       Command="{Binding ConnectSelectedCommand}"/>
+                                            <MenuItem Header="⏸  Ngắt kết nối"  Command="{Binding DisconnectSelectedCommand}"/>
+                                            <Separator/>
+                                            <MenuItem Header="⎇  Duyệt server OPC UA…" Command="{Binding BrowseServerCommand}"/>
+                                            <Separator/>
+                                            <MenuItem Header="✏  Sửa…"  Command="{Binding EditPlcCommand}"/>
+                                            <MenuItem Header="🗑  Xóa"   Command="{Binding DeletePlcCommand}"/>
+                                        </ContextMenu>
+                                    </Setter.Value>
+                                </Setter>
                                 <Setter Property="Template">
                                     <Setter.Value>
                                         <ControlTemplate TargetType="ListBoxItem">

@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
 using System.Windows.Media.Animation;
 using OpcUaCommunicationEngine.Models;
 using OpcUaCommunicationEngine.ViewModels;
@@ -94,6 +95,13 @@ public partial class MainWindow : Window
     }
 
     // Header-button click handlers (toolbar + menu use commands; these wire the header chevrons).
+    private void PlcItem_RightClick(object sender, MouseButtonEventArgs e)
+    {
+        // Auto-select the item that was right-clicked so ContextMenu commands act on it
+        if (sender is ListBoxItem item)
+            item.IsSelected = true;
+    }
+
     private void ToggleLeft_Click(object sender, RoutedEventArgs e)   => ToggleLeftPanel();
     private void ToggleRight_Click(object sender, RoutedEventArgs e)  => ToggleRightPanel();
     private void ToggleBottom_Click(object sender, RoutedEventArgs e) => ToggleBottomPanel();
