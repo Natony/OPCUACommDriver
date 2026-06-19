@@ -1911,3 +1911,1269 @@ Dự án OPC UA Communication Engine được xây dựng theo kiến trúc phâ
 
 *Tài liệu này được tạo tự động từ source code của dự án OPCUACommDriver.*  
 *Ngày: 2026-06-19*
+
+---
+
+## Chương 5: Helpers - RelayCommand, AsyncRelayCommand, RelayCommand\<T\>
+
+### 5.1 Tổng quan về ICommand Interface
+
+Trong WPF (Windows Presentation Foundation), giao tiếp giữa UI và business logic được thực hiện thông qua pattern **MVVM (Model-View-ViewModel)**. Một trong những thành phần cốt lõi của MVVM chính là **ICommand interface**.
+
+`ICommand` được định nghĩa trong namespace `System.Windows.Input` và chứa ba thành viên bắt buộc:
+
+```csharp
+public interface ICommand
+{
+    event EventHandler? CanExecuteChanged;
+    bool CanExecute(object? parameter);
+    void Execute(object? parameter);
+}
+```
+
+**Tại sao WPF cần ICommand?**
+
+Trong WPF, các Button, MenuItem, và nhiều control khác có một property tên là `Command`. Khi user click button, WPF không gọi event handler trực tiếp - thay vào đó nó gọi `command.Execute()`. Điều này có những ưu điểm:
+
+1. **Separation of Concerns**: Logic nằm trong ViewModel, không phải code-behind của View
+2. **Enable/Disable tự động**: WPF gọi `CanExecute()` định kỳ để tự động enable/disable button
+3. **Testability**: ViewModel (và command) có thể được unit test mà không cần UI
+
+Thay vì implement ICommand cho từng action, `RelayCommand` đóng vai trò là một implementation tái sử dụng, nhận `Action` và `Func<bool>` qua constructor.
+
+---
+
+### 5.2 RelayCommand - Implementation chi tiết
+
+```csharp
+using System.Windows.Input;
+
+namespace OpcUaCommunicationEngine.Helpers;
+
+public class RelayCommand : ICommand
+{
+    private readonly Action<object?> _execute;
+    private readonly Func<object?, bool>? _canExecute;
+```
+
+**Dòng 1**: `using System.Windows.Input;` - import namespace chứa `ICommand` và `CommandManager`.
+
+**Dòng 5-6**: Hai private readonly field:
+- `_execute`: Delegate kiểu `Action<object?>` - đây là logic sẽ chạy khi command được thực thi. `object?` vì `ICommand.Execute` nhận `object?`.
+- `_canExecute`: Delegate kiểu `Func<object?, bool>?` - nullable, nếu null thì command luôn enabled. Nhận parameter và trả về bool.
+
+---
+
+#### 5.2.1 CanExecuteChanged và CommandManager.RequerySuggested
+
+```csharp
+public event EventHandler? CanExecuteChanged
+{
+    add => CommandManager.RequerySuggested += value;
+    remove => CommandManager.RequerySuggested -= value;
+}
+```
+
+Đây là custom event accessor - thay vì tạo event riêng, chúng ta **delegate** (ủy thác) lên `CommandManager.RequerySuggested`.
+
+**CommandManager.RequerySuggested là gì?**
+
+`CommandManager` là static class của WPF, theo dõi trạng thái của UI. `RequerySuggested` là event mà WPF bắn ra khi nó "nghi ngờ" rằng `CanExecute` của các command có thể đã thay đổi - ví dụ khi:
+- User thay đổi focus
+- User nhập text
+- Một UI element thay đổi trạng thái
+
+Khi event này bắn, WPF sẽ gọi lại `CanExecute()` trên tất cả các command đang được binding, và tự động enable/disable các control tương ứng.
+
+**Tại sao dùng add/remove accessor thay vì event thường?**
+
+Nếu chúng ta viết:
+```csharp
+public event EventHandler? CanExecuteChanged;
+```
+thì WPF sẽ không biết khi nào cần refresh - chúng ta phải tự raise event này.
+
+Bằng cách delegate lên `CommandManager.RequerySuggested`, chúng ta để WPF tự quản lý việc này một cách thông minh. Mỗi khi WPF gửi `RequerySuggested`, tất cả các button/control đang bind command này sẽ tự động cập nhật trạng thái.
+
+---
+
+#### 5.2.2 Constructor và Null Guard
+
+```csharp
+public RelayCommand(Action<object?> execute, Func<object?, bool>? canExecute = null)
+{
+    _execute = execute ?? throw new ArgumentNullException(nameof(execute));
+    _canExecute = canExecute;
+}
+```
+
+**Dòng `_execute = execute ?? throw new ArgumentNullException(nameof(execute));`**
+
+Toán tử `??` (null-coalescing) ở đây được dùng như một **null guard**:
+- Nếu `execute` không null: gán vào `_execute`
+- Nếu `execute` null: throw `ArgumentNullException` với tên parameter
+
+Đây là pattern bảo vệ an toàn - `RelayCommand` mà không có `execute` delegate thì hoàn toàn vô nghĩa. Fail nhanh tại constructor còn hơn là crash bí ẩn sau này khi `Execute()` được gọi với null delegate.
+
+`nameof(execute)` trả về string `"execute"` - dùng cách này thay vì hard-code string để nếu rename parameter, compiler sẽ báo lỗi thay vì silently break.
+
+```csharp
+public RelayCommand(Action execute, Func<bool>? canExecute = null)
+    : this(_ => execute(), canExecute != null ? _ => canExecute() : null)
+{
+}
+```
+
+**Constructor overload thứ hai** - convenience constructor cho trường hợp command không cần parameter:
+- `_ => execute()`: lambda nhận parameter nhưng bỏ qua (dấu `_` là convention cho "discard")
+- `canExecute != null ? _ => canExecute() : null`: nếu có canExecute, wrap nó thành `Func<object?, bool>`; nếu không thì null
+
+`:this(...)` gọi constructor chính - tránh duplicate code.
+
+---
+
+#### 5.2.3 CanExecute và Execute
+
+```csharp
+public bool CanExecute(object? parameter) => _canExecute == null || _canExecute(parameter);
+public void Execute(object? parameter) => _execute(parameter);
+public void RaiseCanExecuteChanged() => CommandManager.InvalidateRequerySuggested();
+```
+
+**CanExecute**: Short-circuit evaluation:
+- Nếu `_canExecute == null` → true (không có điều kiện = luôn enabled)
+- Nếu có `_canExecute` → gọi delegate với parameter
+
+**Execute**: Đơn giản gọi `_execute`. Không có null check vì đã guard trong constructor.
+
+**RaiseCanExecuteChanged**: Gọi `CommandManager.InvalidateRequerySuggested()` - báo cho WPF biết cần re-evaluate `CanExecute` của tất cả commands. ViewModel gọi method này khi state thay đổi mà WPF không tự phát hiện được.
+
+---
+
+### 5.3 AsyncRelayCommand - Xử lý bất đồng bộ
+
+```csharp
+public class AsyncRelayCommand : ICommand
+{
+    private readonly Func<Task> _execute;
+    private readonly Func<bool>? _canExecute;
+    private bool _isExecuting;
+```
+
+**Sự khác biệt then chốt**: `_execute` là `Func<Task>` thay vì `Action<object?>`. Command này dành cho các operation async như kết nối PLC, load dữ liệu từ file, v.v.
+
+---
+
+#### 5.3.1 IsExecuting - Ngăn Re-entry
+
+```csharp
+public bool IsExecuting
+{
+    get => _isExecuting;
+    private set { _isExecuting = value; RaiseCanExecuteChanged(); }
+}
+```
+
+Property `IsExecuting` có setter private - chỉ code trong class mới set được.
+
+**Tại sao cần IsExecuting?**
+
+Khi user click button kích hoạt một async operation (ví dụ kết nối OPC UA mất 3-5 giây), nếu không có guard, user có thể click liên tục và tạo ra nhiều connection attempts song song - gây race condition, resource leak, hoặc crash.
+
+Cơ chế:
+1. `IsExecuting = true` → setter gọi `RaiseCanExecuteChanged()`
+2. WPF re-evaluate `CanExecute()` → trả về false vì `_isExecuting = true`
+3. Button bị disable → user không click được nữa
+4. Operation hoàn thành → `IsExecuting = false` → button enable lại
+
+---
+
+#### 5.3.2 Tại sao Execute là `async void` chứ không phải `async Task`?
+
+```csharp
+public async void Execute(object? parameter)
+{
+    if (!CanExecute(parameter)) return;
+    try { IsExecuting = true; await _execute(); }
+    finally { IsExecuting = false; }
+}
+```
+
+**Đây là câu hỏi quan trọng về C# và WPF.**
+
+`ICommand.Execute` được định nghĩa trả về `void`:
+```csharp
+void Execute(object? parameter);
+```
+
+Vì interface signature là `void`, chúng ta **buộc phải** implement với `void`. Không thể đổi thành `Task` vì vi phạm interface contract.
+
+`async void` trong C# có những đặc điểm:
+- Exception không được propagate ra caller (caller không thể await)
+- Nếu có exception, nó sẽ bị throw vào SynchronizationContext (UI thread)
+- Thường được coi là anti-pattern, **ngoại trừ** event handlers và ICommand.Execute
+
+Để bù đắp, `_execute` là `Func<Task>` - exception từ Task này sẽ propagate vào `async void Execute`, và nếu không được catch, sẽ crash ứng dụng (unhandled exception).
+
+Khối `try/finally` đảm bảo `IsExecuting = false` **luôn luôn** được gọi dù có exception hay không.
+
+---
+
+### 5.4 RelayCommand\<T\> - Generic Version
+
+```csharp
+public class RelayCommand<T> : ICommand
+{
+    private readonly Action<T?> _execute;
+    private readonly Func<T?, bool>? _canExecute;
+
+    ...
+
+    public bool CanExecute(object? parameter) => _canExecute == null || _canExecute((T?)parameter);
+    public void Execute(object? parameter) => _execute((T?)parameter);
+}
+```
+
+`RelayCommand<T>` cho phép type-safe commands. Thay vì nhận `object?` và phải cast trong body của action, casting được thực hiện tại boundary của command.
+
+**Casting `(T?)parameter`**:
+
+`ICommand.Execute` và `ICommand.CanExecute` nhận `object?` - đây là constraint từ interface. Khi WPF pass `CommandParameter` vào, nó là `object?`.
+
+`(T?)parameter` là **unboxing/casting** từ `object?` sang `T?`. Nếu `T` là reference type thì là downcast. Nếu `T` là value type thì là unboxing. Nếu type không khớp, sẽ throw `InvalidCastException`.
+
+**Ví dụ sử dụng**:
+```csharp
+// ViewModel
+ConnectCommand = new RelayCommand<PlcDevice>(device => ConnectToPlc(device));
+
+// XAML
+<Button Command="{Binding ConnectCommand}" CommandParameter="{Binding SelectedDevice}"/>
+```
+
+WPF sẽ pass `SelectedDevice` (kiểu `PlcDevice`) vào Execute, command cast về `PlcDevice?`, action nhận `PlcDevice?` typed - không cần manual cast trong body.
+
+---
+
+### 5.5 Tổng kết Helpers Pattern
+
+| Class | Execute Type | Use Case |
+|-------|-------------|----------|
+| `RelayCommand` | `Action<object?>` | Sync operations, no parameter type |
+| `RelayCommand<T>` | `Action<T?>` | Sync operations, typed parameter |
+| `AsyncRelayCommand` | `Func<Task>` | Async operations, prevents re-entry |
+
+Ba class này là backbone của toàn bộ command binding trong ứng dụng OPC UA, cho phép ViewModel expose các operation ra cho View mà không cần code-behind.
+
+---
+
+## Chương 6: Services/Auth - UserService và OperatorLockService
+
+### 6.1 UserService - Quản lý người dùng
+
+#### 6.1.1 Khởi tạo và Default Admin
+
+Constructor của `UserService` thực hiện hai việc quan trọng:
+
+1. **Load danh sách users từ JSON file**: Đọc file `users.json` và deserialize thành `List<UserAccount>`
+2. **Tạo default admin nếu chưa có**: Nếu file không tồn tại hoặc chưa có user nào có role Admin, tạo user `admin/admin123`
+
+```csharp
+// Pseudo-code của constructor
+public UserService(string dataFilePath)
+{
+    _dataFilePath = dataFilePath;
+    LoadUsersFromFile();
+    
+    if (!_users.Any(u => u.Role == UserRole.Admin))
+    {
+        CreateDefaultAdmin();
+    }
+}
+```
+
+**Tại sao tạo default admin?**
+
+Đây là pattern phổ biến trong ứng dụng enterprise: lần đầu chạy, hệ thống cần ít nhất một account để vào cấu hình. Default `admin/admin123` là well-known credentials mà admin thực tế phải đổi ngay.
+
+---
+
+#### 6.1.2 Thread Safety với lock(_lock)
+
+```csharp
+private readonly object _lock = new();
+
+public IEnumerable<UserAccount> GetAllUsers()
+{
+    lock (_lock)
+    {
+        return _users.ToList(); // ToList() để trả về copy, không expose internal list
+    }
+}
+```
+
+**Tại sao cần lock trên mọi read operation?**
+
+Ứng dụng này có nhiều thread đồng thời:
+- **UI thread**: ViewModel gọi UserService để hiển thị danh sách users
+- **API thread (ASP.NET)**: HTTP request validate credentials
+- **Timer thread**: Auto-logout, session cleanup
+
+Nếu không có lock, có thể xảy ra **race condition**:
+- Thread A đang đọc `_users` list
+- Thread B đang modify list (add/remove user)
+- Thread A đọc được list ở trạng thái corrupt
+
+`lock(_lock)` đảm bảo chỉ một thread vào critical section tại một thời điểm. `_lock` là plain `object` - đây là pattern chuẩn cho locking.
+
+`ToList()` tạo copy của internal list trước khi trả về - tránh caller giữ reference đến mutable internal collection.
+
+---
+
+#### 6.1.3 BCrypt và Security Decisions
+
+```csharp
+private string HashPassword(string password) 
+    => BCrypt.HashPassword(password, workFactor: 11);
+
+private bool VerifyPassword(string password, string hash)
+{
+    try { return BCrypt.Verify(password, hash); }
+    catch { return false; }
+}
+```
+
+**Tại sao BCrypt với workFactor=11?**
+
+BCrypt là password hashing algorithm được thiết kế đặc biệt để **chậm**. `workFactor=11` có nghĩa là 2^11 = 2048 iterations, mất khoảng 100-200ms trên CPU hiện đại.
+
+So sánh với MD5/SHA256:
+- SHA256: < 1 microsecond per hash → attacker có thể thử hàng tỷ passwords/giây
+- BCrypt(11): ~150ms per hash → attacker chỉ thử được ~6 passwords/giây
+
+Với database 1000 users bị leak, attacker cần thời gian **vô cùng lớn** để brute force.
+
+**Tại sao wrap trong try/catch?**
+
+`BCrypt.Verify` có thể throw exception nếu hash string bị corrupt (ví dụ truncated trong database). Thay vì để exception propagate lên, chúng ta return `false` - "password không hợp lệ". Đây là defensive programming: invalid hash = failed verification.
+
+---
+
+#### 6.1.4 Username Normalization
+
+```csharp
+public async Task<UserAccount> CreateUser(string username, ...)
+{
+    // Kiểm tra unique, case-insensitive
+    if (_users.Any(u => string.Equals(u.Username, username, StringComparison.OrdinalIgnoreCase)))
+        throw new InvalidOperationException("Username already exists");
+    
+    // Lưu lowercase
+    var newUser = new UserAccount
+    {
+        Username = username.ToLowerInvariant(),
+        ...
+    };
+}
+```
+
+**OrdinalIgnoreCase**: So sánh string theo byte value, không phụ thuộc culture, case-insensitive. Dùng cho username vì `"Admin"`, `"ADMIN"`, `"admin"` đều phải là cùng một user.
+
+**ToLowerInvariant()**: Normalize về lowercase, dùng invariant culture (không phụ thuộc locale). Ví dụ: tiếng Thổ Nhĩ Kỳ có 'I' uppercase → 'ı' lowercase (khác ASCII 'i'). `ToLowerInvariant()` luôn dùng ASCII rules.
+
+Lưu lowercase nhưng compare case-insensitive → đảm bảo consistency: dù user nhập `"Admin"` hay `"ADMIN"`, system luôn tìm thấy `"admin"` trong database.
+
+---
+
+#### 6.1.5 UpdateUser - Partial Update Pattern
+
+```csharp
+public UserAccount UpdateUser(string userId, string? newDisplayName, string? newEmail, UserRole? newRole)
+{
+    lock (_lock)
+    {
+        var user = GetUserById(userId) ?? throw new KeyNotFoundException();
+        
+        if (newDisplayName != null) user.DisplayName = newDisplayName;
+        if (newEmail != null) user.Email = newEmail;
+        if (newRole != null) user.Role = newRole.Value;
+        
+        SaveUsersToFile();
+        return user;
+    }
+}
+```
+
+**Partial update** - chỉ cập nhật field nào được truyền vào (khác null). Điều này cho phép:
+- Client chỉ gửi fields cần thay đổi
+- Fields không gửi giữ nguyên giá trị cũ
+
+Nếu dùng full replace (ghi đè toàn bộ object), client phải gửi đầy đủ mọi field, dễ vô tình xóa dữ liệu.
+
+---
+
+#### 6.1.6 DeleteUser - Ngăn Xóa Admin Cuối
+
+```csharp
+public void DeleteUser(string userId)
+{
+    lock (_lock)
+    {
+        var user = GetUserById(userId) ?? throw new KeyNotFoundException();
+        
+        if (user.Role == UserRole.Admin)
+        {
+            var adminCount = _users.Count(u => u.Role == UserRole.Admin && u.IsActive);
+            if (adminCount <= 1)
+                throw new InvalidOperationException("Cannot delete the last active admin");
+        }
+        
+        _users.Remove(user);
+        SaveUsersToFile();
+    }
+}
+```
+
+**Tại sao check last admin?**
+
+Nếu xóa admin cuối cùng, hệ thống sẽ không có cách nào để vào admin panel. Đây là **safety guard** - ngăn admin tự "lock mình ra ngoài". 
+
+Check `IsActive` vì admin bị disable cũng không login được - cần tính cả active admins.
+
+---
+
+### 6.2 OperatorLockService - Kiểm soát quyền Write
+
+#### 6.2.1 Mục đích và Design
+
+Trong môi trường công nghiệp, nhiều operator có thể cùng monitor PLC nhưng **chỉ một người được phép write** tại một thời điểm. Viết đồng thời từ nhiều operator có thể gây:
+- Race condition trên thiết bị
+- Conflicting commands
+- Safety hazards
+
+`OperatorLockService` implement **pessimistic locking**: operator phải "claim" lock trước khi write. Lock có timeout để tự động expire nếu operator quên release.
+
+State được persist vào `lock_state.json` để survive application restart.
+
+---
+
+#### 6.2.2 TryAcquireLock - Logic chi tiết
+
+```csharp
+public LockAcquireResult TryAcquireLock(
+    string userId, string username, string displayName, 
+    UserRole role, int durationMinutes)
+{
+    lock (_lock)
+    {
+        // 1. Role check
+        if (role < UserRole.Operator)
+            return LockAcquireResult.Denied("Insufficient role");
+        
+        // 2. Same user có lock chưa expired → extend
+        if (_currentLock?.UserId == userId && !IsLockExpired(_currentLock))
+            return ExtendLock(durationMinutes);
+        
+        // 3. Khác user đang giữ lock → deny với holder info
+        if (_currentLock != null && !IsLockExpired(_currentLock))
+            return LockAcquireResult.Denied($"Held by {_currentLock.Username}");
+        
+        // 4. Tính expiry
+        DateTime expiresAt;
+        if (role >= UserRole.Admin || durationMinutes == 0)
+            expiresAt = DateTime.MaxValue; // Unlimited
+        else
+            expiresAt = DateTime.UtcNow.AddMinutes(
+                Math.Min(durationMinutes, MaxLockDurationMinutes));
+        
+        // 5. Tạo lock mới và atomic write
+        _currentLock = new LockState { UserId = userId, ... ExpiresAt = expiresAt };
+        AtomicWriteLockState();
+        return LockAcquireResult.Success(_currentLock);
+    }
+}
+```
+
+**Role check**: `role < UserRole.Operator` - enum comparison. Viewer và Guest không được acquire lock.
+
+**Same user extend**: Nếu operator đang giữ lock và request lại, thay vì deny, chúng ta extend thời gian. Điều này tránh operator bị interrupt giữa chừng vì lock expire.
+
+**DateTime.MaxValue cho unlimited**: Admin không bị limit thời gian. `durationMinutes=0` cũng là tín hiệu "unlimited". `DateTime.MaxValue` là `9999-12-31` - thực tế là vĩnh viễn.
+
+**MaxLockDurationMinutes**: Cap duration để ngăn operator giữ lock quá lâu. Ví dụ max 8 giờ - nếu operator quên release, system tự release sau 8 giờ.
+
+---
+
+#### 6.2.3 Atomic File Write
+
+```csharp
+private void AtomicWriteLockState()
+{
+    var tmpPath = _lockFilePath + ".tmp";
+    var json = JsonConvert.SerializeObject(_currentLock, Formatting.Indented);
+    
+    File.WriteAllText(tmpPath, json);       // Ghi vào .tmp
+    File.Move(tmpPath, _lockFilePath, true); // Rename atomic
+}
+```
+
+**Tại sao cần atomic write?**
+
+Nếu application crash giữa chừng khi đang ghi file:
+- File ghi một nửa → JSON corrupt
+- Lần sau load → parse error → lock state mất
+
+**Giải pháp**: Write to temp file (`lock_state.json.tmp`), sau đó rename. Rename là **atomic operation** trên hầu hết filesystems - file hoặc là file cũ hoặc là file mới, không có trạng thái trung gian.
+
+`File.Move(tmpPath, _lockFilePath, true)` - parameter `true` là overwrite nếu destination đã tồn tại (C# 8.0+).
+
+---
+
+#### 6.2.4 FileSystemWatcher - Multi-Instance Support
+
+```csharp
+private void StartFileWatcher()
+{
+    _watcher = new FileSystemWatcher(Path.GetDirectoryName(_lockFilePath)!)
+    {
+        Filter = Path.GetFileName(_lockFilePath),
+        NotifyFilter = NotifyFilters.LastWrite | NotifyFilters.FileName
+    };
+    
+    _watcher.Changed += OnLockFileChanged;
+    _watcher.EnableRaisingEvents = true;
+}
+
+private void OnLockFileChanged(object sender, FileSystemEventArgs e)
+{
+    if (_isInternalUpdate) return; // Bỏ qua self-triggered events
+    
+    Task.Delay(100).ContinueWith(_ => ReloadLockStateFromFile());
+}
+```
+
+**Tại sao cần FileSystemWatcher?**
+
+Trong môi trường production, có thể chạy nhiều instances của ứng dụng trên cùng máy (ví dụ: primary và backup). Nếu instance A acquire lock và ghi file, instance B cần biết về thay đổi này.
+
+FileSystemWatcher monitor file system events và notify khi `lock_state.json` thay đổi từ bên ngoài.
+
+**_isInternalUpdate flag**:
+Khi chính ứng dụng ghi file (atomic write), FileSystemWatcher cũng sẽ raise event `Changed`. Nếu không có guard, chúng ta sẽ reload file mà chính mình vừa ghi → vô hại nhưng lãng phí. `_isInternalUpdate = true` trước khi ghi, `= false` sau khi ghi xong.
+
+**100ms delay**: Delay nhỏ trước khi reload - đảm bảo file đã được ghi xong hoàn toàn trước khi read. FileSystemWatcher event có thể fire ngay khi file bắt đầu được ghi, chưa có đủ dữ liệu.
+
+---
+
+#### 6.2.5 StartTimeoutChecker - Background Timer
+
+```csharp
+private void StartTimeoutChecker()
+{
+    _timeoutTimer = new System.Threading.Timer(
+        callback: _ => CheckAndExpireLock(),
+        state: null,
+        dueTime: TimeSpan.FromSeconds(30),
+        period: TimeSpan.FromSeconds(30));
+}
+
+private void CheckAndExpireLock()
+{
+    lock (_lock)
+    {
+        if (_currentLock != null && IsLockExpired(_currentLock))
+        {
+            var expiredLock = _currentLock;
+            _currentLock = null;
+            AtomicWriteLockState();
+            LockExpired?.Invoke(this, expiredLock);
+        }
+    }
+}
+```
+
+Timer chạy mỗi 30 giây, check nếu lock đã expired. Nếu expired:
+1. Xóa lock khỏi memory
+2. Ghi file (null lock state)
+3. Raise event `LockExpired` để notify UI
+
+30 giây là balance giữa responsiveness (lock expire nhanh) và performance (không check quá thường xuyên).
+
+---
+
+## Chương 7: Services - ConfigurationService, DataCacheService, UiLogSink
+
+### 7.1 UiLogSink - Đưa Log vào UI
+
+#### 7.1.1 Kiến trúc Logging
+
+Ứng dụng dùng **Serilog** làm logging framework. Serilog có concept "sinks" - đầu ra của log. Mặc định có FileSink, ConsoleSink. `UiLogSink` là custom sink để hiển thị log trực tiếp trong UI.
+
+```csharp
+public class UiLogSink : ILogEventSink
+{
+    private readonly ObservableCollection<LogEntry> _logEntries;
+    private readonly System.Windows.Threading.Dispatcher _dispatcher;
+    private readonly int _maxEntries;
+```
+
+**ILogEventSink**: Interface của Serilog, yêu cầu implement method `Emit(LogEvent)`.
+
+**ObservableCollection\<LogEntry\>**: Collection đặc biệt trong WPF - tự động notify UI khi có item được add/remove. ListView/DataGrid binding lên collection này sẽ tự cập nhật.
+
+**Dispatcher**: Object đại diện cho UI thread của WPF. Mọi thay đổi UI phải chạy trên UI thread.
+
+---
+
+#### 7.1.2 Constructor - Capture Dispatcher
+
+```csharp
+public UiLogSink(ObservableCollection<LogEntry> logEntries, int maxEntries = 1000)
+{
+    _logEntries = logEntries;
+    _dispatcher = System.Windows.Application.Current.Dispatcher;
+    _maxEntries = maxEntries;
+}
+```
+
+`Application.Current.Dispatcher` - lấy Dispatcher của UI thread. **Phải** gọi trong constructor khi còn đang trên UI thread (vì `UiLogSink` được tạo trong App.xaml.cs trên UI thread).
+
+Nếu không capture lúc này, sau này Emit() có thể được gọi từ background thread và không có cách nào lấy UI thread dispatcher.
+
+`_maxEntries = 1000` (default) - giới hạn số log entries để tránh memory leak. Log cứ accumulate mãi sẽ làm UI chậm và dùng nhiều RAM.
+
+---
+
+#### 7.1.3 Emit - Thread-Safe UI Update
+
+```csharp
+public void Emit(LogEvent logEvent)
+{
+    var entry = new LogEntry
+    {
+        Timestamp = logEvent.Timestamp.LocalDateTime,
+        Level = GetLevelShortName(logEvent.Level),
+        Message = logEvent.RenderMessage(),
+        Exception = logEvent.Exception?.ToString()
+    };
+
+    _dispatcher.InvokeAsync(() =>
+    {
+        _logEntries.Add(entry);
+        while (_logEntries.Count > _maxEntries)
+            _logEntries.RemoveAt(0);
+    });
+}
+```
+
+**Serilog gọi Emit() từ thread nào?**
+
+Emit() có thể được gọi từ bất kỳ thread nào đã log - background service, timer thread, API thread. Nhưng modify `_logEntries` (ObservableCollection) từ non-UI thread sẽ throw `InvalidOperationException`.
+
+**_dispatcher.InvokeAsync()**: Marshal việc modify collection sang UI thread. `InvokeAsync` (khác với `Invoke`) là fire-and-forget - Emit() return ngay mà không đợi UI thread process. Điều này tránh deadlock và blocking logger.
+
+**Trimming strategy**:
+```csharp
+while (_logEntries.Count > _maxEntries)
+    _logEntries.RemoveAt(0);
+```
+`while` thay vì `if` - để handle trường hợp nhiều log entries được batch add. RemoveAt(0) xóa entry cũ nhất (FIFO - oldest out).
+
+---
+
+#### 7.1.4 GetLevelShortName - Serilog Level Abbreviation
+
+```csharp
+private static string GetLevelShortName(LogEventLevel level) => level switch
+{
+    LogEventLevel.Verbose => "VRB",
+    LogEventLevel.Debug => "DBG",
+    LogEventLevel.Information => "INF",
+    LogEventLevel.Warning => "WRN",
+    LogEventLevel.Error => "ERR",
+    LogEventLevel.Fatal => "FTL",
+    _ => "???"
+};
+```
+
+Switch expression (C# 8.0) - concise thay vì if/else chain. Trả về 3-character abbreviation phù hợp với Serilog convention (`{Level:u3}`).
+
+---
+
+#### 7.1.5 UiLogSinkExtensions - Fluent API
+
+```csharp
+public static class UiLogSinkExtensions
+{
+    public static LoggerConfiguration UiSink(
+        this LoggerSinkConfiguration sinkConfig,
+        ObservableCollection<LogEntry> logEntries,
+        int maxEntries = 1000)
+        => sinkConfig.Sink(new UiLogSink(logEntries, maxEntries));
+}
+```
+
+Extension method cho `LoggerSinkConfiguration` - cho phép dùng fluent syntax khi configure Serilog:
+
+```csharp
+Log.Logger = new LoggerConfiguration()
+    .WriteTo.File("app.log")
+    .WriteTo.UiSink(LogEntries)  // Extension method của chúng ta
+    .CreateLogger();
+```
+
+`this LoggerSinkConfiguration sinkConfig` - đây là extension method, sinkConfig là object được extend.
+
+---
+
+### 7.2 ConfigurationService - Quản lý cấu hình ứng dụng
+
+#### 7.2.1 LoadConfigurationAsync
+
+```csharp
+public async Task<AppConfiguration> LoadConfigurationAsync()
+{
+    if (!File.Exists(_configFilePath))
+    {
+        var defaultConfig = CreateDefaultConfiguration();
+        await SaveConfigurationAsync(defaultConfig);
+        return defaultConfig;
+    }
+    
+    var json = await File.ReadAllTextAsync(_configFilePath);
+    var config = JsonConvert.DeserializeObject<AppConfiguration>(json, GetJsonSettings());
+    
+    return config ?? CreateDefaultConfiguration();
+}
+```
+
+**Flow**:
+1. File không tồn tại → tạo default config, lưu lại, return
+2. File tồn tại → đọc JSON → deserialize → return
+3. JSON null (file rỗng hoặc "null") → fallback về default
+
+`await File.ReadAllTextAsync` - async I/O, không block UI thread trong khi đọc file.
+
+---
+
+#### 7.2.2 SaveConfigurationAsync và JSON Settings
+
+```csharp
+private static JsonSerializerSettings GetJsonSettings() => new JsonSerializerSettings
+{
+    Formatting = Formatting.Indented,
+    NullValueHandling = NullValueHandling.Ignore,
+    DateFormatString = "yyyy-MM-dd HH:mm:ss"
+};
+```
+
+**Formatting.Indented**: JSON output có indent (pretty print), dễ đọc khi mở file bằng text editor.
+
+**NullValueHandling.Ignore**: Không serialize properties có giá trị null. Giúp JSON gọn hơn và tránh confusion khi null nghĩa là "not set" vs "set to null".
+
+**DateFormatString**: Override default ISO 8601 format của Newtonsoft. `"yyyy-MM-dd HH:mm:ss"` là format thân thiện hơn cho non-technical users đọc config file. Tuy nhiên mất timezone info - cần cẩn thận nếu config được share cross-timezone.
+
+---
+
+#### 7.2.3 ValidateConfiguration
+
+```csharp
+public List<string> ValidateConfiguration(AppConfiguration config)
+{
+    var errors = new List<string>();
+    
+    // Check empty names
+    if (config.PlcDevices.Any(d => string.IsNullOrWhiteSpace(d.Name)))
+        errors.Add("PLC device has empty name");
+    
+    // Check invalid URLs
+    foreach (var device in config.PlcDevices)
+    {
+        if (!Uri.TryCreate(device.EndpointUrl, UriKind.Absolute, out _))
+            errors.Add($"Invalid URL for device '{device.Name}': {device.EndpointUrl}");
+    }
+    
+    // Check duplicate names
+    var duplicates = config.PlcDevices
+        .GroupBy(d => d.Name, StringComparer.OrdinalIgnoreCase)
+        .Where(g => g.Count() > 1)
+        .Select(g => g.Key);
+    
+    foreach (var dup in duplicates)
+        errors.Add($"Duplicate device name: '{dup}'");
+    
+    return errors;
+}
+```
+
+Validation return list of errors thay vì throw exception - cho phép collect **tất cả** errors và hiển thị một lần, thay vì fail on first error và user phải fix từng cái.
+
+---
+
+### 7.3 DataCacheService - In-Memory Cache
+
+```csharp
+public class DataCacheService
+{
+    private readonly ConcurrentDictionary<string, TagValue> _cache = new();
+    
+    public void UpdateTagValue(string tagId, TagValue value)
+        => _cache[tagId] = value;
+    
+    public TagValue? GetTagValue(string tagId)
+        => _cache.TryGetValue(tagId, out var value) ? value : null;
+    
+    public IReadOnlyDictionary<string, TagValue> GetAllValues()
+        => _cache;
+}
+```
+
+**ConcurrentDictionary**: Thread-safe dictionary từ `System.Collections.Concurrent`. Cho phép multiple threads read/write đồng thời mà không cần manual lock.
+
+**Vai trò trong kiến trúc**:
+- OPC UA Subscriptions update cache liên tục khi tag values thay đổi (ví dụ 100ms interval)
+- REST API endpoint serve latest values từ cache
+- UI binding cũng đọc từ cache
+
+Nếu không có cache, mỗi API request phải query PLC trực tiếp → latency cao, tải nặng lên PLC network. Cache cho phép API respond trong microseconds.
+
+**Eventual consistency**: Cache có thể lag 1 interval behind PLC real value. Với subscription interval 100ms, lag tối đa 100ms - chấp nhận được cho hầu hết use cases.
+
+---
+
+## Chương 8: Services/OpcUa - PlcConnection và PlcManager
+
+### 8.1 PlcConnection - Kết nối OPC UA
+
+#### 8.1.1 Key Fields và Ý Nghĩa
+
+```csharp
+private readonly PlcDevice _device;
+private readonly object _lock = new();
+private Session? _session;
+private ApplicationConfiguration? _appConfig;
+private PlcConnectionState _connectionState = PlcConnectionState.Disconnected;
+private CancellationTokenSource? _reconnectCts;
+private bool _disposed;
+private bool _isDisconnecting;
+private bool _isReconnecting;
+private SessionReconnectHandler? _reconnectHandler;
+private DateTime _lastReconnectCompleteTime = DateTime.MinValue;
+private const int KeepAliveSettlingPeriodMs = 2000;
+private readonly ConcurrentDictionary<string, Subscription> _subscriptions = new();
+private readonly ConcurrentDictionary<uint, (string TagId, string NodeId)> _monitoredItemMapping = new();
+private static ILogger Logger => Log.Logger;
+```
+
+**`_device`**: Configuration của PLC này - endpoint URL, credentials, danh sách subscriptions.
+
+**`_lock`**: Object dùng cho locking critical sections trong connect/disconnect flow.
+
+**`_session`**: OPC UA Session object từ OPC Foundation SDK. Nullable vì chưa có session khi Disconnected.
+
+**`_connectionState`**: Enum state machine - Disconnected, Connecting, Connected, Reconnecting, Error.
+
+**`_reconnectCts`**: CancellationTokenSource để cancel reconnect loop khi disconnect được request.
+
+**`_disposed`**: Flag cho IDisposable pattern.
+
+**`_isDisconnecting`**: Guard để phân biệt intentional disconnect với connection loss.
+
+**`_isReconnecting`**: Tránh start multiple reconnect attempts đồng thời.
+
+**`_reconnectHandler`**: OPC UA SDK built-in handler cho Secure Channel reconnect.
+
+**`_lastReconnectCompleteTime` và `KeepAliveSettlingPeriodMs`**: Sau khi reconnect xong, có thể có stale KeepAlive failure events trong queue. Settling period 2000ms ignore những events này.
+
+**`_subscriptions`**: Dictionary mapping subscription group name → Subscription object.
+
+**`_monitoredItemMapping`**: Dictionary mapping MonitoredItem handle (uint) → TagId và NodeId. Dùng để identify tag khi receive notification.
+
+---
+
+#### 8.1.2 Logger là Property, không phải Field
+
+```csharp
+// Property - đọc Log.Logger tại runtime
+private static ILogger Logger => Log.Logger;
+
+// vs Field - capture Log.Logger tại startup (WRONG pattern)
+private static readonly ILogger _logger = Log.Logger;
+```
+
+**Đây là một subtlety quan trọng của Serilog.**
+
+Serilog có static `Log.Logger` property. Khi app khởi động, `Log.Logger` ban đầu là `NullLogger` (không làm gì). Sau đó trong `App.xaml.cs`, chúng ta configure lại:
+
+```csharp
+// App.xaml.cs OnStartup()
+Log.Logger = new LoggerConfiguration()
+    .WriteTo.File(...)
+    .WriteTo.UiSink(LogEntries)  // UI sink được add sau
+    .CreateLogger();
+```
+
+Nếu `PlcConnection` capture `Log.Logger` vào field tại construction time (trước khi configure), field sẽ trỏ vào NullLogger cũ mãi mãi, kể cả sau khi Log.Logger được replace.
+
+Với **property**, mỗi lần gọi `Logger.Information(...)` sẽ evaluate `=> Log.Logger` tại thời điểm đó, luôn trỏ vào logger hiện tại.
+
+---
+
+#### 8.1.3 ConnectAsync - Flow chi tiết
+
+```
+Step 1: Guard checks
+├── if (_disposed) throw ObjectDisposedException
+└── if (already Connected/Connecting) return
+
+Step 2: State transition
+└── ConnectionState = Connecting
+
+Step 3: Create ApplicationConfiguration
+├── ApplicationName, URI, certificates
+├── Transport quotas (message size, timeout)
+└── Validate certs, create self-signed if needed
+
+Step 4: Endpoint discovery with retry
+├── SelectEndpointAsync(endpointUrl, useSecurity)
+├── Retry 3 times với exponential backoff
+└── Throw if all retries fail
+
+Step 5: Session.Create()
+├── Pass endpoint, clientCertificate, sessionTimeout=60s
+└── Returns active OPC UA Session
+
+Step 6: Wire events
+├── _session.KeepAlive += OnKeepAlive
+├── _session.Notification += OnNotification
+└── _session.PublishError += OnPublishError
+
+Step 7: State = Connected
+└── ConnectionStateChanged event raised
+
+Step 8: Create subscriptions
+└── foreach SubscriptionGroup in _device.SubscriptionGroups where Enabled
+    └── CreateSubscriptionAsync(group)
+```
+
+**Bước 4 - Retry discovery**: OPC UA discovery protocol là UDP-based và đôi khi unreliable trên một số networks. Retry 3 lần với delay giữa các lần giúp handle transient network issues.
+
+**Bước 6 - Wire events AFTER session created**: Nếu wire events trước khi session tồn tại, event handlers có thể fire với null session → NullReferenceException.
+
+---
+
+#### 8.1.4 DisconnectAsync - Flow chi tiết
+
+```
+Step 1: _isDisconnecting = true
+    (prevents reconnect from triggering during cleanup)
+
+Step 2: Dispose _reconnectHandler
+    (stop SDK-level reconnect)
+
+Step 3: StopAutoReconnect()
+    (cancel our custom reconnect loop)
+
+Step 4: Unwire events FIRST
+├── _session.KeepAlive -= OnKeepAlive
+├── _session.Notification -= OnNotification
+└── _session.PublishError -= OnPublishError
+
+Step 5: Delete all subscriptions
+    (graceful server-side cleanup)
+
+Step 6: session.CloseAsync() with 5s timeout
+    (tell server we're closing)
+
+Step 7: session.Dispose()
+
+Step 8: _session = null
+
+Step 9: ConnectionState = Disconnected
+
+Step 10: _isDisconnecting = false
+```
+
+**Tại sao unwire events TRƯỚC khi close session?**
+
+Khi session đang được close, các KeepAlive failures hoặc network errors có thể trigger event handlers. Nếu event handler vẫn còn wired, chúng có thể try to reconnect trong khi chúng ta đang intentionally disconnecting → race condition.
+
+**5 second timeout cho CloseAsync**: Nếu network đã drop, CloseAsync sẽ hang. Timeout đảm bảo disconnect không block indefinitely.
+
+---
+
+#### 8.1.5 CRITICAL BUG: NodeId.Parse vs new NodeId
+
+Đây là một trong những bug subtle nhất trong OPC UA programming với C# SDK.
+
+```csharp
+// CORRECT - Numeric NodeId
+var nodeId = NodeId.Parse("i=85");
+// Result: NodeId { NamespaceIndex=0, IdType=Numeric, Identifier=85 }
+
+// WRONG - String NodeId  
+var nodeId = new NodeId("i=85");
+// Result: NodeId { NamespaceIndex=0, IdType=String, Identifier="i=85" }
+```
+
+**Tại sao điều này quan trọng trong OPC UA protocol?**
+
+OPC UA NodeId có hai component:
+1. **IdType**: Numeric, String, Guid, ByteString
+2. **Identifier**: Value tương ứng với type
+
+`"i=85"` là **text representation** của một Numeric NodeId:
+- `i=` prefix có nghĩa là Numeric
+- `85` là identifier value
+
+`NodeId.Parse("i=85")` **hiểu** text representation này và tạo Numeric NodeId với identifier=85.
+
+`new NodeId("i=85")` **không parse** - nó tạo String NodeId với identifier là toàn bộ chuỗi `"i=85"`.
+
+**Khi gửi request đến OPC UA server**:
+- Server tìm node với Numeric identifier = 85 → FOUND (ví dụ: Objects folder)
+- Server tìm node với String identifier = "i=85" → NOT FOUND → BadNodeIdUnknown error
+
+Bug này đặc biệt khó debug vì code compile và run không có error, chỉ receive BadNodeIdUnknown từ server - không biết tại sao.
+
+**Namespace index cũng quan trọng**:
+```csharp
+// NodeId với namespace 2
+NodeId.Parse("ns=2;i=1001")  // Correct
+new NodeId("ns=2;i=1001")    // Wrong - String NodeId với identifier "ns=2;i=1001"
+```
+
+Luôn dùng `NodeId.Parse()` khi parse từ string representation.
+
+---
+
+#### 8.1.6 KeepAlive Settling Period
+
+```csharp
+private void OnKeepAlive(ISession session, KeepAliveEventArgs e)
+{
+    // Ignore KeepAlive events right after reconnect completes
+    if ((DateTime.UtcNow - _lastReconnectCompleteTime).TotalMilliseconds < KeepAliveSettlingPeriodMs)
+        return;
+    
+    if (e.Status.IsGood()) return; // Normal keepalive, all good
+    
+    if (_isDisconnecting) return; // Intentional disconnect, don't reconnect
+    
+    // KeepAlive failed → trigger reconnect
+    StartAutoReconnect();
+}
+```
+
+**Tại sao cần 2000ms settling period?**
+
+OPC UA Session reconnect là hai-layer process:
+1. **Layer 1**: SDK `SessionReconnectHandler` tự động reconnect Secure Channel
+2. **Layer 2**: Sau khi Secure Channel up, application cần re-create Session
+
+Khi Session reconnect hoàn thành và `_lastReconnectCompleteTime` được set, server vẫn có thể gửi KeepAlive responses cho **Secure Channel cũ** đang trong queue. Những responses này có thể có status là bad (vì channel đã close).
+
+Nếu chúng ta process những events này ngay sau reconnect, chúng ta sẽ trigger reconnect lại một lần nữa → reconnect loop vô tận.
+
+Settling period 2000ms = ignore events trong 2 giây sau reconnect → đủ thời gian cho queue cũ drain.
+
+---
+
+### 8.2 PlcManager - Quản lý nhiều PlcConnection
+
+#### 8.2.1 Kiến trúc
+
+`PlcManager` là **facade** và **coordinator** cho nhiều `PlcConnection`. Application code không tương tác trực tiếp với `PlcConnection` - chỉ thông qua `PlcManager`.
+
+```csharp
+public class PlcManager : IPlcManager, IDisposable
+{
+    private readonly ConcurrentDictionary<string, IPlcConnection> _connections = new();
+    private readonly IPlcConnectionFactory _connectionFactory;
+    private readonly IDataCacheService _dataCache;
+    
+    public event EventHandler<PlcConnectionStateChangedEventArgs>? ConnectionStateChanged;
+    public event EventHandler<TagValueChangedEventArgs>? TagValueChanged;
+}
+```
+
+**ConcurrentDictionary\<string, IPlcConnection\>**: Key là PlcId, value là connection. Thread-safe vì multiple threads có thể:
+- UI thread: disconnect một PLC
+- Timer thread: reconnect
+- API thread: đọc connection state
+
+---
+
+#### 8.2.2 AddPlcAsync - Wire Events Pattern
+
+```csharp
+public async Task AddPlcAsync(PlcDevice device)
+{
+    // 1. Factory creates connection
+    var connection = _connectionFactory.Create(device);
+    
+    // 2. Wire events BEFORE adding to dictionary
+    connection.ConnectionStateChanged += OnConnectionStateChanged;
+    connection.TagValueChanged += OnTagValueChanged;
+    
+    // 3. Add to dictionary
+    _connections[device.PlcId] = connection;
+    
+    // 4. Auto-connect if enabled
+    if (device.AutoConnect)
+        await connection.ConnectAsync();
+}
+```
+
+Tại sao wire events trước khi add vào dictionary? Tránh race condition: nếu add trước rồi wire events sau, có thể có thread khác đọc từ dictionary và access connection chưa có event handlers.
+
+---
+
+#### 8.2.3 RemovePlcAsync - Cleanup Order
+
+```csharp
+public async Task RemovePlcAsync(string plcId)
+{
+    if (!_connections.TryRemove(plcId, out var connection))
+        return;
+    
+    // CRITICAL: Unsubscribe events BEFORE dispose
+    connection.ConnectionStateChanged -= OnConnectionStateChanged;
+    connection.TagValueChanged -= OnTagValueChanged;
+    
+    await connection.DisconnectAsync();
+    connection.Dispose();
+}
+```
+
+**Tại sao unsubscribe events TRƯỚC khi dispose?**
+
+Dispose sẽ trigger DisconnectAsync, có thể raise ConnectionStateChanged event. Nếu chúng ta đã remove connection khỏi dictionary nhưng chưa unsubscribe events, handler sẽ fire với một connection không còn tồn tại trong _connections → zombie event handler.
+
+Zombie handler có thể:
+- Gây null reference nếu handler assumes connection còn trong dictionary
+- Update DataCache với stale data
+- Log confusing state changes
+
+Thứ tự đúng: TryRemove khỏi dict → Unsubscribe events → Disconnect → Dispose.
+
+---
+
+#### 8.2.4 ConnectAllAsync - Parallel Connection
+
+```csharp
+public async Task ConnectAllAsync()
+{
+    var tasks = _connections.Values
+        .Where(c => c.Device.Enabled && c.State != PlcConnectionState.Connected)
+        .Select(c => c.ConnectAsync())
+        .ToList();
+    
+    await Task.WhenAll(tasks);
+}
+```
+
+`Task.WhenAll(tasks)`: Chạy tất cả connect operations **song song**. Nếu có 10 PLC, tổng thời gian là max(thời gian connect 1 PLC) thay vì sum.
+
+So sánh:
+- Sequential: 10 PLCs x 3s = 30s startup time
+- Parallel (Task.WhenAll): max(3s) = 3s startup time
+
+Điều này đặc biệt quan trọng khi startup - user không muốn đợi 30 giây trước khi UI responsive.
+
+---
+
+#### 8.2.5 Two-Layer Reconnect Strategy
+
+OPC UA reconnect có hai layer:
+
+**Layer 1 - SessionReconnectHandler (SDK)**:
+```
+Secure Channel drop detected
+    → SessionReconnectHandler starts
+    → Tries to restore Secure Channel
+    → If successful: session.Reconnect() restores session state
+    → SubscriptionTransferring event: re-transfer monitored items
+```
+
+**Layer 2 - Custom reconnect loop**:
+```
+KeepAlive failure detected (Layer 1 failed or timed out)
+    → StartAutoReconnect() called
+    → Loop với exponential backoff
+    → ConnectAsync() creates brand new Session
+    → OnConnected: re-create all subscriptions
+```
+
+**Tại sao cần hai layer?**
+
+Layer 1 (SessionReconnectHandler) xử lý **transient failures** - brief network blip, server restart nhanh. SDK có thể restore session với subscriptions nguyên vẹn.
+
+Layer 2 xử lý **prolonged failures** - server down lâu, Layer 1 timeout. Khi đó phải tạo session mới và re-subscribe.
+
+Kết hợp hai layer cho phép fast recovery (Layer 1) cho common case, và reliable recovery (Layer 2) cho worse cases.
+
+---
+
+#### 8.2.6 OnTagValueChanged - DataCache Update
+
+```csharp
+private void OnTagValueChanged(object? sender, TagValueChangedEventArgs e)
+{
+    // Update cache
+    _dataCache.UpdateTagValue(e.TagId, new TagValue
+    {
+        Value = e.Value,
+        Quality = e.Quality,
+        Timestamp = e.Timestamp
+    });
+    
+    // Forward event to PlcManager subscribers
+    TagValueChanged?.Invoke(this, e);
+}
+```
+
+**Flow khi tag thay đổi**:
+1. OPC UA server gửi Notification
+2. SDK fires `_session.Notification` event
+3. `PlcConnection.OnNotification` processes notification, fires `TagValueChanged`
+4. `PlcManager.OnTagValueChanged` receives event
+5. Update DataCache (để REST API serve latest value)
+6. Forward event (ViewModel có thể subscribe để update UI)
+
+DataCache và UI update xảy ra tại cùng một thời điểm từ cùng một event. DataCache update là thread-safe (ConcurrentDictionary). UI update phải marshal sang UI thread qua Dispatcher.
+
+---
+
+### 8.3 Tổng kết kiến trúc OPC UA Layer
+
+```
+PlcManager
+├── PlcConnection (PLC-A)
+│   ├── OPC UA Session
+│   │   ├── Subscription (Group-1)
+│   │   │   ├── MonitoredItem (Tag-1)
+│   │   │   └── MonitoredItem (Tag-2)
+│   │   └── Subscription (Group-2)
+│   │       └── MonitoredItem (Tag-3)
+│   └── Events: StateChanged, TagValueChanged
+└── PlcConnection (PLC-B)
+    └── ...
+
+DataCacheService
+└── ConcurrentDictionary<tagId, TagValue>
+    (updated by PlcManager.OnTagValueChanged)
+
+REST API
+└── GET /api/tags/{id} → reads from DataCacheService
+```
+
+Kiến trúc phân lớp rõ ràng:
+- `PlcConnection`: biết về OPC UA protocol
+- `PlcManager`: biết về multiple PLCs, routing events
+- `DataCacheService`: biết về caching
+- REST API: biết về HTTP
+- ViewModel: biết về UI
+
+Mỗi layer chỉ communicate với layer liền kề - loose coupling, dễ test và maintain.
+
