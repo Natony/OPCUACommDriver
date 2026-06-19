@@ -1,161 +1,930 @@
-# OPC UA Communication Engine — Giải Thích Codebase Chi Tiết
+---
+title: "Giải thích chi tiết mã nguồn OPC UA Communication Engine"
+project: "OPCUACommDriver"
+stack: "WPF .NET 8, C#, OPC UA SDK 1.5.374, Serilog, BCrypt.Net, Newtonsoft.Json, ASP.NET Core, Microsoft.Extensions.DependencyInjection"
+author: "Documentation"
+date: "2026-06-19"
+language: "vi"
+version: "1.0.0"
+---
 
-**Dự án:** OpcUaCommunicationEngine (AVS / Junction brand)  
-**Stack:** WPF .NET 8, C#, OPC UA SDK 1.5.374, Serilog, BCrypt.Net, Newtonsoft.Json, ASP.NET Core, Microsoft.Extensions.DependencyInjection  
-**Mục đích:** Desktop app kết nối PLC qua OPC UA, duyệt node tree, quản lý tag/subscription, REST API, phân quyền user, operator locking.  
-**Ngày tạo tài liệu:** 2026-06-19
+# Giải thích chi tiết mã nguồn: OPC UA Communication Engine
+
+Tài liệu này được viết dành cho **lập trình viên junior** muốn hiểu sâu về cách một ứng dụng WPF .NET 8 thực sự được tổ chức và hoạt động. Mỗi dòng code, mỗi quyết định thiết kế đều được giải thích cặn kẽ bằng tiếng Việt kết hợp các thuật ngữ kỹ thuật tiếng Anh để bạn vừa hiểu vừa làm quen với ngôn ngữ chuyên ngành.
 
 ---
 
-## MỤC LỤC
+## Mục lục
 
-1. Tổng quan kiến trúc
-2. Thứ tự build lại từ đầu
-3. Layer 1 — Enums
-4. Layer 2 — Models
-5. Layer 3 — Helpers (RelayCommand, Converters)
-6. Layer 4 — Interfaces
-7. Layer 5 — Services (Auth, Config, OpcUa, Protocols)
-8. Layer 6 — ViewModels
-9. Layer 7 — App startup (App.xaml.cs)
-10. Layer 8 — Views (XAML + code-behind)
-11. Các bug đã fix trong dự án
-12. Patterns và quyết định kiến trúc
-
----
-
-## 1. TỔNG QUAN KIẾN TRÚC
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│                      VIEWS (XAML + cs)                       │
-│  MainWindow  LoginWindow  BrowseServerWindow  Dialogs...     │
-└────────────────────────┬────────────────────────────────────┘
-                         │ DataContext Binding / Commands
-┌────────────────────────▼────────────────────────────────────┐
-│                     VIEWMODELS                               │
-│         MainViewModel        BrowseServerViewModel           │
-└────────────────────────┬────────────────────────────────────┘
-                         │ Interface injection (DI)
-┌────────────────────────▼────────────────────────────────────┐
-│                      SERVICES                                │
-│  PlcManager  PlcConnection  UserService  ConfigService       │
-│  ApiHostService  OperatorLockService  UiLogSink              │
-│  ProtocolConnectionFactory  (S7, Mitsubishi, Modbus)         │
-└────────────────────────┬────────────────────────────────────┘
-                         │ Depends on
-┌────────────────────────▼────────────────────────────────────┐
-│           MODELS / ENUMS / HELPERS / INTERFACES              │
-│  PlcDevice  TagItem  User  BrowseNode  RelayCommand...       │
-└─────────────────────────────────────────────────────────────┘
-```
-
-**Tại sao dùng MVVM?**
-WPF được thiết kế tối ưu cho MVVM. XAML binding trực tiếp vào ViewModel property — khi property thay đổi, UI tự cập nhật mà không cần code-behind. Điều này giúp tách biệt logic (ViewModel) khỏi giao diện (View), dễ test và maintain.
-
-**Tại sao dùng Dependency Injection?**
-Khi class A cần class B, thay vì `new B()` bên trong A (tight coupling), ta inject B qua constructor. Lợi ích: (1) dễ thay thế implementation — đổi `PlcManager` thành mock khi test, (2) vòng đời được quản lý tập trung trong DI container, (3) tránh singleton tự quản lý (anti-pattern).
+1. [Tổng quan kiến trúc](#chương-1-tổng-quan-kiến-trúc)
+2. [Enums - Các kiểu liệt kê](#chương-2-enums---các-kiểu-liệt-kê)
+3. [Models - Các lớp dữ liệu](#chương-3-models---các-lớp-dữ-liệu)
+4. [Interfaces - Hợp đồng trừu tượng](#chương-4-interfaces---hợp-đồng-trừu-tượng)
+5. [Helpers - RelayCommand và Converters](#chương-5-helpers---relaycommand-và-converters)
+6. [Services/Auth - UserService và OperatorLockService](#chương-6-servicesauth---userservice-và-operatorlockservice)
+7. [Services - ConfigurationService, DataCacheService, UiLogSink](#chương-7-services---configurationservice-datacacheservice-uilogsink)
+8. [Services/OpcUa - PlcConnection và PlcManager](#chương-8-servicesopcua---plcconnection-và-plcmanager)
+9. [Services/Protocols - Các giao thức khác](#chương-9-servicesprotocols---các-giao-thức-khác)
+10. [API Layer - ASP.NET Core nhúng trong WPF](#chương-10-api-layer---aspnet-core-nhúng-trong-wpf)
+11. [ViewModels - MVVM Pattern](#chương-11-viewmodels---mvvm-pattern)
+12. [App.xaml.cs - Luồng khởi động](#chương-12-appxamlcs---luồng-khởi-động)
+13. [Views - Giao diện người dùng](#chương-13-views---giao-diện-người-dùng)
+14. [Bugs và Fixes - Các lỗi thường gặp](#chương-14-bugs-và-fixes---các-lỗi-thường-gặp)
+15. [Build Order Guide - Thứ tự xây dựng dự án](#chương-15-build-order-guide---thứ-tự-xây-dựng-dự-án)
 
 ---
 
-## 2. THỨ TỰ BUILD LẠI TỪ ĐẦU
+## Chương 1: Tổng quan kiến trúc
 
-Khi rebuild từ đầu, luôn build theo thứ tự phụ thuộc — file nào không phụ thuộc gì thì build trước:
+### 1.1. Dự án này làm gì?
+
+**OPC UA Communication Engine** là một ứng dụng desktop (WPF) chạy trên Windows, có nhiệm vụ:
+
+1. **Kết nối đến các thiết bị PLC** (Programmable Logic Controller) trong nhà máy công nghiệp thông qua nhiều giao thức khác nhau: OPC UA, Siemens S7, Mitsubishi MC Protocol, và Modbus TCP.
+2. **Đọc và ghi giá trị các tag** — "tag" là tên gọi của một biến trong PLC (ví dụ: nhiệt độ lò, tốc độ động cơ, trạng thái van...).
+3. **Cung cấp REST API và SignalR** để các ứng dụng khác (web, mobile) cũng có thể lấy dữ liệu từ PLC mà không cần cài phần mềm riêng.
+4. **Quản lý người dùng** với phân quyền (Viewer, Operator, Admin) và JWT authentication.
+5. **Hiển thị log real-time** trên giao diện để người vận hành theo dõi trạng thái hệ thống.
+
+### 1.2. Tại sao dùng WPF thay vì ứng dụng Web?
+
+WPF (Windows Presentation Foundation) được chọn vì:
+
+- Ứng dụng công nghiệp thường chạy trên máy tính Windows đặt ngay tại nhà máy, **không cần kết nối internet liên tục**.
+- WPF có thể chạy **liên tục 24/7** mà không phụ thuộc vào browser hay web server riêng.
+- **Performance cao hơn** cho việc cập nhật dữ liệu real-time từ hàng trăm tag PLC.
+- Có thể **nhúng ASP.NET Core** vào bên trong process WPF để đồng thời cung cấp API cho bên ngoài — đây là điểm đặc biệt nhất của project này.
+
+### 1.3. Sơ đồ kiến trúc phân lớp (Layer Architecture)
+
+Toàn bộ hệ thống được chia thành 6 lớp rõ ràng, mỗi lớp chỉ giao tiếp với lớp kề bên:
 
 ```
-Bước 1:  Enums/                     ← không phụ thuộc gì
-Bước 2:  Models/ (ObservableObject) ← chỉ cần System + WPF
-Bước 3:  Models/ (các model khác)   ← phụ thuộc Enums + ObservableObject
-Bước 4:  Interfaces/                ← phụ thuộc Models
-Bước 5:  Helpers/                   ← phụ thuộc System.Windows.Input
-Bước 6:  Services/Auth/UserService  ← BCrypt.Net + Models
-Bước 7:  Services/ConfigService     ← Newtonsoft.Json + Models
-Bước 8:  Services/UiLogSink         ← Serilog + Models
-Bước 9:  Services/OpcUa/PlcConn    ← OPC UA SDK + tất cả trên
-Bước 10: Services/OpcUa/PlcManager ← PlcConnection + Interfaces
-Bước 11: Services/Protocols/        ← Protocol libs (S7Net, EasyModbus)
-Bước 12: Api/                       ← ASP.NET Core + PlcManager
-Bước 13: ViewModels/                ← Services + Helpers
-Bước 14: App.xaml + App.xaml.cs    ← DI wiring + startup
-Bước 15: Views/ (Dialogs)          ← ViewModels + XAML
-Bước 16: Views/ (MainWindow)       ← Tất cả trên
++----------------------------------------------------------+
+|                    WPF UI Layer                           |
+|  MainWindow  LoginWindow  BrowseServerWindow  Dialogs    |
++----------------------------------------------------------+
+|                  ViewModel Layer                          |
+|       MainViewModel    BrowseServerViewModel             |
++----------------------------------------------------------+
+|                   Service Layer                           |
+|  ConfigService  UserService  OperatorLockService         |
+|  DataCacheService  UiLogSink                             |
++----------------------------------------------------------+
+|               OPC UA / Protocol Layer                     |
+|    PlcManager --> PlcConnection (OPC UA)                 |
+|              --> SiemensS7Connection                     |
+|              --> MitsubishiMcConnection                  |
+|              --> ModbusTcpConnection                     |
++----------------------------------------------------------+
+|                    API Layer                              |
+|  ApiHostService (ASP.NET Core embedded in WPF)           |
+|  AuthController  PlcsController  TagsController          |
+|  LockController  UsersController  PlcHub (SignalR)       |
++----------------------------------------------------------+
+|                 Infrastructure                            |
+|    Serilog Logging   DI Container   JSON Config Files    |
++----------------------------------------------------------+
 ```
 
-Quy tắc: **không bao giờ** để tầng dưới import tầng trên. Models không import ViewModel. Services không import Views.
+### 1.4. Giải thích chi tiết từng lớp
+
+#### Lớp 1: WPF UI Layer — Giao diện người dùng
+
+Đây là phần người dùng nhìn thấy và tương tác trực tiếp. Gồm các cửa sổ (Window) và hộp thoại (Dialog):
+
+- **`MainWindow`**: Cửa sổ chính hiển thị bảng danh sách PLC, danh sách tag, log, và trạng thái kết nối. Đây là trung tâm điều hành của operator.
+- **`LoginWindow`**: Màn hình đăng nhập khi khởi động ứng dụng. Yêu cầu username/password và xác thực qua `UserService`.
+- **`BrowseServerWindow`**: Cửa sổ duyệt cây node (node tree) của OPC UA Server — giống như File Explorer nhưng dành cho cấu trúc dữ liệu PLC. Người dùng có thể chọn các node để thêm vào danh sách tag theo dõi.
+- **Dialogs**: Các hộp thoại nhỏ như `AddPlcDialog` (thêm PLC mới), `EditPlcDialog` (chỉnh sửa cấu hình), `AddTagDialog` (thêm tag), `ChangePasswordDialog` (đổi mật khẩu), `UserManagementWindow` (quản lý tài khoản).
+
+**Nguyên tắc thiết kế UI Layer**: View (giao diện) **không chứa logic nghiệp vụ**. View chỉ hiển thị dữ liệu từ ViewModel và gửi command lên ViewModel khi người dùng tương tác. Logic xử lý nằm ở ViewModel.
+
+#### Lớp 2: ViewModel Layer — Logic hiển thị
+
+ViewModel là "não" của giao diện, theo pattern **MVVM** (Model-View-ViewModel):
+
+- **`MainViewModel`**: Quản lý toàn bộ state của `MainWindow`. Chứa danh sách PLC (`ObservableCollection<PlcDevice>`), danh sách log, thông tin user đang đăng nhập, các command (AddPlc, Connect, Disconnect, Save...).
+- **`BrowseServerViewModel`**: Quản lý cây node trong `BrowseServerWindow`. Xử lý việc load nodes, lazy-expand, thêm tag.
+
+**Điểm mấu chốt**: ViewModel **không biết gì về UI cụ thể** — không tham chiếu trực tiếp đến Button, TextBox, hay bất kỳ control nào. ViewModel chỉ expose properties (dữ liệu) và commands (hành động). WPF Data Binding tự động kết nối giữa ViewModel và UI.
+
+```
+Người dùng click Button "Kết nối"
+         |
+         v  (Button.Command binding)
+MainViewModel.ConnectSelectedCommand.Execute()
+         |
+         v
+MainViewModel.ConnectSelectedAsync()
+         |
+         v  (gọi service)
+PlcManager.ConnectAsync(plcId)
+```
+
+#### Lớp 3: Service Layer — Nghiệp vụ
+
+Chứa toàn bộ **business logic** (logic nghiệp vụ) không liên quan đến giao diện:
+
+- **`ConfigurationService`**: Đọc/ghi file cấu hình JSON. Quản lý `AppConfiguration` chứa danh sách PLC và tag. Phát event `ConfigurationChanged` khi tải file mới.
+- **`UserService`**: Toàn bộ logic quản lý tài khoản. Hash mật khẩu với BCrypt, validate credentials, quản lý active sessions, refresh token.
+- **`OperatorLockService`**: Hệ thống khóa quyền điều khiển (operator lock). Đảm bảo chỉ một người vận hành được phép ghi giá trị vào PLC tại một thời điểm. Lưu trạng thái lock vào file JSON để chia sẻ giữa nhiều instance.
+- **`DataCacheService`**: Cache giá trị tag để giảm load cho PLC và cung cấp truy cập nhanh cho API.
+- **`UiLogSink`**: Custom Serilog sink — "cầu nối" giữa thư viện Serilog và UI. Khi có log mới, UiLogSink thêm vào `ObservableCollection<LogEntry>` trong MainViewModel để hiển thị lên màn hình.
+
+#### Lớp 4: OPC UA / Protocol Layer — Giao tiếp thiết bị
+
+Đây là lớp "nói chuyện" trực tiếp với PLC qua mạng:
+
+- **`PlcManager`**: Quản lý tập hợp các kết nối PLC. Cung cấp API thống nhất để thêm/xóa/connect/disconnect PLC. Aggregate events từ tất cả connections.
+- **`PlcConnection`**: Implement kết nối OPC UA (giao thức chuẩn quốc tế IEC 62541). Xử lý session management, subscription, auto-reconnect.
+- **`SiemensS7Connection`**: Kết nối PLC Siemens S7 qua protocol độc quyền (dùng thư viện S7NetPlus).
+- **`MitsubishiMcConnection`**: Kết nối PLC Mitsubishi qua MC Protocol.
+- **`ModbusTcpConnection`**: Kết nối thiết bị Modbus TCP (dùng thư viện EasyModbus).
+
+Tất cả 4 loại connection đều **implement cùng một interface `IPlcConnection`** — điều này cho phép `PlcManager` xử lý chúng một cách thống nhất mà không cần biết protocol cụ thể.
+
+#### Lớp 5: API Layer — Giao tiếp bên ngoài
+
+Một feature đặc biệt: project **nhúng một ASP.NET Core web server vào trong process WPF**:
+
+- **`ApiHostService`**: Tạo và quản lý `IHost` (ASP.NET Core application) bên trong WPF. Khi MainWindow khởi động, API server cũng được start.
+- **`AuthController`**: REST endpoint cho login, refresh token, logout.
+- **`PlcsController`**: REST endpoint để lấy danh sách PLC, trạng thái kết nối.
+- **`TagsController`**: REST endpoint để đọc/ghi giá trị tag.
+- **`LockController`**: REST endpoint để acquire/release operator lock.
+- **`UsersController`**: REST endpoint để quản lý tài khoản (chỉ Admin).
+- **`PlcHub`**: SignalR Hub — client đăng ký và nhận push notification khi tag value thay đổi real-time qua WebSocket.
+
+#### Lớp 6: Infrastructure — Tầng nền tảng
+
+- **Serilog**: Thư viện logging với structured logging. Ghi log ra file, console, và UiLogSink.
+- **DI Container** (`Microsoft.Extensions.DependencyInjection`): Quản lý vòng đời và dependency của tất cả objects. Services được register một lần, tự động inject vào constructors.
+- **JSON Config Files**: Lưu cấu hình (`plc_config.json`), tài khoản người dùng (`users.json`), trạng thái lock (`lock_state.json`).
+
+### 1.5. Luồng dữ liệu chính (Data Flow)
+
+Để nắm bắt hệ thống, hãy theo dõi ba luồng dữ liệu quan trọng:
+
+#### Luồng 1: Người dùng thêm PLC mới
+
+```
+[Người dùng click "Thêm PLC"]
+          |
+          v
+MainViewModel.AddPlcCommand.Execute()
+          |
+          v
+Hiện AddPlcDialog.ShowDialog()
+          |
+          v  [Người dùng nhập địa chỉ IP, port, tên...]
+dialog.Result = PlcDevice{...}
+          |
+          v
+PlcDevices.Add(newPlc)             --> ObservableCollection --> UI tự cập nhật
+ConfigService.MarkAsModified()     --> HasUnsavedChanges = true --> Save button enable
+PlcManager.AddPlcAsync(newPlc)     --> tạo IPlcConnection object
+          |
+          v  [Nếu ConnectAfterAdd = true]
+Task.Run(() => PlcManager.ConnectAsync(newPlc.Id))
+          |
+          v
+PlcConnection.ConnectAsync()       --> TCP connect --> OPC UA handshake --> Session
+          |
+          v
+ConnectionStateChanged event fires
+          |
+          v
+Dispatcher.InvokeAsync(() => plc.ConnectionState = Connected)
+          |
+          v
+WPF Binding --> ListBoxItem đổi màu thành xanh lá
+```
+
+#### Luồng 2: OPC UA subscription nhận data mới
+
+```
+[PLC thay đổi giá trị sensor]
+          |
+          v
+OPC UA server gửi publish notification (background thread)
+          |
+          v
+PlcConnection.Session_Notification() callback
+          |
+          v
+TagValueChanged event fires với (tagId, newValue, quality, timestamp)
+          |
+          v
+DataCacheService.UpdateTag()       --> cập nhật in-memory cache
+PlcHub.SendTagValueChanged()       --> push qua SignalR đến web clients
+          |
+          v  [Dispatcher.BeginInvoke]
+tag.UpdateValue(newValue, quality, timestamp)
+          |  (kế thừa ObservableObject)
+          v
+OnPropertyChanged("Value")
+          |
+          v
+WPF Binding --> DataGrid cell tự cập nhật giá trị mới
+```
+
+#### Luồng 3: REST API client đọc tag
+
+```
+[Client: GET /api/tags/{plcId}/{tagId}]
+          |
+          v
+TagsController.GetTagValue(plcId, tagId)
+          |
+          v
+JWT middleware validate token
+          |
+          v
+DataCacheService.GetTagValue()  --> cache hit --> trả về ngay (fast path)
+          |  nếu cache miss:
+          v
+PlcManager.ReadTagAsync(plcId, tagId)
+          |
+          v
+PlcConnection.ReadTagAsync()    --> OPC UA ReadRequest --> PLC --> Response
+          |
+          v
+return TagValueDto { Value, Quality, Timestamp }
+          |
+          v
+JSON response 200 OK về client
+```
 
 ---
 
-## 3. LAYER 1 — ENUMS
+## Chương 2: Enums - Các kiểu liệt kê
 
-Enums là những kiểu dữ liệu liệt kê — không có logic, không có dependencies. Nên viết trước tiên.
+### 2.1. Enum là gì và tại sao phải dùng?
 
-### UserRole
+**Enum** (enumeration — kiểu liệt kê) là một tập hợp các hằng số có tên. Thay vì dùng số nguyên `0`, `1`, `2` — những con số "vô hồn" không ai đoán được ý nghĩa — chúng ta dùng enum để code **tự mô tả** (self-documenting code).
+
+**Vấn đề khi không có enum:**
+
+```csharp
+// BAD CODE — số 2 nghĩa là gì? Ai hiểu được?
+if (user.Role == 2)
+{
+    ShowAdminPanel();
+}
+
+// BAD CODE — truyền số nguyên tùy tiện, compiler không kiểm tra được
+SetUserRole(userId, 99); // 99 không hợp lệ nhưng compiler không báo lỗi!
+```
+
+**Với enum, code trở nên rõ ràng và an toàn:**
+
+```csharp
+// GOOD CODE — ai đọc cũng hiểu ngay
+if (user.Role == UserRole.Admin)
+{
+    ShowAdminPanel();
+}
+
+// GOOD CODE — compiler báo lỗi nếu truyền sai kiểu
+SetUserRole(userId, UserRole.Admin); // type-safe, compiler check at compile time
+```
+
+**Lợi ích đầy đủ của enum:**
+
+1. **Type safety**: Compiler kiểm tra tại compile time — không thể truyền giá trị sai kiểu.
+2. **IntelliSense support**: IDE tự gợi ý các giá trị hợp lệ khi gõ `.`.
+3. **Refactoring an toàn**: Đổi tên enum value → IDE tự đổi toàn bộ references.
+4. **Serialization linh hoạt**: JSON serializer có thể serialize thành string tên ("Admin") hoặc số (2) tùy cấu hình.
+5. **Switch expression exhaustive**: Compiler cảnh báo khi bỏ sót case trong switch.
+
+### 2.2. UserRole — Hệ thống phân quyền người dùng
 
 ```csharp
 public enum UserRole
 {
-    Viewer   = 0,    // chỉ xem, không ghi
-    Operator = 1,    // có thể ghi tag (cần có operator lock)
-    Admin    = 2     // toàn quyền, bao gồm quản lý user
+    Viewer   = 0,    // Chỉ xem, không ghi
+    Operator = 1,    // Vận hành — được ghi tag (cần operator lock)
+    Admin    = 2     // Toàn quyền — quản lý user, cấu hình
 }
 ```
 
-**Tại sao có giá trị số?** Để so sánh phân quyền: `if (role >= UserRole.Operator)`. Không cần switch/if phức tạp. Giá trị 0/1/2 lưu vào JSON và database tốt hơn string.
+**Giải thích chi tiết từng giá trị:**
 
-### PlcConnectionState
+**`Viewer = 0`** — Người xem (quyền thấp nhất):
+- Đọc giá trị tag từ PLC (không ghi).
+- Xem trạng thái kết nối các PLC.
+- Xem log hệ thống.
+- **Không được**: ghi giá trị tag, thêm/sửa/xóa PLC, quản lý cấu hình, quản lý tài khoản.
+- Ví dụ use case: Kỹ sư giám sát chỉ theo dõi, không điều khiển.
+
+**`Operator = 1`** — Người vận hành:
+- Tất cả quyền của Viewer.
+- **Được phép ghi** giá trị tag (bật/tắt motor, thay đổi setpoint nhiệt độ, mở/đóng van...).
+- Nhưng phải **acquire operator lock** trước khi ghi — đảm bảo chỉ một người điều khiển tại một thời điểm.
+- **Không được**: thêm/xóa PLC, quản lý cấu hình hệ thống, quản lý tài khoản.
+- Ví dụ use case: Công nhân vận hành máy tại xưởng.
+
+**`Admin = 2`** — Quản trị viên (quyền cao nhất):
+- Tất cả quyền của Operator.
+- Thêm/sửa/xóa cấu hình PLC và tag.
+- Quản lý tài khoản người dùng (tạo, sửa, xóa, đặt lại mật khẩu).
+- Thay đổi API settings, Auth settings.
+- Acquire operator lock **không giới hạn thời gian** (unlimited lock).
+- Force-revoke lock của Operator khác.
+- Ví dụ use case: Kỹ sư hệ thống, trưởng ca.
+
+**Tại sao giá trị số tăng dần theo quyền hạn?**
+
+Thiết kế này cho phép **so sánh quyền bằng toán tử số học** — đơn giản và hiệu quả:
+
+```csharp
+// Kiểm tra quyền: tất cả từ Operator trở lên mới được ghi tag
+if ((int)user.Role >= (int)UserRole.Operator)
+{
+    await connection.WriteTagAsync(tagId, value);
+}
+
+// Helper methods rõ ràng
+public static bool CanWriteTags(UserRole role) => role >= UserRole.Operator;
+public static bool IsAdmin(UserRole role) => role == UserRole.Admin;
+public static bool CanManageUsers(UserRole role) => role == UserRole.Admin;
+```
+
+So sánh với cách không dùng số tăng dần:
+```csharp
+// Phải liệt kê từng case — dễ thiếu sót
+if (user.Role == UserRole.Operator || user.Role == UserRole.Admin)
+{
+    // Nếu sau này thêm UserRole.SuperAdmin = 3, phải sửa code này
+}
+```
+
+### 2.3. PlcConnectionState — Vòng đời trạng thái kết nối PLC
 
 ```csharp
 public enum PlcConnectionState
 {
-    Disabled,       // PLC bị vô hiệu hóa trong config (IsEnabled=false)
-    Connecting,     // đang thực hiện kết nối
-    Connected,      // kết nối thành công, session active
-    Disconnecting,  // đang ngắt kết nối (có thể mất thời gian)
-    Disconnected,   // đã ngắt kết nối sạch sẽ
-    Reconnecting,   // mất kết nối, đang thử lại
-    Error           // lỗi không phục hồi được
+    Disabled,       // Bị vô hiệu hóa chủ động trong config
+    Connecting,     // Đang trong quá trình thiết lập kết nối
+    Connected,      // Kết nối thành công, có thể đọc/ghi
+    Disconnecting,  // Đang trong quá trình ngắt kết nối an toàn
+    Disconnected,   // Đã ngắt kết nối hoàn toàn
+    Reconnecting,   // Mất kết nối, đang tự động thử kết nối lại
+    Error           // Lỗi nghiêm trọng, cần can thiệp thủ công
 }
 ```
 
-**Tại sao cần nhiều state?** Để UI hiển thị đúng: nút "Kết nối" disabled khi Connecting/Reconnecting. Màu icon khác nhau cho từng state. `Disconnecting` riêng biệt với `Disconnected` vì có thể mất 1-5 giây để close session sạch.
+Đây là **state machine** (máy trạng thái) — mỗi trạng thái định nghĩa điều gì có thể xảy ra tiếp theo:
 
-### OpcUaSecurityPolicy
+```
+[Khởi động]
+    |
+    v
+Disabled ----[Enable PLC]----> Connecting
+                                   |
+                     [Thành công]  |  [Thất bại]
+                                   |       |
+                              Connected   Error
+                                |    \
+                    [Mất kết nối]    [User disconnect]
+                                |              |
+                          Reconnecting   Disconnecting
+                                |              |
+                    [Kết nối lại OK]    [Đóng session xong]
+                                |              |
+                           Connected      Disconnected
+```
+
+**Giải thích tại sao cần từng trạng thái riêng biệt:**
+
+**`Disabled`**: PLC đang bị tắt **chủ động** bởi người dùng (flag `IsEnabled = false` trong cấu hình). Hệ thống **không thực hiện bất kỳ attempt kết nối** nào. Khác với `Disconnected` ở chỗ đây là **cố ý**, không phải do lỗi mạng. UI hiển thị màu xám, icon tắt.
+
+**`Connecting`**: Đang thực hiện chuỗi bắt tay (handshake) để thiết lập kết nối:
+1. Resolve DNS hostname → IP address.
+2. Mở TCP socket đến port OPC UA (thường 4840).
+3. Trao đổi certificates và thiết lập Secure Channel (TLS).
+4. Tạo OPC UA Session (negotiation, activation).
+5. Load và khôi phục subscriptions.
+
+Cả chuỗi này có thể mất 2-15 giây. UI hiển thị spinner/loading indicator để người dùng biết đang xử lý.
+
+**`Connected`**: Kết nối đang hoạt động bình thường. Có thể đọc/ghi tag, subscription nhận data. Đây là trạng thái **mong muốn**. UI hiển thị màu xanh lá, nút Disconnect enable, nút Connect disable.
+
+**`Disconnecting`**: Người dùng chủ động ngắt kết nối và hệ thống đang thực hiện đóng kết nối đúng cách:
+1. Hủy tất cả subscriptions đang active (gửi DeleteSubscriptions request đến server).
+2. Đóng OPC UA Session gracefully (gửi CloseSession request).
+3. Đóng TCP socket.
+
+Quá trình này có thể mất 1-5 giây. Nếu không chờ mà force-close ngay, server sẽ giữ session "zombie" cho đến khi timeout (thường 30 giây) — lãng phí tài nguyên server và có thể gây conflict khi reconnect ngay sau đó.
+
+**`Disconnected`**: Kết nối đã được ngắt **thành công và an toàn**. Không có error. Hệ thống **không tự động thử kết nối lại** từ trạng thái này — người dùng phải chủ động click "Kết nối". UI hiển thị màu xám.
+
+**`Reconnecting`**: Kết nối bị đứt **ngoài ý muốn** (mạng mất đột ngột, PLC restart, switch mạng lỗi...) và hệ thống đang **tự động thử kết nối lại** với exponential backoff:
+- Lần 1: thử sau 5 giây.
+- Lần 2: thử sau 10 giây.
+- Lần 3: thử sau 20 giây.
+- Lần 4: thử sau 40 giây...
+
+Khác với `Connecting` ở chỗ:
+- Đây là reconnect tự động, không phải connect lần đầu do user trigger.
+- Hệ thống cố gắng **khôi phục session** nếu còn trong grace period để giữ nguyên subscriptions (không phải đăng ký lại từ đầu).
+- UI hiển thị màu vàng, thông báo "Reconnecting... (attempt 3)".
+
+**`Error`**: Lỗi **nghiêm trọng** không tự phục hồi được:
+- Certificate không hợp lệ hoặc bị từ chối.
+- Địa chỉ endpoint sai, không tìm thấy server.
+- Authentication thất bại (username/password OPC UA sai).
+- Phiên bản OPC UA không tương thích.
+- Đã thử reconnect tối đa số lần mà vẫn thất bại.
+
+Người dùng cần **can thiệp thủ công**: kiểm tra lại IP, ping thiết bị, kiểm tra certificate, xem `LastError` để biết nguyên nhân cụ thể.
+
+**Tại sao UI cần phân biệt nhiều màu trạng thái?**
+
+Trong nhà máy, người vận hành nhìn màn hình từ xa qua camera hoặc từ góc khác. Màu sắc rõ ràng cho phép đánh giá tình trạng hệ thống chỉ trong một cái nhìn:
+- Xanh lá = Connected (OK, không cần chú ý)
+- Vàng = Connecting/Reconnecting (đang xử lý, chờ chút)
+- Đỏ = Error (cần xử lý ngay!)
+- Xám = Disabled/Disconnected (không hoạt động, bình thường nếu cố ý)
+
+### 2.4. OpcUaSecurityPolicy — Thuật toán mã hóa OPC UA
 
 ```csharp
 public enum OpcUaSecurityPolicy
 {
-    None,                   // không mã hóa — dùng cho lab/test
-    Basic128Rsa15,          // mã hóa AES-128 — cũ, ít dùng
-    Basic256,               // mã hóa AES-256
-    Basic256Sha256,         // mã hóa AES-256 + SHA-256 — phổ biến nhất
-    Aes128Sha256RsaOaep,    // mới hơn, nhanh hơn
-    Aes256Sha256RsaPss      // mạnh nhất
+    None,                   // Không mã hóa — chỉ dùng lab/test
+    Basic128Rsa15,          // RSA 1024 + AES 128 — đã lỗi thời
+    Basic256,               // RSA 1024 + AES 256 — deprecated
+    Basic256Sha256,         // RSA 2048 + AES 256 + SHA-256 — phổ biến nhất
+    Aes128Sha256RsaOaep,    // AES 128 + SHA-256 + RSA-OAEP — chuẩn mới
+    Aes256Sha256RsaPss      // AES 256 + SHA-256 + RSA-PSS — mạnh nhất
 }
 ```
 
-**Lưu ý thực tế:** Siemens S7-1200 mất 6-14 giây để renew Secure Channel với `Basic256Sha256`. Điều này gây timeout và reconnect không cần thiết. Khuyến nghị dùng `None` cho môi trường nội bộ.
+**OPC UA Security Policy** định nghĩa **bộ thuật toán** (cipher suite) được dùng để bảo vệ kết nối. Để hiểu, cần biết sơ về 3 thuật toán:
 
-### TagQuality
+- **RSA**: Thuật toán mã hóa bất đối xứng (public/private key). Mỗi bên có một cặp khóa: public key (chia sẻ công khai) và private key (giữ bí mật). Dùng để **trao đổi khóa bí mật** một cách an toàn qua kênh không tin cậy.
+- **AES**: Thuật toán mã hóa đối xứng. Sau khi trao đổi khóa xong qua RSA, dùng AES để mã hóa **toàn bộ dữ liệu** — nhanh và hiệu quả hơn RSA nhiều lần.
+- **SHA-256**: Hàm hash một chiều, dùng để **ký số** (digital signature) — xác minh tính toàn vẹn của dữ liệu.
 
-```csharp
-public enum TagQuality { Unknown, Good, Bad, Uncertain }
+**Giải thích từng lựa chọn từ yếu đến mạnh:**
+
+**`None`**: Hoàn toàn không có bảo mật. Dữ liệu truyền dạng **plaintext** — ai sniff packet đều đọc được. Chỉ dùng trong:
+- Môi trường lab/development.
+- Mạng nội bộ cô lập hoàn toàn (không kết nối internet).
+- Đặc biệt: Siemens S7-1200/1500 dùng `None` ổn định nhất do tránh được vấn đề timeout khi renew Secure Channel.
+
+**`Basic128Rsa15`**: RSA 1024-bit (deprecated theo NIST) + AES 128-bit. Đây là policy **cũ nhất** trong OPC UA spec, chỉ tồn tại để tương thích với thiết bị legacy từ trước 2010. RSA 1024-bit không còn an toàn với máy tính hiện đại — có thể bị crack trong vài tuần với cluster tính toán lớn.
+
+**`Basic256`**: RSA 1024-bit + SHA-1 + AES 256-bit. Cũng **deprecated** vì SHA-1 bị chứng minh có collision vulnerability từ năm 2017. Chỉ dùng với thiết bị quá cũ không hỗ trợ policy mới hơn.
+
+**`Basic256Sha256`**: RSA 2048-bit + SHA-256 + AES 256-bit. Đây là **lựa chọn mặc định phổ biến nhất** hiện nay. Cân bằng tốt giữa bảo mật và khả năng tương thích. Hầu hết PLC hiện đại đều hỗ trợ policy này.
+
+**`Aes128Sha256RsaOaep`**: AES 128-bit + SHA-256 + RSA-OAEP (Optimal Asymmetric Encryption Padding). OAEP là padding scheme hiện đại hơn PKCS#1 v1.5 (dùng trong Basic256Sha256) — giải quyết một số điểm yếu lý thuyết. Đây là **lựa chọn tốt** cho hệ thống mới triển khai.
+
+**`Aes256Sha256RsaPss`**: AES 256-bit + SHA-256 + RSA-PSS (Probabilistic Signature Scheme). **Mức bảo mật cao nhất**. RSA-PSS là chuẩn chữ ký số tiên tiến nhất hiện nay. Dùng cho môi trường yêu cầu compliance cao (FDA 21 CFR Part 11, ISO 27001, IEC 62443...).
+
+**Lưu ý thực tế quan trọng với Siemens S7-1200:**
+
+S7-1200 với `Basic256Sha256` mất **6-14 giây** để renew Secure Channel (xảy ra định kỳ mỗi `SecurityTokenLifetime`, thường 3600 giây). Điều này kích hoạt chuỗi sự kiện xấu:
+
+```
+1. S7-1200 bắt đầu renew Secure Channel → mất 10 giây
+2. Trong 10 giây đó, KeepAlive không nhận được response
+3. KeepAlive timeout (mặc định OPC UA SDK là 15 giây)
+4. PlcConnection nghĩ session chết → trigger reconnect
+5. Reconnect lại phải renew Secure Channel → vòng lặp vô tận
 ```
 
-Map trực tiếp từ OPC UA `StatusCode`. `Unknown` dùng cho lúc chưa đọc lần nào. Hiển thị màu khác nhau trên UI.
+Giải pháp trong project: Tăng `OperationTimeout` lên 60,000ms (60 giây) và dùng `SecurityPolicy.None` cho S7-1200 trong mạng nội bộ an toàn.
+
+### 2.5. OpcUaSecurityMode — Chế độ bảo mật áp dụng
+
+```csharp
+public enum OpcUaSecurityMode
+{
+    None,           // Không ký, không mã hóa — plaintext
+    Sign,           // Chỉ ký số — đảm bảo integrity
+    SignAndEncrypt  // Vừa ký số vừa mã hóa — bảo mật đầy đủ
+}
+```
+
+Nếu `OpcUaSecurityPolicy` là **bộ công cụ** (RSA, AES, SHA...) thì `OpcUaSecurityMode` là **cách dùng công cụ đó**:
+
+**`None`**: Dùng kết hợp với `SecurityPolicy.None`. Không có bảo mật gì cả — nhanh nhất, không overhead.
+
+**`Sign`**: Chỉ **ký số** (digital signature) mà **không mã hóa** nội dung:
+- Ai cũng có thể đọc nội dung packet nếu sniff mạng (**không confidential**).
+- Nhưng không ai có thể **giả mạo hoặc sửa đổi** packet mà không bị phát hiện (**integrity guaranteed**).
+- Use case: Mạng nội bộ an toàn, cần xác thực tính toàn vẹn nhưng không lo nghe lén.
+
+**`SignAndEncrypt`**: Vừa **ký số** vừa **mã hóa** — bảo mật đầy đủ:
+- **Confidentiality**: Không ai đọc được nội dung.
+- **Integrity**: Không ai sửa được nội dung mà không bị phát hiện.
+- **Authentication**: Xác minh đúng là server mình muốn kết nối (thông qua certificate).
+- Đây là chế độ **khuyến nghị** cho mọi hệ thống production.
+
+**Quan hệ giữa SecurityPolicy và SecurityMode:**
+
+```
+SecurityPolicy = None   + SecurityMode = None          → Không bảo mật
+SecurityPolicy = Basic256Sha256 + SecurityMode = Sign  → Ký số, không mã hóa
+SecurityPolicy = Basic256Sha256 + SecurityMode = SignAndEncrypt → Đầy đủ bảo mật
+
+Không hợp lệ:
+SecurityPolicy = None + SecurityMode = Sign            → Lỗi: không có thuật toán để ký
+SecurityPolicy = None + SecurityMode = SignAndEncrypt  → Lỗi: không có thuật toán
+```
+
+### 2.6. TagQuality — Chất lượng giá trị tag
+
+```csharp
+public enum TagQuality
+{
+    Unknown,   // Chưa biết — chưa đọc lần nào
+    Good,      // Tốt — giá trị đáng tin cậy hoàn toàn
+    Bad,       // Xấu — giá trị không đáng tin cậy
+    Uncertain  // Không chắc — có thể đúng, có thể sai
+}
+```
+
+Đây là khái niệm **đặc trưng và cực kỳ quan trọng** của giao thức OPC. Nguyên tắc cốt lõi:
+
+> **Trong hệ thống công nghiệp, không chỉ giá trị đo được quan trọng — chất lượng của giá trị đó cũng quan trọng không kém.**
+
+**Tình huống thực tế minh họa tầm quan trọng của TagQuality:**
+
+```
+Cảm biến nhiệt độ lò hơi → trả về: 25°C
+
+Nếu không có TagQuality:
+  Hệ thống thấy 25°C → nghĩ lò đang nguội → bật nhiệt tối đa
+  Nhưng thực ra cảm biến bị đứt dây → luôn trả về default 25°C
+  Lò có thể đang ở 800°C → bật thêm nhiệt → nguy hiểm!
+
+Với TagQuality:
+  Giá trị: 25°C, Quality: Bad (cảm biến fault)
+  Hệ thống nhận ra Bad quality → KHÔNG bật nhiệt → kích hoạt alarm
+  Operator được cảnh báo → kiểm tra và sửa cảm biến
+```
+
+**Giải thích từng giá trị:**
+
+**`Unknown`**: Trạng thái **ban đầu** của mọi tag khi khởi động. Ứng dụng chưa bao giờ đọc được giá trị từ PLC. UI hiển thị "-" hoặc "N/A" thay vì giá trị số.
+
+**`Good`**: Giá trị được đọc thành công và đáng tin cậy:
+- Cảm biến hoạt động bình thường (không có error bit trong PLC).
+- Kết nối ổn định, không có timeout.
+- Giá trị trong range hợp lệ.
+- Đây là trạng thái **mong muốn** — hệ thống điều khiển có thể tin tưởng giá trị này.
+
+**`Bad`**: Giá trị **không đáng tin cậy** — không nên dùng để ra quyết định:
+- Cảm biến hỏng: broken wire, sensor fault, out-of-range.
+- PLC báo lỗi cho tag này (error status bit set).
+- Kết nối đến PLC bị gián đoạn — giá trị cũ được giữ lại nhưng đánh dấu Bad.
+- Node không tồn tại hoặc quyền truy cập bị từ chối.
+- **Hệ thống PHẢI xử lý Bad quality**: dừng hành động, kích hoạt alarm, chuyển sang backup sensor.
+
+**`Uncertain`**: Giá trị **có thể** đúng nhưng không đảm bảo 100%:
+- Kết nối vừa được phục hồi — giá trị là từ lần đọc gần nhất chưa có confirmation mới.
+- Cảm biến đang warm-up sau khi cắm điện (chưa đạt ổn định nhiệt).
+- PLC đang trong quá trình khởi động lại (cold start).
+- Dữ liệu từ field device qua wireless với signal yếu.
+- Hệ thống nên **xử lý thận trọng**: có thể dùng nhưng cần validation bổ sung.
+
+**Ánh xạ từ OPC UA Status Code 32-bit:**
+
+```
+StatusCode bits 30-31:
+  00 = Good      → TagQuality.Good
+  01 = Uncertain → TagQuality.Uncertain
+  10 = Bad       → TagQuality.Bad
+  11 = Bad       → TagQuality.Bad (subtype)
+
+Ví dụ status codes:
+  0x00000000 (Good)                      → Good
+  0x40920000 (UncertainSubNormal)        → Uncertain
+  0x80350000 (BadNotConnected)           → Bad
+  0x80340000 (BadDeviceFailure)          → Bad
+  0xC0000000 (BadLastSampleNotAvailable) → Bad
+```
+
+### 2.7. TagDataType — Kiểu dữ liệu của tag
+
+```csharp
+public enum TagDataType
+{
+    Unknown,      // Chưa xác định kiểu
+    Boolean,      // true/false — 1 bit logic
+    SByte,        // -128 đến 127 — số nguyên 8-bit có dấu
+    Byte,         // 0 đến 255 — số nguyên 8-bit không dấu
+    Int16,        // -32,768 đến 32,767
+    UInt16,       // 0 đến 65,535
+    Int32,        // -2,147,483,648 đến 2,147,483,647
+    UInt32,       // 0 đến 4,294,967,295
+    Int64,        // ±9.2 × 10^18 — số nguyên 64-bit có dấu
+    UInt64,       // 0 đến 1.8 × 10^19
+    Float,        // IEEE 754 single precision — ~7 chữ số thập phân
+    Double,       // IEEE 754 double precision — ~15 chữ số thập phân
+    String,       // Chuỗi ký tự Unicode UTF-8
+    DateTime,     // Ngày giờ UTC (DateTime.UtcNow)
+    ByteString,   // Mảng byte thô (binary data, certificate...)
+    XmlElement,   // Fragment XML (đặc thù OPC UA information model)
+    NodeId,       // OPC UA Node Identifier
+    Guid,         // Global Unique Identifier 128-bit
+    Array         // Mảng của bất kỳ kiểu trên
+}
+```
+
+**Tại sao PLC dùng nhiều kiểu integer thay vì chỉ một kiểu?**
+
+PLC là thiết bị **nhúng** (embedded) với tài nguyên bộ nhớ giới hạn và thường phải chạy real-time với thời gian scan cycle vài milliseconds. **Mỗi byte đều quý giá**:
+
+```
+Ví dụ thực tế trong một PLC S7-1200:
+  - Motor_1_Start : Boolean (1 bit)    — bật/tắt motor
+  - Motor_1_Speed : UInt16 (2 bytes)   — tốc độ 0-3000 RPM
+  - Temperature_1 : Float (4 bytes)    — nhiệt độ -100.0°C đến 9999.9°C
+  - TotalCycles   : UInt32 (4 bytes)   — bộ đếm 0-4,294,967,295
+  - ErrorMessage  : String (varies)    — mô tả lỗi
+
+Nếu dùng Double cho tất cả:
+  - Motor_1_Start : Double (8 bytes)   → lãng phí 7 bytes!
+  - Với 1000 variables × 7 bytes = 7,000 bytes lãng phí
+  - Trên PLC nhỏ có 10KB RAM → chiếm 70% bộ nhớ cho waste!
+```
+
+**Ánh xạ TagDataType vào kiểu C#:**
+
+```csharp
+// Implementation trong PlcConnection khi nhận data từ OPC UA:
+object ConvertOpcUaValue(DataValue dataValue, TagDataType targetType)
+{
+    return targetType switch
+    {
+        TagDataType.Boolean    => (bool)dataValue.Value,
+        TagDataType.SByte      => (sbyte)dataValue.Value,
+        TagDataType.Byte       => (byte)dataValue.Value,
+        TagDataType.Int16      => (short)dataValue.Value,
+        TagDataType.UInt16     => (ushort)dataValue.Value,
+        TagDataType.Int32      => (int)dataValue.Value,
+        TagDataType.UInt32     => (uint)dataValue.Value,
+        TagDataType.Int64      => (long)dataValue.Value,
+        TagDataType.UInt64     => (ulong)dataValue.Value,
+        TagDataType.Float      => (float)dataValue.Value,
+        TagDataType.Double     => (double)dataValue.Value,
+        TagDataType.String     => (string)dataValue.Value,
+        TagDataType.DateTime   => ((DateTime)dataValue.Value).ToUniversalTime(),
+        TagDataType.ByteString => (byte[])dataValue.Value,
+        _                      => dataValue.Value
+    };
+}
+```
+
+**Tại sao `DateTime` phải ToUniversalTime()?**
+
+OPC UA spec yêu cầu timestamps phải là UTC. Nhưng một số PLC (đặc biệt Siemens S7-1200 firmware cũ) trả về local time. Gọi `ToUniversalTime()` đảm bảo consistency — tất cả timestamps trong hệ thống đều là UTC.
+
+### 2.8. TagAccessMode — Chế độ truy cập tag
+
+```csharp
+public enum TagAccessMode
+{
+    Read,       // Chỉ đọc — input từ cảm biến
+    Write,      // Chỉ ghi — output đến actuator (hiếm)
+    ReadWrite   // Đọc và ghi — setpoint, parameter
+}
+```
+
+**`Read`** — Chỉ đọc: Tag chỉ nhận giá trị từ PLC, không ghi ngược lại. Điển hình:
+- Giá trị đo từ cảm biến vật lý (nhiệt độ PT100, áp suất 4-20mA, lưu lượng Coriolis...).
+- Bộ đếm xung (pulse counter) trong PLC.
+- Trạng thái đọc từ I/O card (Digital Input).
+- Ví dụ: `Temperature_PT100 = 85.3°C` — chỉ đọc, không ai ghi vào nhiệt độ cảm biến.
+
+**`Write`** — Chỉ ghi: Rất hiếm trong thực tế. Trường hợp đặc biệt khi output đến actuator và PLC không lưu lại giá trị hiện tại (write-only register).
+
+**`ReadWrite`** — Đọc và ghi: Phổ biến nhất cho các biến điều khiển:
+- Setpoint nhiệt độ: đọc để hiển thị hiện tại, ghi để thay đổi.
+- Timer preset: đọc để biết thời gian đã đặt, ghi để thay đổi.
+- Control flags: `Motor_Enable = true/false` — đọc trạng thái, ghi để bật/tắt.
+- PID parameters: Kp, Ki, Kd — đọc và điều chỉnh online.
+
+**Quan trọng — sự khác biệt giữa AccessMode trong app và permission trên PLC:**
+
+```
+AccessMode trong app config: Viewer thấy tag này là ReadWrite
+                              → Có thể attempt ghi từ UI
+
+PLC security level: Tag này yêu cầu authentication để ghi
+                    → PLC từ chối write nếu không có password OPC UA
+
+Kết quả: WriteTagAsync() trả về false, OPC UA error "BadUserAccessDenied"
+```
+
+Bảo mật thực sự phải đến từ PLC (server side). AccessMode trong app chỉ là UI hint.
+
+### 2.9. ProtocolType — Loại giao thức kết nối
+
+```csharp
+public enum ProtocolType
+{
+    OpcUa,         // OPC Unified Architecture — chuẩn IEC 62541
+    SiemensS7,     // Siemens S7 Communication Protocol (độc quyền)
+    MitsubishiMc,  // Mitsubishi MC Protocol (MELSEC Communication)
+    ModbusTcp      // Modbus TCP — chuẩn mở, phổ biến nhất thế giới
+}
+```
+
+Mỗi protocol ra đời từ bối cảnh lịch sử khác nhau và có ưu nhược điểm riêng:
+
+**`OpcUa`** — Open Platform Communications Unified Architecture:
+- Chuẩn **quốc tế** IEC 62541, do OPC Foundation phát triển (2006, cập nhật liên tục).
+- **Vendor-neutral**: Siemens, Rockwell, ABB, Mitsubishi, Omron... đều implement.
+- **Feature-rich**: Security built-in, Node browsing, Subscriptions, Events, Alarms, Historical Access.
+- **Phức tạp hơn** nhưng là tương lai của công nghiệp 4.0.
+- Port mặc định: 4840 (TCP) và 4843 (HTTPS/WSS).
+
+**`SiemensS7`** — S7Communication (S7Comm):
+- Giao thức **độc quyền của Siemens** — không có spec công khai (reverse-engineered).
+- Hỗ trợ tốt nhất với dòng SIMATIC S7 (200, 300, 400, 1200, 1500).
+- **Không cần cài OPC UA Server** trên PLC (S7-1500 có built-in OPC UA server từ firmware 2.0).
+- Nhanh, ổn định, nhưng **chỉ Siemens** — không dùng được với PLC hãng khác.
+- Thư viện .NET: S7NetPlus (open source, GitHub).
+
+**`MitsubishiMc`** — MC Protocol (MELSEC Communication):
+- Giao thức của **Mitsubishi Electric** cho dòng MELSEC PLC.
+- Có tài liệu kỹ thuật công khai (khác S7Comm).
+- Phổ biến tại Nhật Bản, Hàn Quốc, và Đông Nam Á.
+- Port mặc định: 3000 (TCP) hoặc 5007 (UDP).
+
+**`ModbusTcp`** — Modbus TCP/IP:
+- Chuẩn **mở** (open standard) từ năm 1979 (Modicon), được nâng cấp lên TCP năm 1999.
+- Hỗ trợ bởi **hàng nghìn thiết bị**: PLC, biến tần VFD, UPS, đồng hồ điện, cảm biến thông minh, RTU/remote I/O...
+- **Rất đơn giản**: 4 loại vùng nhớ, 8 function codes cơ bản.
+- **Không có security** built-in: plaintext, không authentication, không encryption.
+- Port mặc định: 502.
+
+### 2.10. PlcType — Loại PLC cụ thể
+
+```csharp
+public enum PlcType
+{
+    Generic,           // PLC thông dụng — dùng OPC UA chuẩn
+    SiemensS7_1200,    // Siemens SIMATIC S7-1200 — entry-level compact PLC
+    SiemensS7_1500,    // Siemens SIMATIC S7-1500 — high-performance modular
+    SiemensS7_300,     // Siemens SIMATIC S7-300 — mid-range (thế hệ cũ)
+    SiemensS7_400,     // Siemens SIMATIC S7-400 — high-end (thế hệ cũ)
+    MitsubishiFX5U,    // Mitsubishi MELSEC iQ-F FX5U — compact modular
+    MitsubishiQ,       // Mitsubishi MELSEC-Q — high-performance modular
+    ModbusSlave        // Bất kỳ thiết bị hỗ trợ Modbus Slave
+}
+```
+
+**Tại sao cần `PlcType` riêng ngoài `ProtocolType`?**
+
+`ProtocolType` nói "dùng giao thức nào", còn `PlcType` nói "model PLC cụ thể là gì". Cùng hãng nhưng mỗi model có đặc điểm kỹ thuật khác nhau ảnh hưởng đến cách đọc/ghi dữ liệu:
+
+**Siemens S7 — sự khác biệt giữa các model:**
+
+```
+S7-300 / S7-400:
+  - Max PDU size: 240 bytes → đọc tối đa ~60 words mỗi request
+  - Data Block: DB1.DBB0 (byte), DB1.DBW2 (word), DB1.DBD4 (dword)
+  - Không hỗ trợ Optimized Data Block
+  - PUT/GET luôn available (không có security protection)
+
+S7-1200:
+  - Max PDU size: 480 bytes → đọc tối đa ~120 words mỗi request
+  - Hỗ trợ Optimized DB (chỉ truy cập qua tên biến, không phải địa chỉ byte)
+  - Cần disable "PUT/GET communication" protection trong TIA Portal
+  - OPC UA Server built-in từ firmware 4.4
+  - Vấn đề: Renew Secure Channel mất 6-14 giây với Basic256Sha256
+
+S7-1500:
+  - Max PDU size: 960 bytes → hiệu quả hơn nhiều với batch reads
+  - OPC UA Server built-in từ firmware 2.0 (tốt hơn S7-1200)
+  - Hỗ trợ TLS 1.3 và certificate management qua TIA Portal
+  - Web server built-in
+```
+
+**Mitsubishi — sự khác biệt:**
+
+```
+FX5U (iQ-F):
+  - Vùng nhớ: M (Marker/Coil), D (Data Register), Y (Output), X (Input)
+  - R (File Register), SM (Special Marker), SD (Special Register)
+  - Địa chỉ: D100, M200, Y0, X15
+  - Max read: 960 words / request
+
+MELSEC-Q:
+  - Vùng nhớ phong phú hơn: SM, SD, X, Y, M, L, F, V, B, W, TC, TT, TS, CC, CT, CS, D, R, ZR
+  - Hỗ trợ nhiều CPU units trong một backplane
+  - Địa chỉ có thể dạng hex: M0001, W0100
+  - Hỗ trợ Multi-CPU configuration (đọc data từ các CPU khác nhau)
+```
+
+`PlcType` cho phép `ProtocolConnectionFactory` tạo đúng implementation với tham số tối ưu cho từng model.
 
 ---
 
-## 4. LAYER 2 — MODELS
+## Chương 3: Models - Các lớp dữ liệu
 
-### Models/ObservableObject.cs — Nền tảng WPF Binding
+### 3.1. Tổng quan về Models trong MVVM
+
+Trong kiến trúc MVVM, **Model** là tầng dữ liệu thuần túy. Models chứa:
+- Dữ liệu có thể serialize/deserialize (lưu file JSON, truyền qua mạng).
+- Computed properties (tính toán từ dữ liệu khác).
+- Validation logic đơn giản.
+
+Models **không chứa**:
+- Logic nghiệp vụ phức tạp (đó là nhiệm vụ của Services).
+- Tham chiếu đến UI controls (Button, TextBox...).
+- Code truy cập mạng hoặc file trực tiếp.
+
+Project có hai nhóm model:
+
+**Observable models** — kế thừa `ObservableObject`:
+- UI tự động cập nhật khi data thay đổi thông qua WPF Data Binding.
+- Dùng cho: `PlcDevice`, `TagItem`, `MainViewModel`, `BrowseServerViewModel`.
+- Bất kỳ object nào cần binding trực tiếp lên UI đều phải kế thừa `ObservableObject`.
+
+**Plain data models** — class C# thông thường (POCO):
+- Serialize/deserialize JSON để lưu file hay truyền qua API.
+- Dùng cho: `User`, `RefreshToken`, `ActiveSession`, `AppConfiguration`.
+- Không cần binding trực tiếp — UI refresh bằng cách load lại toàn bộ list.
+
+### 3.2. ObservableObject.cs — Nền tảng của WPF Data Binding
+
+Đây là **class quan trọng nhất** trong toàn bộ project. Tất cả ViewModel và các Model cần real-time UI update đều kế thừa từ class này.
 
 ```csharp
+using System.ComponentModel;
+using System.Runtime.CompilerServices;
+using System.Windows;
+
+namespace OpcUaCommunicationEngine.Models;
+
 public abstract class ObservableObject : INotifyPropertyChanged
 {
     public event PropertyChangedEventHandler? PropertyChanged;
 ```
 
-`INotifyPropertyChanged` là interface của WPF/XAML. Khi một property thay đổi, WPF cần được thông báo để re-render binding tương ứng. Nếu không implement interface này, binding sẽ chỉ đọc một lần lúc khởi tạo và không bao giờ cập nhật.
+**Phân tích từng dòng:**
+
+**`using System.ComponentModel;`**
+
+Namespace chứa interface `INotifyPropertyChanged` — interface cốt lõi của WPF data binding. Khi một class implement interface này, WPF binding engine biết rằng class đó có khả năng thông báo khi property thay đổi.
+
+**`using System.Runtime.CompilerServices;`**
+
+Namespace chứa attribute `[CallerMemberName]` — "phép màu" của C# compiler cho phép tự động điền tên của property/method đang gọi vào parameter được đánh dấu. Giúp tránh hardcode string tên property và lỗi typo.
+
+**`using System.Windows;`**
+
+Namespace của WPF. Cần để truy cập `Application.Current` và `Dispatcher` — hai thứ thiết yếu để marshal UI updates về UI thread một cách an toàn từ background threads.
+
+**`public abstract class ObservableObject`**
+
+Keyword `abstract` cho biết đây là **lớp trừu tượng** — không thể tạo instance trực tiếp:
+```csharp
+var obj = new ObservableObject(); // LỖI compile — cannot instantiate abstract class
+var vm = new MainViewModel();     // OK — MainViewModel kế thừa ObservableObject
+```
+
+Abstract vì class này chỉ cung cấp *cơ chế thông báo* (notification mechanism), không cung cấp *dữ liệu*. Chỉ các subclass cụ thể với properties thực sự mới có ý nghĩa để observable.
+
+**`: INotifyPropertyChanged`**
+
+Dấu `:` trong C# có thể có hai nghĩa:
+- Kế thừa class: `class Dog : Animal`
+- Implement interface: `class Dog : IRunnable`
+
+Ở đây là implement interface. `INotifyPropertyChanged` yêu cầu một điều duy nhất: phải có `event PropertyChangedEventHandler? PropertyChanged`.
+
+**Cơ chế hoạt động của WPF Data Binding với INotifyPropertyChanged:**
+
+```xml
+<!-- XAML -->
+<TextBox Text="{Binding DeviceName, Mode=TwoWay}"/>
+```
+
+Khi XAML binding được thiết lập, WPF engine thực hiện:
+1. Lấy giá trị `DeviceName` lần đầu để hiển thị ban đầu.
+2. **Đăng ký lắng nghe** event `PropertyChanged` của DataContext object.
+3. Mỗi khi `PropertyChanged` fires với `propertyName == "DeviceName"`, WPF gọi getter `DeviceName` lại và cập nhật TextBox.
+
+Nếu object không implement `INotifyPropertyChanged`, bước 2 không xảy ra → binding chỉ đọc một lần, không bao giờ cập nhật khi data thay đổi.
+
+**`public event PropertyChangedEventHandler? PropertyChanged;`**
+
+**`event`**: Keyword C# đặc biệt bảo vệ sự kiện. Khác với delegate thông thường:
+- Chỉ class chứa event mới có thể `Invoke()` (raise) nó.
+- Bên ngoài chỉ có thể `+=` (subscribe) hoặc `-=` (unsubscribe).
+- Encapsulation: không ai ngoài `ObservableObject` được kích hoạt event tùy tiện.
+
+**`PropertyChangedEventHandler?`**: Kiểu delegate chuẩn của .NET cho loại event này. Signature: `void Handler(object? sender, PropertyChangedEventArgs e)`. Dấu `?` (nullable) — event có thể không có subscriber nào (giá trị null).
 
 ```csharp
     protected virtual void OnPropertyChanged([CallerMemberName] string? propertyName = null)
@@ -164,9 +933,60 @@ public abstract class ObservableObject : INotifyPropertyChanged
         if (handler == null) return;
 ```
 
-`[CallerMemberName]` là C# attribute đặc biệt: khi gọi `OnPropertyChanged()` bên trong property setter mà không truyền tên, compiler tự điền tên property. Ví dụ: gọi trong `set` của property `Name` → `propertyName = "Name"`. Điều này tránh lỗi typo khi viết tên string thủ công.
+**`protected virtual void OnPropertyChanged`**
 
-Lưu `handler` vào local variable trước — pattern thread-safety: tránh race condition khi subscriber unsubscribe đúng lúc ta đang invoke.
+Convention C#: method để raise event đặt tên `On` + tên event. `protected` để chỉ class này và subclass gọi được (UI code bên ngoài không gọi trực tiếp). `virtual` để subclass override thêm behavior (ví dụ: log mỗi khi property thay đổi).
+
+**`[CallerMemberName] string? propertyName = null`**
+
+Compiler attribute cho phép tự động điền tên caller:
+
+```csharp
+// Không có [CallerMemberName] — phải hardcode string:
+public string DeviceName
+{
+    get => _deviceName;
+    set
+    {
+        _deviceName = value;
+        OnPropertyChanged("DeviceName"); // Nếu gõ sai → "DevlceName" → binding không update!
+    }
+}
+
+// Với [CallerMemberName] — compiler tự điền:
+public string DeviceName
+{
+    get => _deviceName;
+    set
+    {
+        _deviceName = value;
+        OnPropertyChanged(); // "" → compiler tự điền "DeviceName" — không thể sai typo
+    }
+}
+```
+
+**`var handler = PropertyChanged;`**
+
+Dòng này cực kỳ quan trọng về **thread safety**. Giải thích vấn đề:
+
+```
+// KHÔNG an toàn:
+if (PropertyChanged != null)           // Thread A: check null → true
+{                                      // Thread B: unsubscribe → PropertyChanged = null
+    PropertyChanged.Invoke(...);       // Thread A: NullReferenceException!
+}
+
+// AN TOÀN — copy snapshot trước:
+var handler = PropertyChanged;         // Thread A: copy reference
+if (handler == null) return;           // Thread B: PropertyChanged = null (handler vẫn valid)
+handler.Invoke(...);                   // Thread A: safe — handler còn reference đến delegate list cũ
+```
+
+Pattern này được gọi là **"copy-and-invoke"** — chuẩn thread-safe cho event invocation trong .NET.
+
+**`if (handler == null) return;`**
+
+Tối ưu hiệu năng đơn giản: nếu không có subscriber nào (phổ biến trong unit tests hay khi object mới tạo), không làm gì cả. Tránh tạo `PropertyChangedEventArgs` object vô ích.
 
 ```csharp
         if (Application.Current?.Dispatcher != null &&
@@ -184,173 +1004,219 @@ Lưu `handler` vào local variable trước — pattern thread-safety: tránh ra
     }
 ```
 
-**Đây là điểm quan trọng nhất của ObservableObject.** WPF chỉ cho phép cập nhật UI từ UI thread (main thread). Nhưng OPC UA subscription callback chạy trên background thread — khi giá trị tag thay đổi, nó gọi `tag.UpdateValue()` → `OnPropertyChanged()` từ background thread.
+**Phần xử lý thread safety — trọng tâm của ObservableObject:**
 
-`Dispatcher.CheckAccess()` trả về `true` nếu đang trên UI thread. Nếu `false` (background thread) → `BeginInvoke` để post action vào UI thread queue, async không chờ. Nếu đang trên UI thread → invoke trực tiếp.
+**Quy tắc sắt của WPF**: Chỉ **UI thread** (main thread / dispatcher thread) mới được cập nhật UI. Vi phạm quy tắc này gây ra exception:
+```
+System.InvalidOperationException: 
+"The calling thread cannot access this object 
+ because a different thread owns it."
+```
+
+**Nguồn gốc background thread trong project này:**
+
+OPC UA SDK dùng thread pool nội bộ để xử lý subscription notifications:
+```
+OPC UA SDK internal thread pool
+    → PlcConnection.Session_Notification() callback
+    → tagValueChanged event fires
+    → MainViewModel.OnTagValueChanged()
+    → tag.UpdateValue(newValue, ...)
+    → tag.Value = newValue  (property setter)
+    → SetProperty(ref _value, newValue)
+    → OnPropertyChanged()   ← ĐANG Ở BACKGROUND THREAD!
+```
+
+**`Application.Current?.Dispatcher`**
+
+- `Application.Current`: Singleton instance của WPF application. `?.` null-conditional vì nếu app đang shutdown, `Application.Current` có thể là null.
+- `.Dispatcher`: Object quản lý message queue của UI thread. Mọi UI operation phải đi qua Dispatcher.
+
+**`!Application.Current.Dispatcher.CheckAccess()`**
+
+- `CheckAccess()` trả về `true` nếu thread hiện tại là UI thread.
+- `!` đảo ngược: điều kiện `true` khi đang ở **background thread** (cần marshal).
+
+**`Dispatcher.BeginInvoke(() => { ... })`**
+
+- `BeginInvoke`: Gửi delegate vào message queue của UI thread — **asynchronous**.
+- Background thread **không bị block** — tiếp tục làm việc ngay lập tức.
+- UI thread sẽ xử lý delegate này khi rảnh (khoảng vài milliseconds sau).
+
+**Tại sao `BeginInvoke` (async) thay vì `Invoke` (sync)?**
+
+`Invoke` block background thread đến khi UI thread xử lý xong. Vấn đề:
+- Giảm throughput OPC UA: background thread phải chờ mỗi khi có tag update.
+- Nguy cơ deadlock trong một số tình huống phức tạp (UI thread đang chờ background thread, background thread đang chờ UI thread).
+
+`BeginInvoke` không block → background thread tiếp tục đọc data từ PLC và nhận notifications tiếp theo → throughput cao hơn.
 
 ```csharp
     protected bool SetProperty<T>(ref T field, T value, [CallerMemberName] string? propertyName = null)
     {
         if (EqualityComparer<T>.Default.Equals(field, value))
-            return false;    // không thay đổi → không notify
-        
+            return false;
+
         field = value;
         OnPropertyChanged(propertyName);
-        return true;         // đã thay đổi
+        return true;
     }
 }
 ```
 
-`SetProperty<T>` là shorthand pattern: kiểm tra thay đổi + set + notify trong một dòng. Tất cả property setter trong Models và ViewModels dùng pattern này:
+**`SetProperty<T>` — Giảm boilerplate code từ 7 dòng xuống 1 dòng:**
 
+**Không có `SetProperty`:**
 ```csharp
-public string Name
+private string _deviceName = "";
+public string DeviceName
 {
-    get => _name;
-    set => SetProperty(ref _name, value);  // một dòng thay vì 5 dòng
+    get => _deviceName;
+    set
+    {
+        if (_deviceName != value)      // check equality
+        {
+            _deviceName = value;       // set field
+            OnPropertyChanged();       // notify
+        }
+    }
+}
+// 7 dòng mỗi property
+```
+
+**Với `SetProperty`:**
+```csharp
+private string _deviceName = "";
+public string DeviceName
+{
+    get => _deviceName;
+    set => SetProperty(ref _deviceName, value); // 1 dòng
 }
 ```
 
-`EqualityComparer<T>.Default.Equals()` dùng generic equality — đúng cho cả value type (int, bool) lẫn reference type (string, object). Với string, `"abc".Equals("abc")` trả `true` dù là 2 instance khác nhau.
+Với ViewModel thường có 10-20 observable properties, tiết kiệm 60-120 dòng code!
 
----
+**`<T>` — Generic type parameter:**
 
-### Models/PlcDevice.cs — Model đại diện cho một PLC
+Generic cho phép `SetProperty` hoạt động với **bất kỳ kiểu nào**:
+- `SetProperty<string>(ref _name, "New Name")` — string
+- `SetProperty<int>(ref _count, 42)` — integer
+- `SetProperty<bool>(ref _isConnected, true)` — boolean
+- `SetProperty<PlcConnectionState>(ref _state, PlcConnectionState.Connected)` — enum
+- `SetProperty<ObservableCollection<TagItem>>(ref _tags, newCollection)` — complex object
 
-`PlcDevice` kế thừa `ObservableObject` vì nó cần binding trực tiếp lên UI (ListBox, DataGrid). Mỗi PLC hiển thị state, connection status, tags — tất cả đều live-update.
+Không cần viết overload riêng cho từng kiểu.
 
-**Tại sao dùng private backing field thay vì auto-property?**
+**`ref T field`**
+
+`ref` cho phép method thay đổi **biến của caller** (thay đổi backing field thực sự). Không có `ref`, method chỉ nhận copy và mọi thay đổi mất sau khi method return:
 
 ```csharp
-// Auto-property — KHÔNG dùng cho binding
-public string Name { get; set; }
+// ref: thay đổi backing field thực sự
+private string _name = "";
+SetProperty(ref _name, "Alice"); // _name = "Alice" sau khi return
 
-// Backing field + SetProperty — dùng cho binding
-private string _name = string.Empty;
-public string Name
-{
-    get => _name;
-    set => SetProperty(ref _name, value);
-}
+// không ref:
+void BadSetProperty<T>(T field, T value) { field = value; } // vô tác dụng!
 ```
 
-Auto-property không có cách gọi `OnPropertyChanged` — không thể binding two-way. Backing field + `SetProperty` mới có thể notify WPF.
+**`EqualityComparer<T>.Default.Equals(field, value)`**
 
-**[JsonIgnore] trên runtime state:**
+Tại sao không dùng `field == value`?
+
+Với generic type `T`, compiler không biết liệu `==` operator có được implement không. `EqualityComparer<T>.Default` chọn cách so sánh phù hợp nhất:
+- Nếu `T` implement `IEquatable<T>` → dùng `IEquatable.Equals` (nhanh, chính xác).
+- Nếu không → dùng `object.Equals()` (fallback).
+- Với value types (int, bool, struct) → compare by value.
+- Với string → compare by content ("abc".Equals("abc") = true dù 2 object khác nhau).
+
+**`return true/false`**
+
+Trả về boolean cho phép caller thực hiện hành động bổ sung khi giá trị thực sự thay đổi:
 
 ```csharp
-[JsonIgnore]
 public PlcConnectionState ConnectionState
 {
     get => _connectionState;
-    set => SetProperty(ref _connectionState, value);
-}
-```
-
-`[JsonIgnore]` của Newtonsoft.Json — khi serialize `PlcDevice` ra file JSON (save config), ta không muốn lưu `ConnectionState` vì đó là trạng thái runtime, không phải config. Mỗi lần mở app trạng thái reset về Disconnected.
-
-**Computed properties với [JsonIgnore]:**
-
-```csharp
-[JsonIgnore]
-public string ConnectionStateText => ConnectionState switch
-{
-    PlcConnectionState.Connected => "Connected",
-    PlcConnectionState.Error => $"Error: {LastError}",
-    PlcConnectionState.Reconnecting => "Reconnecting...",
-    _ => ConnectionState.ToString()
-};
-```
-
-Property computed (không có setter, tính từ state khác). Khi `ConnectionState` thay đổi, phải manually raise `OnPropertyChanged(nameof(ConnectionStateText))` nếu muốn binding cập nhật. Thường làm trong `ConnectionState` setter:
-
-```csharp
-set
-{
-    if (SetProperty(ref _connectionState, value))
+    set
     {
-        OnPropertyChanged(nameof(ConnectionStateText));
-        OnPropertyChanged(nameof(IsConnected));
+        if (SetProperty(ref _connectionState, value))
+        {
+            // Chỉ chạy khi state THỰC SỰ thay đổi — tránh spam notifications
+            OnPropertyChanged(nameof(ConnectionStateText)); // cập nhật computed property
+            OnPropertyChanged(nameof(IsConnected));         // cập nhật derived bool property
+            OnPropertyChanged(nameof(CanConnect));          // cập nhật CanExecute state
+            Log.Information("State changed to {State}", value);
+        }
     }
 }
 ```
 
-**Factory methods:**
+### 3.3. User.cs — Hệ thống model quản lý người dùng
 
-```csharp
-public static PlcDevice Create(string name, string endpointUrl)
-{
-    return new PlcDevice
-    {
-        Id = Guid.NewGuid().ToString(),
-        Name = name,
-        EndpointUrl = endpointUrl,
-        ProtocolType = ProtocolType.OpcUa,
-        ConnectionState = PlcConnectionState.Disabled
-    };
-}
-```
+File `User.cs` chứa 4 classes liên quan đến authentication và session management.
 
-Static factory thay vì constructor có nhiều tham số — dễ đọc hơn, tên method nói lên ngữ cảnh (`CreateSiemensS7` vs `CreateMitsubishiMc`). `Guid.NewGuid().ToString()` tạo ID unique dạng "550e8400-e29b-41d4-a716-446655440000".
-
-**Clone() method:**
-
-```csharp
-public PlcDevice Clone()
-{
-    return new PlcDevice
-    {
-        Id = this.Id,
-        Name = this.Name,
-        // copy tất cả config fields...
-        // KHÔNG copy runtime state (ConnectionState, LastError, ...)
-    };
-}
-```
-
-Dùng trong EditPlcDialog: lấy bản copy, user chỉnh sửa copy, nếu cancel thì không ảnh hưởng gốc, nếu save thì merge lại. Tránh mutate trực tiếp trong lúc user đang edit.
-
----
-
-### Models/TagItem.cs — Model đại diện cho một OPC UA Tag
-
-Tương tự PlcDevice, TagItem cũng kế thừa ObservableObject vì nó binding vào DataGrid — giá trị, quality, timestamp live-update khi subscription nhận data mới.
-
-**UpdateValue() — cập nhật tất cả fields cùng lúc:**
-
-```csharp
-public void UpdateValue(object? newValue, TagQuality quality, DateTime timestamp, DateTime? serverTimestamp = null)
-{
-    PreviousValue = Value;      // lưu giá trị cũ để so sánh
-    Value = newValue;           // set mới → triggers DisplayValue, HasValueChanged
-    Quality = quality;          // Good/Bad/Uncertain
-    Timestamp = timestamp;      // client-side timestamp
-    ServerTimestamp = serverTimestamp;
-    LastError = string.Empty;   // xóa lỗi cũ khi có data mới
-}
-```
-
-`PreviousValue = Value` phải gán trước `Value = newValue` — nếu đổi thứ tự, PreviousValue sẽ bằng Value mới.
-
-**HasValueChanged:**
-
-```csharp
-[JsonIgnore]
-public bool HasValueChanged => !Equals(Value, PreviousValue);
-```
-
-Dùng `Equals()` thay vì `==` vì Value là `object?` — với reference type, `==` so sánh reference, không so sánh nội dung. `Equals()` gọi virtual method, cho phép type cụ thể (int, double, string) override với so sánh giá trị.
-
----
-
-### Models/User.cs — Model tài khoản người dùng
+#### Class User — Tài khoản người dùng
 
 ```csharp
 public class User
 {
     public string Id { get; set; } = Guid.NewGuid().ToString();
+```
+
+**`Id`** — Khóa định danh duy nhất:
+
+`Guid.NewGuid()` tạo một UUID 128-bit ngẫu nhiên. Xác suất collision là 1 trong 2^122 — về mặt thực tế là không thể. Ví dụ: `"3f2504e0-4f89-11d3-9a0c-0305e82c3301"`.
+
+**Tại sao GUID thay vì integer auto-increment?**
+
+- Dữ liệu lưu trong file JSON — không có database để generate auto-increment.
+- GUID unique ngay khi tạo object, không cần roundtrip đến central server.
+- Nếu sau này migrate sang database, GUID làm primary key không gây conflict.
+- GUID không lộ thông tin về số lượng records (integer `userId=1` cho kẻ tấn công biết "có ít nhất 1 user").
+
+`.ToString()` chuyển `Guid` struct thành `string` để lưu vào JSON dễ đọc.
+
+```csharp
     public string Username { get; set; } = string.Empty;
+```
+
+**`Username`** — Tên đăng nhập:
+- Case-insensitive: "Admin", "admin", "ADMIN" đều match (validate bằng `OrdinalIgnoreCase`).
+- Phải unique trong hệ thống (UserService kiểm tra trước khi tạo).
+- `string.Empty` thay vì `null` hoặc `""` — convention C# hiện đại: rõ ràng về intent, tránh NullReferenceException.
+
+```csharp
     public string PasswordHash { get; set; } = string.Empty;
+```
+
+**`PasswordHash`** — Hash mật khẩu, KHÔNG PHẢI mật khẩu gốc:
+
+**Nguyên tắc bảo mật cốt lõi**: Không bao giờ lưu mật khẩu dạng:
+- Plaintext: `"mypassword123"` → thảm họa nếu file bị đánh cắp.
+- Reversible encryption (AES, Base64): `"bXlwYXNzd29yZDEyMw=="` → chỉ cần key để decode.
+- MD5/SHA1/SHA256 hash: `"d7f5bfa..."` → rainbow table attack có thể crack trong vài phút.
+
+Project dùng **BCrypt** — thuật toán hash đặc biệt cho mật khẩu:
+
+```
+BCrypt hash ví dụ:
+$2a$11$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy
+
+Cấu trúc:
+  $2a$ → phiên bản BCrypt algorithm
+  $11$ → work factor: 2^11 = 2048 vòng hash
+  N9qo8uLOickgx2ZMRZoMye → 22 ký tự salt (ngẫu nhiên, Base64)
+  IjZAgcfl7p92ldGxad68LJZdL17lhWy → 31 ký tự hash (Base64)
+```
+
+**BCrypt khác gì SHA256?**
+
+1. **Salt tự động**: Mỗi lần hash có salt ngẫu nhiên riêng → cùng mật khẩu → 2 hash khác nhau. Chống rainbow table.
+2. **Intentionally slow**: `$11$` = 2048 vòng → ~0.15-0.3 giây mỗi hash. Đủ nhanh cho UX, quá chậm cho brute force (1 tỉ attempt = ~5000 năm).
+3. **Adaptive**: Có thể tăng work factor lên 12, 13... khi CPU nhanh hơn để duy trì mức bảo mật.
+
+```csharp
     public string DisplayName { get; set; } = string.Empty;
     public UserRole Role { get; set; } = UserRole.Viewer;
     public bool IsActive { get; set; } = true;
@@ -360,13 +1226,22 @@ public class User
 }
 ```
 
-**User KHÔNG kế thừa ObservableObject** — không cần binding trực tiếp. UserManagementWindow dùng DataGrid với `ItemsSource` refresh toàn bộ danh sách khi có thay đổi.
+**`DisplayName`**: Tên thân thiện như "Nguyễn Văn An" — hiển thị trong UI và log. Khác với Username dùng để login.
 
-`PasswordHash` — **KHÔNG BAO GIỜ** lưu password plaintext. BCrypt hash là chuỗi 60 ký tự dạng `$2a$11$...`. Ngay cả khi file JSON bị lộ, attacker không thể reverse-engineer password.
+**`Role = UserRole.Viewer`**: Default quyền thấp nhất. Nguyên tắc **Least Privilege** — không cấp dư quyền.
 
-`LockDurationMinutes` là `int?` (nullable) — null nghĩa là dùng default từ `AuthSettings`. 0 nghĩa là không giới hạn thời gian (unlimited lock).
+**`IsActive = true`**: Flag vô hiệu hóa tài khoản mà không xóa. Nhân viên nghỉ việc → `IsActive = false`. Giữ lại audit trail. Có thể kích hoạt lại nếu cần.
 
-`UserStorage` là wrapper class để serialize/deserialize toàn bộ danh sách users:
+**`DateTime CreatedAt = DateTime.UtcNow`**: **Luôn dùng UTC** cho timestamps lưu trữ. UTC không thay đổi theo múi giờ — đảm bảo consistency khi hệ thống chạy ở nhiều locations.
+
+**`DateTime? LastLoginAt`**: Nullable vì user mới chưa từng đăng nhập → null. Theo dõi hoạt động: nếu user không đăng nhập trong 90 ngày → cảnh báo hoặc lock.
+
+**`int? LockDurationMinutes`**: Nullable với ý nghĩa ba trạng thái:
+- `null`: Dùng giá trị mặc định từ `AuthSettings`.
+- `0`: Không giới hạn thời gian lock (admin phải mở thủ công).
+- `>0`: Lock trong N phút rồi tự mở.
+
+#### Class UserStorage — Container serialize JSON
 
 ```csharp
 public class UserStorage
@@ -375,1542 +1250,756 @@ public class UserStorage
 }
 ```
 
-Tại sao cần wrapper thay vì serialize trực tiếp `List<User>`? Để dễ mở rộng sau — có thể thêm metadata (version, createdAt, checksum) vào file mà không phá vỡ format cũ.
+**Tại sao cần wrapper class thay vì serialize `List<User>` trực tiếp?**
+
+Format JSON:
+```json
+// Serialize List<User> trực tiếp: JSON array
+[
+    { "Id": "abc...", "Username": "admin" },
+    { "Id": "xyz...", "Username": "op1" }
+]
+
+// Serialize UserStorage: JSON object
+{
+    "Users": [
+        { "Id": "abc...", "Username": "admin" },
+        { "Id": "xyz...", "Username": "op1" }
+    ]
+}
+```
+
+JSON object (`{}`) dễ mở rộng hơn:
+```json
+{
+    "Version": 2,
+    "LastModified": "2026-06-19T10:30:00Z",
+    "Checksum": "sha256:abcdef...",
+    "Users": [...]
+}
+```
+Thêm metadata mà không breaking change với file cũ.
+
+**`= new()`** là C# 9 **target-typed new expression** — compiler suy ra `new List<User>()` từ type annotation. Khởi tạo empty list ngay, tránh `NullReferenceException` khi access trước khi load data.
+
+#### Class RefreshToken — Token làm mới JWT
+
+```csharp
+public class RefreshToken
+{
+    public string Token { get; set; } = string.Empty;
+    public string UserId { get; set; } = string.Empty;
+    public DateTime ExpiresAt { get; set; }
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public bool IsRevoked { get; set; } = false;
+    public string? SessionId { get; set; }
+}
+```
+
+**JWT Authentication Flow — tại sao cần Refresh Token:**
+
+```
+Scenario: User đăng nhập vào mobile app lúc 8:00 AM
+
+8:00 AM: Login thành công
+  → Server cấp: Access Token (hết hạn 15 phút) + Refresh Token (hết hạn 7 ngày)
+  
+8:05 AM: App gọi API đọc tag
+  → Gửi Access Token trong header: "Authorization: Bearer <access_token>"
+  → Server validate → OK
+
+8:15 AM: Access Token hết hạn
+  → App dùng Refresh Token để lấy Access Token mới
+  → User không cần đăng nhập lại!
+  
+8:16 AM: Tiếp tục dùng Access Token mới
+
+8:00 AM ngày thứ 8 (7 ngày sau): Refresh Token hết hạn
+  → App phải yêu cầu user đăng nhập lại
+```
+
+Tại sao không dùng một Access Token thời hạn dài? Vì:
+- Nếu bị đánh cắp, attacker có thể dùng mãi mãi.
+- Không thể revoke JWT sau khi cấp (stateless).
+- Short-lived Access Token + long-lived Refresh Token = balance giữa security và UX.
+
+**`Token`** — Chuỗi random 64 bytes → Base64 ~88 chars:
+- **Bí mật tuyệt đối** — nếu lộ, attacker impersonate user trong 7 ngày.
+- Server lưu **hash** của token (BCrypt hoặc SHA256), không phải plaintext.
+- Client giữ token gốc, gửi khi cần refresh.
+
+**`IsRevoked`** — Thu hồi chủ động (trước khi hết hạn):
+- User logout → revoke ngay lập tức.
+- Admin force-logout → revoke.
+- Đổi mật khẩu → revoke tất cả refresh tokens của user này.
+- **Tại sao cần revoke?** JWT Access Token stateless không thể revoke, nhưng Refresh Token có state → có thể kiểm soát.
+
+**`SessionId`** — Liên kết với Active Session:
+- Revoke Refresh Token → invalidate session tương ứng.
+- Invalidate session → revoke Refresh Token tương ứng.
+- Hai chiều để đảm bảo consistency.
+
+#### Class ActiveSession — Theo dõi phiên đăng nhập
+
+```csharp
+public class ActiveSession
+{
+    public string SessionId { get; set; } = Guid.NewGuid().ToString();
+    public string UserId { get; set; } = string.Empty;
+    public string Username { get; set; } = string.Empty;
+    public string DeviceId { get; set; } = string.Empty;
+    public string? DeviceName { get; set; }
+    public DateTime LoginAt { get; set; } = DateTime.UtcNow;
+    public DateTime LastActivityAt { get; set; } = DateTime.UtcNow;
+    public bool IsActive { get; set; } = true;
+    public DateTime? InvalidatedAt { get; set; }
+    public string? InvalidReason { get; set; }
+    public string? InvalidatedByDeviceName { get; set; }
+}
+```
+
+**Use case trong nhà máy:**
+
+```
+Buổi sáng:
+  - Operator A login từ Workstation-01 → Session S1 (DeviceId: WS01, DeviceName: "Workstation-01")
+  - Kỹ sư B login từ Laptop → Session S2 (DeviceId: LAP-ENG-001, DeviceName: "Engineering Laptop")
+
+12:00 PM: Operator A đi ăn trưa quên logout
+
+2:00 PM: Admin phát hiện → force-close Session S1 qua UserManagement UI
+  Session S1:
+    IsActive = false
+    InvalidatedAt = 2:00 PM
+    InvalidReason = "AdminForced"
+    InvalidatedByDeviceName = "ADMIN-WORKSTATION-02"  ← Ai đã đóng session
+
+Khi Operator A quay lại:
+  → Mọi API call đều trả về 401 Unauthorized
+  → UI hiển thị "Session đã bị đóng, vui lòng đăng nhập lại"
+  → Operator A phải login lại
+```
+
+**`DeviceId`** — Định danh thiết bị:
+- Thường là hash của machine name + MAC address.
+- Enforce "chỉ 1 session active per device" — nếu login từ cùng device, session cũ bị invalidate.
+
+**`LastActivityAt`** — Thời điểm hoạt động cuối:
+- Cập nhật mỗi khi API call được thực hiện.
+- Session timeout: nếu `LastActivityAt` > X giờ trước → auto-invalidate.
+
+**`InvalidatedByDeviceName`** — Ai đã đóng session này:
+
+Trong hệ thống yêu cầu **audit trail** (FDA 21 CFR Part 11 cho thiết bị y tế, ISO 13849 cho máy móc safety, IEC 62443 cho industrial cybersecurity), mọi hành động phải được ghi lại: ai làm gì, từ đâu, lúc nào. Field này phục vụ yêu cầu đó cho action "đóng session".
 
 ---
 
-## 5. LAYER 3 — HELPERS
+## Chương 4: Interfaces - Hợp đồng trừu tượng
 
-### Helpers/RelayCommand.cs — Cầu nối ViewModel → View
+### 4.1. Interface là gì? Tại sao project này đặc biệt cần?
 
-**Vấn đề MVVM cần giải quyết:** XAML Button cần `Command` (ICommand), không phải `Click` event. ViewModel có method `void SaveConfig()` — cần bọc nó thành `ICommand`.
+**Interface** là một "hợp đồng" (contract) định nghĩa **những gì** một class phải cung cấp mà không quan tâm **cách thực hiện**.
 
-**RelayCommand (synchronous):**
+**Ví dụ ổ cắm điện như Interface:**
+
+```
+Interface IElectricalOutlet định nghĩa:
+  - ProvideVoltage(): int   (phải cung cấp điện áp)
+  - ProvideCurrent(): double (phải cung cấp cường độ)
+
+VietnamOutlet : IElectricalOutlet
+  - ProvideVoltage() → 220V
+  - ProvideCurrent() → 16A
+
+USOutlet : IElectricalOutlet
+  - ProvideVoltage() → 110V
+  - ProvideCurrent() → 15A
+```
+
+Thiết bị nào "biết về" `IElectricalOutlet` có thể dùng cả hai — không cần biết đây là ổ cắm Việt Nam hay Mỹ.
+
+**Vấn đề đặc thù của project này:**
+
+Project hỗ trợ 4 giao thức PLC với implementation **cực kỳ khác nhau**:
 
 ```csharp
-public class RelayCommand : ICommand
+// OPC UA: endpoint URL, session, subscription
+var session = await Session.Create(appConfig, endpoint, false, name, 60000, identity, null);
+var result = await session.ReadAsync(null, 0, TimestampsToReturn.Both, nodesToRead, ct);
+
+// Siemens S7: IP, rack, slot, PDU
+var s7client = new Plc(CpuType.S71200, "192.168.1.10", rack: 0, slot: 1);
+await s7client.OpenAsync();
+var bytes = await s7client.ReadBytesAsync(DataType.DataBlock, db: 1, start: 0, count: 4);
+
+// Modbus TCP: IP, port, unit ID, register address
+var modbusClient = new ModbusClient("192.168.1.10", 502);
+modbusClient.Connect();
+int[] registers = modbusClient.ReadHoldingRegisters(startAddress: 0, quantity: 10);
+```
+
+**Không có Interface** → `PlcManager` phải biết tất cả chi tiết:
+
+```csharp
+// ANTI-PATTERN: switch case khổng lồ
+public async Task<TagValue?> ReadTagAsync(string plcId, string tagId)
 {
-    private readonly Action<object?> _execute;
-    private readonly Func<object?, bool>? _canExecute;
-
-    public event EventHandler? CanExecuteChanged
+    var device = GetDevice(plcId);
+    switch (device.ProtocolType)
     {
-        add => CommandManager.RequerySuggested += value;
-        remove => CommandManager.RequerySuggested -= value;
+        case ProtocolType.OpcUa:
+            var opc = (OpcUaPlcConnection)GetConnection(plcId);
+            return await opc.ReadOpcUaNodeAsync(tagId);
+        case ProtocolType.SiemensS7:
+            var s7 = (SiemensS7Connection)GetConnection(plcId);
+            return await s7.ReadS7DataBlockAsync(tagId);
+        // Thêm Profinet → phải sửa PlcManager!
+        // Thêm DNP3 → phải sửa PlcManager!
+        // Vi phạm Open/Closed Principle
     }
+}
 ```
 
-`CommandManager.RequerySuggested` là WPF mechanism tự động re-evaluate `CanExecute` khi UI state thay đổi (focus change, input change). Bằng cách forward `CanExecuteChanged` sang `RequerySuggested`, mọi lần WPF hỏi "button này có enable không?" đều gọi `CanExecute()` của ta.
+**Với Interface** → `PlcManager` không biết protocol cụ thể:
 
 ```csharp
-    public RelayCommand(Action execute, Func<bool>? canExecute = null)
-        : this(_ => execute(), canExecute != null ? _ => canExecute() : null)
-    {
-    }
-```
-
-Overload thứ hai nhận `Action` (không có parameter) và `Func<bool>` (không có parameter) — dễ dùng hơn khi không cần CommandParameter:
-
-```csharp
-SaveCommand = new RelayCommand(Save, () => HasUnsavedChanges);
-// thay vì
-SaveCommand = new RelayCommand(_ => Save(), _ => HasUnsavedChanges);
-```
-
-**AsyncRelayCommand (asynchronous):**
-
-```csharp
-public class AsyncRelayCommand : ICommand
+// GOOD: PlcManager chỉ nói chuyện qua interface
+public async Task<TagValue?> ReadTagAsync(string plcId, string tagId, CancellationToken ct = default)
 {
-    private bool _isExecuting;
-
-    public bool CanExecute(object? parameter)
-        => !_isExecuting && (_canExecute == null || _canExecute());
+    var connection = _connections.GetValueOrDefault(plcId)
+        ?? throw new KeyNotFoundException($"PLC '{plcId}' not found");
+    return await connection.ReadTagAsync(tagId, ct); // polymorphism!
+}
+// Thêm Profinet → chỉ cần tạo ProfinetConnection : IPlcConnection
+// PlcManager KHÔNG cần sửa
 ```
 
-`!_isExecuting` ngăn user click nhiều lần khi command đang chạy. Khi `_isExecuting = true`, `CanExecute()` trả về false → button tự disabled.
+**Lợi ích cụ thể trong project:**
 
+**1. Unit Testing:**
 ```csharp
-    public async void Execute(object? parameter)
-    {
-        if (!CanExecute(parameter)) return;
-
-        try
-        {
-            IsExecuting = true;    // disables button
-            await _execute();      // chạy async task
-        }
-        finally
-        {
-            IsExecuting = false;   // re-enables button dù có exception
-        }
-    }
+// Test MainViewModel mà không cần PLC thật
+var mockManager = new MockPlcManager();
+mockManager.AddPlc("plc1", new MockPlcConnection()
+    .SetupRead("temperature", new TagValue(85.5, TagQuality.Good)));
+    
+var viewModel = new MainViewModel(mockManager, mockConfig, mockUserService, logger);
+await viewModel.ConnectAsync("plc1");
+Assert.Equal(85.5, viewModel.SelectedPlcTags.First().Value);
 ```
 
-`async void` trên ICommand.Execute là **hợp lệ** vì ICommand.Execute có signature `void Execute(object)`. Ta không thể return Task từ đây. Exception trong `async void` sẽ propagate lên `AppDomain.UnhandledException` — đó là lý do cần global exception handler.
+**2. Open/Closed Principle:**
+Thêm protocol mới (EtherNet/IP, Profinet, DNP3) → chỉ tạo class mới implement `IPlcConnection` và đăng ký trong factory → không sửa code cũ.
 
-`finally` đảm bảo button luôn được re-enable dù task throw exception — không để UI bị kẹt.
+**3. Dependency Injection:**
+```csharp
+// DI Container
+services.AddSingleton<IPlcManager, PlcManager>();  // register
+// MainViewModel nhận interface, không biết implementation
+public MainViewModel(IPlcManager plcManager) { ... }  // inject
+```
 
----
+### 4.2. IPlcConnection — Hợp đồng cho một kết nối PLC
 
-## 6. LAYER 4 — INTERFACES
+`IPlcConnection` là **interface cốt lõi nhất** trong project. Mọi implementation (OpcUA, Siemens, Mitsubishi, Modbus) phải tuân thủ contract này.
 
-Interfaces định nghĩa **contract** (hợp đồng) giữa các layer, không có implementation. Cho phép:
-- Test với mock objects
-- Thay đổi implementation mà không ảnh hưởng caller
-- DI container inject đúng implementation
-
-### IPlcConnection — hợp đồng cho 1 kết nối PLC
+#### 4.2.1. Properties
 
 ```csharp
-public interface IPlcConnection : IDisposable
+public interface IPlcConnection
 {
     PlcDevice Device { get; }
     PlcConnectionState ConnectionState { get; }
     bool IsConnected { get; }
     string? SessionId { get; }
+    DateTime? LastConnectedTime { get; }
+    DateTime? LastDisconnectedTime { get; }
+    string? LastError { get; }
+```
 
-    event EventHandler<ConnectionStateChangedEventArgs>? ConnectionStateChanged;
+**`PlcDevice Device { get; }`**
+
+Read-only (chỉ getter). Trả về config của PLC gắn với connection này. Bất biến sau khởi tạo — một connection object gắn cố định với một PLC.
+
+**`PlcConnectionState ConnectionState { get; }`**
+
+Read-only từ bên ngoài. Implementation nội bộ set trạng thái thông qua private setter. Tránh external code can thiệp sai vào state machine.
+
+**`bool IsConnected { get; }`**
+
+Shorthand property — thường là `ConnectionState == PlcConnectionState.Connected`. Cho phép viết code ngắn gọn hơn mà vẫn readable:
+```csharp
+if (connection.IsConnected) { ... }  // vs
+if (connection.ConnectionState == PlcConnectionState.Connected) { ... }
+```
+
+**`string? SessionId { get; }`**
+
+OPC UA session ID do server cấp. Hữu ích để trace request trong log — tìm tất cả log lines liên quan đến session cụ thể. Nullable vì chỉ có giá trị khi Connected.
+
+**`DateTime? LastConnectedTime { get; }` và `DateTime? LastDisconnectedTime { get; }`**
+
+Tracking lịch sử kết nối:
+```csharp
+// Tính uptime
+if (connection.IsConnected && connection.LastConnectedTime.HasValue)
+{
+    var uptime = DateTime.Now - connection.LastConnectedTime.Value;
+    Console.WriteLine($"Connected for {uptime:hh\\:mm\\:ss}");
+}
+```
+
+**`string? LastError { get; }`**
+
+Mô tả lỗi chi tiết khi `ConnectionState == Error`. Hiển thị cho admin để debug:
+- `"BadSecurityPolicyRejected (0x80791000): The security policy is not supported"` → đổi SecurityPolicy
+- `"Connection refused 192.168.1.50:4840"` → kiểm tra IP và port
+- `"Certificate chain validation failed"` → import certificate
+
+#### 4.2.2. Events
+
+```csharp
+    event EventHandler<PlcConnectionState>? ConnectionStateChanged;
     event EventHandler<TagValueChangedEventArgs>? TagValueChanged;
     event EventHandler<PlcErrorEventArgs>? ErrorOccurred;
+```
 
-    Task<bool> ConnectAsync(CancellationToken cancellationToken = default);
-    Task DisconnectAsync();
-    Task<bool> ReconnectAsync(CancellationToken cancellationToken = default);
-    Task<TagValue?> ReadTagAsync(string nodeId, CancellationToken cancellationToken = default);
-    Task<bool> WriteTagAsync(string nodeId, object value, CancellationToken cancellationToken = default);
-    Task<IReadOnlyList<BrowseNode>> BrowseAsync(string? nodeId = null, CancellationToken cancellationToken = default);
-    Task<NodeInfo?> GetNodeInfoAsync(string nodeId, CancellationToken cancellationToken = default);
+**Tại sao dùng Event thay vì Polling?**
+
+```
+POLLING — inefficient:
+while (true) {
+    var state = connection.ConnectionState;  // check mỗi 100ms
+    if (state != _lastState) { UpdateUI(state); }
+    await Task.Delay(100);
+}
+// Tốn CPU, độ trễ tối đa 100ms
+
+EVENT — efficient:
+connection.ConnectionStateChanged += (s, newState) => UpdateUI(newState);
+// Không tốn CPU khi không có thay đổi
+// Phản ứng ngay lập tức (< 1ms sau khi state thay đổi)
+```
+
+**`event EventHandler<PlcConnectionState>? ConnectionStateChanged`**
+
+Fired ngay khi trạng thái thay đổi. Subscribers:
+- `PlcManager`: Cập nhật `ConnectedCount` property và aggregate event lên.
+- `MainViewModel`: Cập nhật UI màu sắc PLC item trong list.
+- `ApiHostService`: Push SignalR notification ra web clients.
+
+**`event EventHandler<TagValueChangedEventArgs>? TagValueChanged`**
+
+Event quan trọng nhất về tần suất — có thể fire hàng trăm lần mỗi giây khi nhiều tag subscription cùng lúc. `TagValueChangedEventArgs` chứa đầy đủ thông tin:
+```csharp
+public class TagValueChangedEventArgs : EventArgs
+{
+    public string PlcId { get; set; }
+    public string TagId { get; set; }
+    public object? OldValue { get; set; }
+    public object? NewValue { get; set; }
+    public TagQuality Quality { get; set; }
+    public DateTime ClientTimestamp { get; set; }
+    public DateTime? ServerTimestamp { get; set; }
 }
 ```
 
-`IDisposable` — kết nối cần cleanup (đóng session, hủy subscription). Khi `PlcManager.Dispose()`, nó gọi `connection.Dispose()` cho tất cả connections.
+**`event EventHandler<PlcErrorEventArgs>? ErrorOccurred`**
 
-`IReadOnlyList<T>` thay vì `List<T>` — caller không thể modify list trả về (immutable interface). Tránh side effect không mong muốn.
+Fired cho mọi lỗi — không chỉ khi state chuyển sang `Error`. Ví dụ: read tag thất bại (nhưng connection vẫn OK), subscription notification có lỗi... Cung cấp chi tiết để log và debug.
 
-### IPlcManager — quản lý nhiều PLCs
+#### 4.2.3. Connection Management Methods
 
 ```csharp
-public interface IPlcManager : IDisposable
+    Task ConnectAsync(CancellationToken cancellationToken = default);
+    Task DisconnectAsync(CancellationToken cancellationToken = default);
+    Task ReconnectAsync(CancellationToken cancellationToken = default);
+```
+
+**`Task ConnectAsync(CancellationToken cancellationToken = default)`**
+
+`Task` — bất đồng bộ (async). Tại sao bắt buộc phải async?
+
+Quá trình kết nối OPC UA mất 2-15 giây:
+```
+DNS resolution:          10-500ms
+TCP three-way handshake: 1-5ms
+TLS Secure Channel:      50ms - 14,000ms (S7-1200 mất đến 14s)
+OPC UA session create:   100-500ms
+Session activate:        50-200ms
+Load subscriptions:      100ms × N subscriptions
+```
+
+Synchronous method → UI thread block → cửa sổ đơ, không thể tương tác, không redraw. Async method → UI thread tự do xử lý events, hiển thị progress indicator.
+
+**`CancellationToken cancellationToken = default`**
+
+Cho phép hủy operation giữa chừng:
+```csharp
+// Với timeout 30 giây:
+using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+try
 {
-    event EventHandler<ConnectionStateChangedEventArgs>? ConnectionStateChanged;
+    await connection.ConnectAsync(cts.Token);
+}
+catch (OperationCanceledException)
+{
+    Logger.Warning("Connection to {Name} timed out after 30s", device.Name);
+}
+```
+
+`= default` tương đương `= CancellationToken.None` — không thể cancel nếu caller không truyền token. Caller phải opt-in vào cancellation.
+
+#### 4.2.4. Tag Operation Methods
+
+```csharp
+    Task<TagValue?> ReadTagAsync(string tagId, CancellationToken cancellationToken = default);
+    Task<Dictionary<string, TagValue?>> ReadTagsAsync(IEnumerable<string> tagIds, CancellationToken cancellationToken = default);
+    Task<bool> WriteTagAsync(string tagId, object value, CancellationToken cancellationToken = default);
+    Task<Dictionary<string, bool>> WriteTagsAsync(Dictionary<string, object> tagValues, CancellationToken cancellationToken = default);
+```
+
+**`Task<TagValue?> ReadTagAsync(string tagId, ...)`**
+
+Trả về nullable `TagValue?`:
+- `TagValue` với value, quality, timestamps khi thành công.
+- `null` khi: tag ID không tìm thấy trong config, kết nối mất, timeout.
+
+```csharp
+// Caller phải handle null và Bad quality:
+var result = await connection.ReadTagAsync("temperature_1");
+if (result == null)
+{
+    Logger.Warning("ReadTagAsync returned null for 'temperature_1'");
+    return defaultTemperature;
+}
+if (result.Quality == TagQuality.Bad)
+{
+    Logger.Warning("Temperature quality is Bad: {Value}", result.Value);
+    TriggerAlarm("TEMPERATURE_SENSOR_FAULT");
+    return;
+}
+ProcessTemperature((double)result.Value);
+```
+
+**`Task<Dictionary<string, TagValue?>> ReadTagsAsync(IEnumerable<string> tagIds, ...)`**
+
+Batch read — đọc nhiều tag trong một request. Hiệu quả hơn nhiều lần `ReadTagAsync` tuần tự:
+
+```
+Sequential (10 tags × 5ms round-trip):
+  10 × 5ms = 50ms tổng cộng
+
+Batch read (10 tags trong 1 request):
+  1 × 5ms + processing = ~8ms tổng cộng
+
+Cải thiện: 6x nhanh hơn. Với 100 tags: 50ms vs 500ms.
+```
+
+OPC UA standard hỗ trợ đọc nhiều nodes trong một `ReadRequest`. Siemens S7 hỗ trợ Multi-Variable Read. Modbus hỗ trợ đọc range của registers.
+
+`IEnumerable<string>` thay vì `List<string>`: method chỉ cần iterate một lần — không cần index, không cần modification. Caller có thể truyền bất kỳ sequence nào: `List<string>`, `string[]`, `HashSet<string>`, `IQueryable<string>`...
+
+**`object value`** trong `WriteTagAsync`:
+
+```csharp
+// Caller truyền native C# type:
+await connection.WriteTagAsync("temperature_setpoint", 85.5);    // double
+await connection.WriteTagAsync("motor_start", true);              // bool
+await connection.WriteTagAsync("pump_speed", 1500);               // int
+await connection.WriteTagAsync("device_name", "Pump-A01");        // string
+
+// Implementation tự convert sang OPC UA DataValue:
+var dataValue = new DataValue(ConvertToOpcUaVariant(tagId, value));
+```
+
+#### 4.2.5. Subscription Management Methods
+
+```csharp
+    Task<bool> CreateSubscriptionAsync(string subscriptionName, int publishingInterval = 1000, CancellationToken cancellationToken = default);
+    Task<bool> RemoveSubscriptionAsync(string subscriptionName, CancellationToken cancellationToken = default);
+    Task<bool> AddTagToSubscriptionAsync(string subscriptionName, string tagId, CancellationToken cancellationToken = default);
+    Task<bool> RemoveTagFromSubscriptionAsync(string subscriptionName, string tagId, CancellationToken cancellationToken = default);
+```
+
+**OPC UA Subscription — tại sao không chỉ poll?**
+
+```
+POLLING (ReadTagAsync mỗi giây):
+  App → ReadRequest{temperature} → PLC → Response{25.0°C}  (1 giây)
+  App → ReadRequest{temperature} → PLC → Response{25.0°C}  (không đổi)
+  App → ReadRequest{temperature} → PLC → Response{25.1°C}  (đổi!)
+  
+  Vấn đề: 2/3 request vô ích. Với 100 tags × 1 request/giây = 100 req/s tải PLC.
+
+SUBSCRIPTION (server push):
+  App → CreateSubscription{publishingInterval: 1000ms}
+  App → AddMonitoredItem{temperature, samplingInterval: 500ms}
+  
+  PLC → (sau 500ms nhiệt độ thay đổi) → Publish{temperature: 25.1°C, changed}
+  App nhận notification ngay khi có thay đổi, không cần poll!
+  
+  Lợi ích:
+  - Latency thấp hơn: nhận ngay khi thay đổi, không đợi đến lần poll tiếp theo
+  - Ít traffic: chỉ gửi khi có thay đổi
+  - Ít tải PLC: PLC chủ động push, không phải trả lời 100 req/s
+```
+
+**`subscriptionName`**: Mỗi subscription có tên để quản lý theo nhóm:
+- `"DashboardSubscription"`: Tất cả tags hiển thị trên dashboard.
+- `"AlarmSubscription"`: Chỉ alarm tags, `publishingInterval: 100ms` (phản ứng nhanh).
+- `"HistorianSubscription"`: Tags cần ghi vào historian, `publishingInterval: 5000ms`.
+
+**`publishingInterval = 1000`** (mặc định 1 giây):
+
+Server gửi publish notification tối thiểu mỗi N milliseconds. Tag thay đổi giữa các interval vẫn được capture — OPC UA server buffer lại và gửi trong lần publish tiếp theo. Giảm xuống 100ms cho alarm monitoring.
+
+#### 4.2.6. Browse Methods — Đặc trưng OPC UA
+
+```csharp
+    Task<IEnumerable<OpcUaNode>> BrowseAsync(string? nodeId = null, CancellationToken cancellationToken = default);
+    Task<OpcUaNode?> GetNodeInfoAsync(string nodeId, CancellationToken cancellationToken = default);
+```
+
+**`BrowseAsync`** — Duyệt cây node của OPC UA Server:
+
+OPC UA server có cấu trúc cây giống file system:
+```
+Objects (i=85)
+└── DeviceSet
+    ├── PLC_Line_01 (namespace: ns=2, s=PLC_Line_01)
+    │   ├── Temperature_Inlet   [Float, Read, °C]
+    │   ├── Temperature_Outlet  [Float, Read, °C]
+    │   ├── Pressure_Inlet      [Float, Read, bar]
+    │   └── Pump_Control
+    │       ├── Pump_Enable     [Boolean, ReadWrite]
+    │       ├── Pump_Speed      [UInt16, ReadWrite, RPM]
+    │       └── Pump_Fault      [Boolean, Read]
+    └── PLC_Line_02
+        └── ...
+```
+
+`BrowseAsync(nodeId)` trả về danh sách con trực tiếp của node có ID `nodeId`. `BrowseAsync()` (không có nodeId) browse từ `Objects` folder (root).
+
+Feature này **độc quyền của OPC UA** — Modbus và Siemens S7 native không có mechanism browse chuẩn (phải config tag address thủ công).
+
+**`GetNodeInfoAsync`** — Metadata của một node:
+
+```csharp
+var nodeInfo = await connection.GetNodeInfoAsync("ns=2;s=Temperature_Inlet");
+// nodeInfo chứa:
+// DisplayName: "Temperature Inlet"
+// Description: "Inlet temperature of heat exchanger HX-001"
+// DataType: Float
+// AccessLevel: Read
+// EngineeringUnit: "°C" (OPC UA EUInformation)
+// EURange: {Low: -100.0, High: 500.0}
+```
+
+Thông tin này cực kỳ hữu ích cho `BrowseServerWindow` — người dùng thấy tên, kiểu, đơn vị đo và biết ngay tag này là gì mà không cần tra tài liệu.
+
+### 4.3. IPlcManager — Hợp đồng quản lý nhiều PLC
+
+`IPlcManager` quản lý **tập hợp** các `IPlcConnection`. Đây là **Facade Pattern** — giao diện đơn giản cho hệ thống phức tạp.
+
+#### 4.3.1. Aggregated Events
+
+```csharp
+public interface IPlcManager
+{
+    event EventHandler<PlcConnectionState>? ConnectionStateChanged;
     event EventHandler<TagValueChangedEventArgs>? TagValueChanged;
+    event EventHandler<PlcErrorEventArgs>? ErrorOccurred;
+```
 
-    Task<IPlcConnection?> AddPlcAsync(PlcDevice device, ...);
-    Task<bool> RemovePlcAsync(string plcId, ...);
+`IPlcManager` expose **cùng events** như `IPlcConnection` nhưng là aggregate từ tất cả connections:
+
+```
+MainViewModel đăng ký 1 lần: manager.TagValueChanged += Handler;
+
+PlcManager nội bộ subscribe vào mọi connection:
+  connection1.TagValueChanged += (s, e) => TagValueChanged?.Invoke(this, e);
+  connection2.TagValueChanged += (s, e) => TagValueChanged?.Invoke(this, e);
+  connection3.TagValueChanged += (s, e) => TagValueChanged?.Invoke(this, e);
+
+Khi PLC2 thay đổi data:
+  connection2.TagValueChanged fires
+    → PlcManager re-fires manager.TagValueChanged
+      → MainViewModel.Handler() nhận event (không quan tâm từ PLC nào)
+```
+
+Điều này đơn giản hóa MainViewModel đáng kể — không cần quản lý subscription lifecycle cho từng connection.
+
+#### 4.3.2. Properties
+
+```csharp
+    int PlcCount { get; }
+    int ConnectedCount { get; }
+    IReadOnlyDictionary<string, IPlcConnection> Connections { get; }
+```
+
+**`IReadOnlyDictionary<string, IPlcConnection>`**
+
+Expose dictionary nhưng read-only:
+```csharp
+// Caller có thể iterate và lookup:
+foreach (var (plcId, connection) in manager.Connections)
+{
+    var status = connection.ConnectionState;
+}
+
+// Nhưng KHÔNG thể modify:
+manager.Connections["newKey"] = someConnection; // Lỗi compile!
+manager.Connections.Remove("key");              // Lỗi compile!
+// Phải đi qua AddPlcAsync() và RemovePlcAsync() — ensure lifecycle control
+```
+
+#### 4.3.3. CRUD và Initialization
+
+```csharp
+    Task InitializeAsync(CancellationToken cancellationToken = default);
+    Task<IPlcConnection> AddPlcAsync(PlcDevice device, CancellationToken cancellationToken = default);
+    Task<bool> RemovePlcAsync(string plcId, CancellationToken cancellationToken = default);
     IPlcConnection? GetConnection(string plcId);
-    Task<bool> ConnectAsync(string plcId, ...);
-    Task DisconnectAsync(string plcId, ...);
-    Task<int> ConnectAllAsync(...);
-    Task<IReadOnlyList<BrowseNode>> BrowseAsync(string plcId, string? nodeId = null, ...);
+    bool HasPlc(string plcId);
+```
+
+**`Task InitializeAsync`**: Gọi 1 lần khi startup:
+1. Load danh sách PLC từ ConfigurationService.
+2. Tạo `IPlcConnection` object cho mỗi PLC (dùng factory theo ProtocolType).
+3. Subscribe events của từng connection.
+4. Không connect — connect được trigger riêng sau khi UI ready.
+
+**`IPlcConnection? GetConnection(string plcId)`**: Synchronous lookup (dictionary O(1)). Nullable return → caller phải null-check.
+
+**`bool HasPlc(string plcId)`**: Check trước khi add để validate uniqueness:
+```csharp
+if (plcManager.HasPlc(newDevice.Id))
+{
+    throw new InvalidOperationException($"PLC '{newDevice.Id}' already exists");
+}
+await plcManager.AddPlcAsync(newDevice);
+```
+
+#### 4.3.4. Bulk Operations
+
+```csharp
+    Task ConnectAsync(string plcId, CancellationToken cancellationToken = default);
+    Task DisconnectAsync(string plcId, CancellationToken cancellationToken = default);
+    Task ConnectAllAsync(CancellationToken cancellationToken = default);
+    Task DisconnectAllAsync(CancellationToken cancellationToken = default);
+    Task ReconnectAsync(string plcId, CancellationToken cancellationToken = default);
+    Task ReconnectAllAsync(CancellationToken cancellationToken = default);
+```
+
+`ConnectAllAsync` — parallel connection, key optimization:
+
+```csharp
+// Implementation:
+public async Task ConnectAllAsync(CancellationToken ct = default)
+{
+    var enabledConnections = _connections.Values
+        .Where(c => c.Device.IsEnabled)
+        .ToList();
+    
+    // Task.WhenAll: chạy tất cả connect đồng thời, chờ tất cả xong
+    var tasks = enabledConnections.Select(c => c.ConnectAsync(ct));
+    await Task.WhenAll(tasks);
+}
+
+// Kết quả timing:
+// 5 PLC × mỗi cái 3 giây kết nối
+// Sequential: 5 × 3s = 15 giây
+// Parallel:   max(3s, 3s, 3s, 3s, 3s) = 3 giây  → 5x nhanh hơn!
+```
+
+#### 4.3.5. Tag Operations và Status
+
+```csharp
+    Task<TagValue?> ReadTagAsync(string plcId, string tagId, CancellationToken cancellationToken = default);
+    Task<Dictionary<string, TagValue?>> ReadTagsAsync(string plcId, IEnumerable<string> tagIds, CancellationToken cancellationToken = default);
+    Task<bool> WriteTagAsync(string plcId, string tagId, object value, CancellationToken cancellationToken = default);
+    Task<Dictionary<string, bool>> WriteTagsAsync(string plcId, Dictionary<string, object> tagValues, CancellationToken cancellationToken = default);
+    Task<Dictionary<string, TagValue?>> ReadAllTagsAsync(string plcId, CancellationToken cancellationToken = default);
+    Task<IEnumerable<OpcUaNode>> BrowseAsync(string plcId, string? nodeId = null, CancellationToken cancellationToken = default);
+    Task<OpcUaNode?> GetNodeInfoAsync(string plcId, string nodeId, CancellationToken cancellationToken = default);
+    Dictionary<string, PlcStatus> GetAllStatus();
     PlcStatus? GetStatus(string plcId);
+```
+
+Tất cả tag operations đều có thêm `string plcId` so với `IPlcConnection`. `IPlcManager` là **router**:
+
+```csharp
+// PlcManager implementation — đơn giản và nhất quán
+public async Task<TagValue?> ReadTagAsync(string plcId, string tagId, CancellationToken ct = default)
+{
+    var connection = _connections.GetValueOrDefault(plcId)
+        ?? throw new KeyNotFoundException($"PLC '{plcId}' not found");
+    return await connection.ReadTagAsync(tagId, ct);
 }
 ```
 
-MainViewModel inject `IPlcManager` không phải `PlcManager` cụ thể. Trong unit test, có thể inject `MockPlcManager` implement interface này.
-
----
-
-## 7. LAYER 5 — SERVICES
-
-### Services/UiLogSink.cs — Đưa log lên UI
-
-**Vấn đề:** Serilog mặc định ghi log ra file và console. Ta muốn log xuất hiện trực tiếp trong cửa sổ app (log panel).
-
-**Giải pháp:** Viết custom Serilog sink implement `ILogEventSink`.
+**`GetAllStatus()` và `GetStatus()`** — synchronous snapshot:
 
 ```csharp
-public class UiLogSink : ILogEventSink
+// PlcStatus DTO:
+public class PlcStatus
 {
-    private readonly ObservableCollection<LogEntry> _logEntries;
-    private readonly System.Windows.Threading.Dispatcher _dispatcher;
-    private readonly int _maxEntries;
-
-    public UiLogSink(ObservableCollection<LogEntry> logEntries, int maxEntries = 1000)
-    {
-        _logEntries = logEntries;
-        _dispatcher = System.Windows.Application.Current.Dispatcher;  // capture UI dispatcher
-        _maxEntries = maxEntries;
-    }
-```
-
-`Dispatcher` được capture lúc constructor — constructor chạy trên UI thread, nên `Application.Current.Dispatcher` là đúng. Nếu capture sau này (khi Emit được gọi từ background thread), `Application.Current` có thể null.
-
-```csharp
-    public void Emit(LogEvent logEvent)
-    {
-        var entry = new LogEntry
-        {
-            Timestamp = logEvent.Timestamp.LocalDateTime,  // convert từ DateTimeOffset
-            Level = GetLevelShortName(logEvent.Level),     // "INF", "WRN", "ERR", ...
-            Message = logEvent.RenderMessage(),             // format message với parameters
-            Exception = logEvent.Exception?.ToString()     // full stack trace nếu có
-        };
-
-        _dispatcher.InvokeAsync(() =>
-        {
-            _logEntries.Add(entry);
-
-            while (_logEntries.Count > _maxEntries)
-                _logEntries.RemoveAt(0);   // xóa entry cũ nhất, giữ max 500 entries
-        });
-    }
-```
-
-`logEvent.RenderMessage()` format message template với values. Ví dụ: `"Connected to {PlcName}"` với `PlcName="PLC1"` → `"Connected to PLC1"`.
-
-`while (_logEntries.Count > _maxEntries)` loop thay vì `if` — phòng trường hợp burst nhiều logs cùng lúc.
-
-```csharp
-public static class UiLogSinkExtensions
-{
-    public static LoggerConfiguration UiSink(
-        this LoggerSinkConfiguration sinkConfig,
-        ObservableCollection<LogEntry> logEntries,
-        int maxEntries = 1000)
-        => sinkConfig.Sink(new UiLogSink(logEntries, maxEntries));
+    public string PlcId { get; set; }
+    public string PlcName { get; set; }
+    public PlcConnectionState ConnectionState { get; set; }
+    public bool IsConnected { get; set; }
+    public int ConfiguredTagCount { get; set; }
+    public DateTime? LastConnectedTime { get; set; }
+    public DateTime? LastDisconnectedTime { get; set; }
+    public string? LastError { get; set; }
+    public string? SessionId { get; set; }
 }
 ```
 
-Extension method cho phép dùng fluent API của Serilog:
+Dùng cho:
+- `GET /api/plcs` → `GetAllStatus()` → JSON array
+- `GET /api/plcs/{id}` → `GetStatus(id)` → JSON object
+- Dashboard summary: "3/5 PLCs online"
 
-```csharp
-Log.Logger = new LoggerConfiguration()
-    .WriteTo.File("log.txt")
-    .WriteTo.UiSink(_mainViewModel.LogEntries, maxEntries: 500)  // extension method
-    .CreateLogger();
+### 4.4. Kiến trúc phụ thuộc qua Interface
+
+```
+[Code cấp cao — không biết chi tiết implementation]
+MainViewModel     → depends on → IPlcManager
+API Controllers   → depends on → IPlcManager
+                                      |
+                        [Implements]  |
+                                      v
+                                 PlcManager
+                                      |
+                        [depends on]  |
+                                      v
+                                 IPlcConnection
+                                      |
+                  [Implements]        |
+            +----------------------------+
+            |           |           |   |
+     PlcConnection  S7Connection  MC  Modbus
+     (OPC UA SDK)  (S7NetPlus)   ...   ...
 ```
 
----
+Dependency arrows chỉ đi **xuống dưới**:
+- Code cấp cao (ViewModel, Controller) biết về interface, không biết implementation.
+- Implementation (PlcManager, PlcConnection...) không biết gì về ViewModel hay Controller.
+- Thay đổi implementation không ảnh hưởng code cấp cao.
+- Thay đổi interface → phải update tất cả implementation và caller.
 
-### Services/Auth/UserService.cs — Quản lý users
-
-```csharp
-public class UserService
-{
-    private readonly string _usersFilePath;
-    private readonly object _lock = new();    // thread-safety lock
-    private UserStorage _storage;
-    private static ILogger Logger => Log.Logger;  // dynamic, not captured
-```
-
-`private readonly object _lock = new()` — object lock đơn giản, không dùng static (tránh deadlock với singleton). Tất cả public methods đều wrap trong `lock(_lock)` vì:
-- UI thread gọi khi admin thêm/sửa user
-- Background API thread gọi khi xác thực login API
-
-```csharp
-    public UserService(AuthSettings settings)
-    {
-        _usersFilePath = settings.UsersFilePath;
-        _storage = LoadOrCreateStorage();  // load ngay trong constructor
-    }
-```
-
-Load users ngay trong constructor — không lazy-load. DI container tạo UserService là Singleton, nên chỉ load 1 lần lúc startup.
-
-**LoadOrCreateStorage() — self-healing:**
-
-```csharp
-    private UserStorage LoadOrCreateStorage()
-    {
-        try
-        {
-            if (File.Exists(_usersFilePath))
-            {
-                var json = File.ReadAllText(_usersFilePath);
-                var storage = JsonConvert.DeserializeObject<UserStorage>(json);
-                if (storage != null && storage.Users.Any())
-                {
-                    Logger.Information("Loaded {Count} users from storage", storage.Users.Count);
-                    return storage;
-                }
-            }
-        }
-        catch (Exception ex)
-        {
-            Logger.Error(ex, "Error loading users storage, creating default");
-        }
-
-        // Tự tạo admin mặc định nếu file không có hoặc corrupt
-        var defaultStorage = CreateDefaultStorage();
-        SaveStorageInternal(defaultStorage);
-        return defaultStorage;
-    }
-```
-
-**Tại sao cần self-healing?** Lần đầu deploy app, file users.json chưa có. Thay vì crash, app tự tạo `admin/admin123`. Tương tự khi file bị corrupt (disk lỗi) — app phục hồi thay vì không cho ai login được.
-
-**HashPassword / VerifyPassword:**
-
-```csharp
-    private static string HashPassword(string password)
-    {
-        return BCrypt.Net.BCrypt.HashPassword(password, workFactor: 11);
-    }
-
-    private static bool VerifyPassword(string password, string hash)
-    {
-        try
-        {
-            return BCrypt.Net.BCrypt.Verify(password, hash);
-        }
-        catch
-        {
-            return false;   // hash corrupt → false, không crash
-        }
-    }
-```
-
-`workFactor: 11` — BCrypt tính toán 2^11 = 2048 vòng hash. Khoảng 0.15-0.3 giây mỗi lần hash — đủ để brute force 1 tỉ password mất hàng nghìn năm, nhưng không làm người dùng cảm thấy chậm khi login.
-
-`workFactor: 12` (= 4096 vòng) sẽ mất 0.3-0.6 giây — dùng khi security quan trọng hơn UX.
-
-**ValidateCredentials — timing attack prevention:**
-
-```csharp
-    public User? ValidateCredentials(string username, string password)
-    {
-        lock (_lock)
-        {
-            var user = _storage.Users.FirstOrDefault(u =>
-                u.Username.Equals(username, StringComparison.OrdinalIgnoreCase) && u.IsActive);
-
-            if (user == null) return null;         // user không tồn tại
-
-            if (VerifyPassword(password, user.PasswordHash))
-            {
-                user.LastLoginAt = DateTime.UtcNow;
-                SaveStorage();
-                return user;
-            }
-
-            return null;   // sai password — cùng trả null như user không tồn tại
-        }
-    }
-```
-
-Cả "user không tồn tại" và "sai password" đều trả về `null` — không lộ thông tin cho attacker biết cái nào sai. (Nếu phân biệt, attacker có thể enumerate username hợp lệ.)
-
-`StringComparison.OrdinalIgnoreCase` — "Admin" == "admin" == "ADMIN". Username case-insensitive.
-
-**DeleteUser — bảo vệ last admin:**
-
-```csharp
-    public bool DeleteUser(string userId)
-    {
-        lock (_lock)
-        {
-            var user = _storage.Users.FirstOrDefault(u => u.Id == userId);
-            if (user == null) return false;
-
-            if (user.Role == UserRole.Admin)
-            {
-                var adminCount = _storage.Users.Count(u => u.Role == UserRole.Admin && u.IsActive);
-                if (adminCount <= 1)
-                {
-                    throw new InvalidOperationException("Cannot delete the last admin user");
-                }
-            }
-
-            _storage.Users.Remove(user);
-            SaveStorage();
-            return true;
-        }
-    }
-```
-
-Ném exception thay vì return false — caller (EditUserDialog) phải xử lý exception này để hiển thị message cụ thể cho user. Return false chỉ nên dùng khi "not found" — đó là expected case, không phải error.
+Đây là hiện thực hóa đúng **SOLID principles**:
+- **S** (Single Responsibility): Mỗi class một trách nhiệm.
+- **O** (Open/Closed): Open for extension (thêm protocol mới), closed for modification (không sửa PlcManager).
+- **L** (Liskov Substitution): Bất kỳ `IPlcConnection` nào đều có thể thay thế nhau trong `PlcManager`.
+- **I** (Interface Segregation): `IPlcConnection` và `IPlcManager` tách biệt, không một interface "god object".
+- **D** (Dependency Inversion): Code cấp cao depend vào abstraction (interface), không depend vào concrete class.
 
 ---
 
-### Services/ConfigurationService.cs — Đọc/ghi cấu hình
-
-```csharp
-public class ConfigurationService : IConfigurationService
-{
-    private readonly ILogger _logger;
-    private readonly string _defaultConfigPath;
-    private AppConfiguration _currentConfiguration;
-    private string? _currentFilePath;
-    private bool _hasUnsavedChanges;
-
-    public event EventHandler<AppConfiguration>? ConfigurationChanged;
-```
-
-`ConfigurationChanged` event — khi load file mới, MainViewModel cần biết để refresh UI. Event pattern tốt hơn polling.
-
-```csharp
-    public ConfigurationService(ILogger logger, string? defaultConfigPath = null)
-    {
-        _defaultConfigPath = defaultConfigPath ?? Path.Combine(
-            AppDomain.CurrentDomain.BaseDirectory,
-            "Configurations",
-            "plc_config.json");
-
-        _currentConfiguration = AppConfiguration.CreateDefault();
-    }
-```
-
-`AppDomain.CurrentDomain.BaseDirectory` — thư mục chứa file .exe. Tốt hơn `Environment.CurrentDirectory` vì CurrentDirectory có thể thay đổi nếu user chạy từ shortcut hoặc command line ở thư mục khác.
-
-Không load config trong constructor — để cho `InitializeAsync()` trong MainViewModel gọi sau khi DI wired xong.
-
-**GetJsonSettings():**
-
-```csharp
-    private static JsonSerializerSettings GetJsonSettings()
-    {
-        return new JsonSerializerSettings
-        {
-            Formatting = Formatting.Indented,          // JSON đọc được bằng mắt
-            NullValueHandling = NullValueHandling.Ignore,  // không ghi null fields
-            DefaultValueHandling = DefaultValueHandling.Include,  // ghi default values
-            DateFormatString = "yyyy-MM-dd HH:mm:ss"  // format dễ đọc, không ISO 8601
-        };
-    }
-```
-
-`NullValueHandling.Ignore` — khi serialize, bỏ qua properties null → file JSON gọn hơn. Ví dụ: `"CertificatePath": null` không xuất hiện trong file nếu không dùng.
-
-`Formatting.Indented` — file JSON có indent, dễ đọc và diff trong git. Trade-off: file to hơn nhưng chấp nhận được vì config file không đến vài MB.
-
----
-
-### Services/OpcUa/PlcConnection.cs — Trái tim OPC UA
-
-**Tại sao `private static ILogger Logger => Log.Logger` (property) thay vì `private readonly ILogger _logger` (field)?**
-
-```csharp
-// Sai — captures logger tại thời điểm construction
-private readonly ILogger _logger;
-public PlcConnection(PlcDevice device, ILogger logger) { _logger = logger; }
-```
-
-DI container tạo PlcConnection trước khi UiSink được add vào Serilog. Nếu capture logger qua field, tất cả logs từ PlcConnection sẽ không xuất hiện trên UI (UiSink chưa được add).
-
-```csharp
-// Đúng — lấy logger mới nhất mỗi lần gọi
-private static ILogger Logger => Log.Logger;
-```
-
-`Log.Logger` là static property của Serilog — luôn trả về instance hiện tại. Sau khi App.xaml.cs tạo lại logger với UiSink, mọi `Logger.Information(...)` từ PlcConnection sẽ tự động đến UI.
-
-**Fields phức tạp — giải thích từng cái:**
-
-```csharp
-private readonly object _lock = new();
-```
-Object lock cho các thao tác cần atomic trên `_reconnectHandler` và `_isReconnecting`. `lock(obj)` đảm bảo chỉ một thread chạy trong block tại một thời điểm.
-
-```csharp
-private bool _isDisconnecting;
-```
-Flag ngăn KeepAlive event trigger reconnect trong khi đang disconnect. Nếu không có flag này: `DisconnectAsync()` đang chạy → KeepAlive fires vì session đang đóng → trigger reconnect → reconnect thất bại → vòng lặp vô tận.
-
-```csharp
-private bool _isReconnecting;
-```
-Flag ngăn nhiều reconnect loops chạy song song. Không có flag: lần kết nối thất bại 1 → start AutoReconnect loop 1. Loop 1 thất bại lần đầu → start AutoReconnect loop 2. Tiếp tục nhân đôi → resource leak.
-
-```csharp
-private SessionReconnectHandler? _reconnectHandler;
-```
-Class của OPC UA SDK. Xử lý 2-layer reconnection: (1) Secure Channel (TLS) renewal; (2) Session resumption. Phức tạp hơn đơn giản là `ConnectAsync()` lại vì phải giữ subscription state.
-
-```csharp
-private DateTime _lastReconnectCompleteTime = DateTime.MinValue;
-private const int KeepAliveSettlingPeriodMs = 2000;
-```
-Sau khi reconnect xong, OPC UA session có thể gửi vài KeepAlive "stale" từ kết nối cũ. Nếu không ignore, chúng kích hoạt reconnect lần 2 ngay lập tức — race condition. Settling period 2 giây bỏ qua các KeepAlive này.
-
-```csharp
-private readonly ConcurrentDictionary<string, Subscription> _subscriptions = new();
-private readonly ConcurrentDictionary<uint, (string TagId, string NodeId)> _monitoredItemMapping = new();
-```
-`ConcurrentDictionary` vì subscriptions được tạo/xóa từ cả UI thread (khi user add/remove tag) lẫn reconnect thread.
-
-`_monitoredItemMapping` map `ClientHandle` (uint, OPC UA internal ID) → `(TagId, NodeId)`. Khi MonitoredItem_Notification callback fires, ta lookup tag cần update.
-
-**ConnectAsync() — chuỗi kết nối:**
-
-```csharp
-public async Task<bool> ConnectAsync(CancellationToken cancellationToken = default)
-{
-    if (_disposed) throw new ObjectDisposedException(nameof(PlcConnection));
-    if (IsConnected) { Logger.Warning("Already connected"); return true; }
-
-    try
-    {
-        ConnectionState = PlcConnectionState.Connecting;
-        // Bước 1: tạo OPC UA application config
-        _appConfig = await CreateApplicationConfigurationAsync();
-        // Bước 2: discover endpoints và chọn tốt nhất
-        var selectedEndpoint = await SelectEndpointAsync(_device.EndpointUrl, cancellationToken);
-        // Bước 3: tạo session
-        _session = await Session.Create(_appConfig, endpoint, false, appName, sessionTimeout, userIdentity, null, ct);
-        // Bước 4: đăng ký events
-        _session.KeepAlive += Session_KeepAlive;
-        _session.Notification += Session_Notification;
-        _session.PublishError += Session_PublishError;
-        // Bước 5: update state
-        ConnectionState = PlcConnectionState.Connected;
-        LastConnectedTime = DateTime.Now;
-        LastError = null;
-        // Bước 6: tạo subscriptions
-        foreach (var group in _device.SubscriptionGroups.Where(g => g.IsEnabled))
-            await CreateSubscriptionAsync(group, cancellationToken);
-        return true;
-    }
-    catch (Exception ex)
-    {
-        LastError = ex.Message;
-        ConnectionState = PlcConnectionState.Error;
-        // Log chi tiết OPC UA status code nếu có
-        if (ex is ServiceResultException sre)
-            Logger.Error("OPC UA StatusCode: 0x{Code:X8}", sre.StatusCode);
-        // Bắt đầu auto-reconnect nếu được cấu hình
-        if (_device.AutoReconnect && !_isReconnecting && !_isDisconnecting)
-            StartAutoReconnect();
-        return false;
-    }
-}
-```
-
-`ServiceResultException` là exception type của OPC UA SDK — chứa `StatusCode` dạng hex (0x80350000 = BadNotConnected, ...). Log hex code giúp debug chính xác.
-
-**CreateApplicationConfigurationAsync() — certificate và timeouts:**
-
-```csharp
-TransportQuotas = new TransportQuotas
-{
-    OperationTimeout = 60000,        // 60 giây — vì S7-1200 mất 6-14s renew Secure Channel
-    SecurityTokenLifetime = 3600000  // 1 giờ — tần suất renew Secure Channel
-},
-```
-
-S7-1200 với `Basic256Sha256` mất 6-14 giây để renew Secure Channel. Nếu `OperationTimeout = 15000ms` (default), timeout xảy ra trong lúc renew → KeepAlive fail → reconnect → lại renew → vòng lặp. Tăng lên 60s giải quyết vấn đề này.
-
-```csharp
-config.CertificateValidator = new CertificateValidator();
-config.CertificateValidator.CertificateValidation += (validator, e) =>
-{
-    e.Accept = true;  // chấp nhận mọi certificate — chỉ dùng cho lab/internal
-};
-```
-
-Trong môi trường factory/nội bộ, PLC thường dùng self-signed certificate. Nếu validate strict, kết nối sẽ bị từ chối. `e.Accept = true` bỏ qua kiểm tra certificate — **KHÔNG dùng trong môi trường internet-facing**.
-
-**SelectBestEndpoint() — ưu tiên No Security:**
-
-```csharp
-private EndpointDescription SelectBestEndpoint(EndpointDescriptionCollection endpoints)
-{
-    // Priority 1: None security (khuyến nghị cho S7-1200 stability)
-    if (!useSecurity)
-    {
-        var noneEndpoint = endpoints
-            .Where(e => e.SecurityMode == MessageSecurityMode.None)
-            .OrderBy(e => e.SecurityLevel)
-            .FirstOrDefault();
-        if (noneEndpoint != null) return noneEndpoint;
-    }
-    // Priority 2: Exact match
-    // Priority 3: Policy match
-    // Priority 4: Lighter security (Basic128 hoặc Basic256 không Sha256)
-    // Priority 5: Any secure endpoint
-    // Last: first available
-}
-```
-
-Logic này đặc thù cho Siemens S7-1200/1500. PLC expose nhiều endpoints với security khác nhau. Thứ tự ưu tiên được tối ưu cho stability hơn security — phù hợp factory environment.
-
-**Session_KeepAlive() — xử lý mất kết nối:**
-
-```csharp
-private void Session_KeepAlive(ISession session, KeepAliveEventArgs e)
-{
-    if (_isDisconnecting || _disposed) return;  // ignore khi đang shutdown
-
-    if (e.Status != null && ServiceResult.IsNotGood(e.Status))
-    {
-        if (_reconnectHandler != null) {
-            Logger.Debug("KeepAlive during reconnection");  // handler đã chạy rồi
-            return;
-        }
-
-        // Kiểm tra settling period — bỏ qua KeepAlive stale sau khi reconnect
-        var timeSince = (DateTime.Now - _lastReconnectCompleteTime).TotalMilliseconds;
-        if (timeSince < KeepAliveSettlingPeriodMs) {
-            Logger.Debug("Ignoring KeepAlive during settling period");
-            return;
-        }
-
-        if (ConnectionState == PlcConnectionState.Connected && _device.AutoReconnect && !_isReconnecting)
-        {
-            ConnectionState = PlcConnectionState.Reconnecting;
-
-            lock (_lock)
-            {
-                if (_reconnectHandler == null)  // double-check trong lock
-                {
-                    _isReconnecting = true;
-                    _reconnectHandler = new SessionReconnectHandler(true);
-                    _reconnectHandler.BeginReconnect(_session, 10000, SessionReconnectHandler_Complete);
-                }
-            }
-        }
-    }
-    else
-    {
-        // KeepAlive thành công — session sống
-        if (ConnectionState == PlcConnectionState.Reconnecting)
-        {
-            // Session tự recover trong lúc handler đang chạy
-            lock (_lock)
-            {
-                _reconnectHandler?.Dispose();
-                _reconnectHandler = null;
-                _isReconnecting = false;
-                _lastReconnectCompleteTime = DateTime.Now;
-            }
-            ConnectionState = PlcConnectionState.Connected;
-        }
-    }
-}
-```
-
-`lock(_lock)` xung quanh `_reconnectHandler = new SessionReconnectHandler()` — double-check locking pattern. KeepAlive có thể fire từ nhiều thread (OPC UA SDK có internal thread pool). Mà không có lock, 2 threads có thể cùng check `_reconnectHandler == null` trước khi một trong chúng set nó → 2 handlers chạy song song.
-
-**BrowseAsync() — lỗi NodeId quan trọng:**
-
-```csharp
-var startNode = string.IsNullOrEmpty(nodeId)
-    ? ObjectIds.ObjectsFolder        // = NodeId với identifier=85
-    : NodeId.Parse(nodeId);          // ĐÚNG: Parse "i=85" → Numeric NodeId
-                                     // SAI: new NodeId("i=85") → String NodeId
-```
-
-`NodeId.Parse("i=85")` → `NodeId` với `NamespaceIndex=0`, `IdentifierType=Numeric`, `Identifier=85`  
-`new NodeId("i=85")` → `NodeId` với `NamespaceIndex=0`, `IdentifierType=String`, `Identifier="i=85"`
-
-OPC UA server trả về lỗi `BadNodeIdUnknown` khi dùng String NodeId cho node numeric. Bug này không crash — chỉ trả về empty list — gây ra "browse không ra gì" mà khó debug.
-
----
-
-### Services/OpcUa/PlcManager.cs — Quản lý nhiều connections
-
-```csharp
-public class PlcManager : IPlcManager
-{
-    private readonly ConcurrentDictionary<string, IPlcConnection> _connections = new();
-```
-
-`ConcurrentDictionary` vì:
-- UI thread: Add/Remove khi user thêm/xóa PLC
-- Background threads: PlcConnection sự kiện ConnectionStateChanged access dictionary
-- Auto-reconnect: các connection objects được update từ thread riêng
-
-**Factory pattern qua IProtocolConnectionFactory:**
-
-```csharp
-    public async Task<IPlcConnection?> AddPlcAsync(PlcDevice device, ...)
-    {
-        if (!_connectionFactory.IsProtocolSupported(device))
-        {
-            Logger.Error("Protocol {Protocol} not supported", device.ProtocolType);
-            return null;
-        }
-
-        var connection = _connectionFactory.CreateConnection(device);
-```
-
-`ProtocolConnectionFactory.CreateConnection()` nhìn vào `device.ProtocolType` và trả về:
-- `PlcConnection` cho OpcUa
-- `SiemensS7Connection` cho SiemensS7
-- `MitsubishiMcConnection` cho MitsubishiMc
-- `ModbusTcpConnection` cho ModbusTcp
-
-PlcManager không biết và không cần biết implementation cụ thể — chỉ làm việc qua `IPlcConnection` interface. Đây là Open/Closed Principle: thêm protocol mới chỉ cần thêm class mới trong Factory, không cần sửa PlcManager.
-
-**Event aggregation pattern:**
-
-```csharp
-        connection.ConnectionStateChanged += OnConnectionStateChanged;
-        connection.TagValueChanged += OnTagValueChanged;
-        connection.ErrorOccurred += OnErrorOccurred;
-```
-
-PlcManager subscribe vào events của mỗi connection. Khi event fires từ bất kỳ connection nào, PlcManager forward lên MainViewModel. MainViewModel chỉ cần subscribe vào PlcManager một chỗ thay vì phải subscribe vào từng connection riêng (và manage lifecycle).
-
-```csharp
-    private void OnConnectionStateChanged(object? sender, ConnectionStateChangedEventArgs e)
-    {
-        Logger.Information("PLC {Name}: {Old} -> {New}", e.PlcName, e.OldState, e.NewState);
-        ConnectionStateChanged?.Invoke(this, e);  // forward nguyên event args
-    }
-```
-
-Log thêm ở đây — tất cả state changes đều được ghi, ngay cả khi MainViewModel không handle.
-
----
-
-### Services/Auth/OperatorLockService.cs — Hệ thống khoá operator
-
-**Use case:** Trong môi trường nhiều người vận hành, chỉ 1 người được phép ghi giá trị vào PLC tại một thời điểm để tránh xung đột. OperatorLock giải quyết vấn đề này.
-
-**Lock state persistence — tại sao lưu ra file?**
-
-```csharp
-private readonly string _lockStatePath = "Configurations/lock_state.json";
-```
-
-Nếu chỉ lưu trong memory, khi app restart lock biến mất. Khi nhiều instance app chạy (supervisor + operator), chúng cần share lock state. File JSON được chia sẻ qua file system.
-
-**FileSystemWatcher — detect external changes:**
-
-```csharp
-    private void StartFileWatcher()
-    {
-        _fileWatcher = new FileSystemWatcher(directory, "lock_state.json")
-        {
-            NotifyFilter = NotifyFilters.LastWrite | NotifyFilters.CreationTime | NotifyFilters.FileName,
-            EnableRaisingEvents = true
-        };
-
-        _fileWatcher.Changed += OnLockFileChanged;
-        _fileWatcher.Created += OnLockFileChanged;
-        _fileWatcher.Deleted += OnLockFileDeleted;
-    }
-```
-
-`FileSystemWatcher` monitor file thay đổi từ bên ngoài — khi app B acquire lock, app A nhận event và cập nhật UI.
-
-**Debounce trong file watcher:**
-
-```csharp
-    private void OnLockFileChanged(object sender, FileSystemEventArgs e)
-    {
-        if (_isInternalUpdate) return;  // ignore changes ta tự tạo
-
-        var now = DateTime.UtcNow;
-        if ((now - _lastFileChange).TotalMilliseconds < 500) return;  // debounce 500ms
-        _lastFileChange = now;
-
-        Task.Delay(100).ContinueWith(_ => ReloadLockStateFromFile());  // 100ms delay
-    }
-```
-
-`FileSystemWatcher` thường fire nhiều events cho một lần write (Created, Changed, Changed lần nữa). Debounce 500ms gộp chúng thành một xử lý.
-
-`_isInternalUpdate` flag — khi ta tự write file (SaveLockState), không muốn trigger lại watcher của chính mình.
-
-**Atomic file write:**
-
-```csharp
-    private void SaveLockState()
-    {
-        _isInternalUpdate = true;
-        var tempPath = _lockStatePath + ".tmp";
-        var json = JsonConvert.SerializeObject(_currentLock, Formatting.Indented);
-        File.WriteAllText(tempPath, json);  // write vào temp trước
-
-        if (File.Exists(_lockStatePath)) File.Delete(_lockStatePath);
-        File.Move(tempPath, _lockStatePath);  // rename atomic (single operation)
-
-        Task.Delay(200).ContinueWith(_ => _isInternalUpdate = false);  // reset sau 200ms
-    }
-```
-
-Write trực tiếp vào file có thể để lại file incomplete nếu app crash giữa chừng. Write vào `.tmp` trước, rename sau — rename thường là atomic operation trên hệ điều hành (single OS call). App khác đọc file sẽ thấy hoặc version cũ hoặc version mới, không bao giờ thấy version partial.
-
-**TryAcquireLock — logic phức tạp:**
-
-```csharp
-    public (bool success, OperatorLock? operatorLock, string? error, ...) TryAcquireLock(...)
-    {
-        lock (_lock)
-        {
-            if (role < UserRole.Operator)
-                return (false, null, "Insufficient permissions", null, null);
-
-            if (_currentLock != null && !_currentLock.IsExpired)
-            {
-                if (_currentLock.UserId == userId)
-                    return ExtendLockInternal(userId, durationMinutes ?? default);  // refresh
-
-                return (false, null, "Lock held by another", _currentLock.Username, ...);
-            }
-
-            // Calculate expiry
-            DateTime expiresAt = (role == UserRole.Admin || durationMinutes == 0)
-                ? DateTime.MaxValue     // unlimited
-                : DateTime.UtcNow.AddMinutes(Math.Min(durationMinutes ?? default, maxDuration));
-
-            _currentLock = new OperatorLock { ... ExpiresAt = expiresAt ... };
-            SaveLockState();
-            LockAcquired?.Invoke(this, new LockEventArgs { Lock = _currentLock, Reason = "acquired" });
-            return (true, _currentLock, null, null, null);
-        }
-    }
-```
-
-Tuple return type `(bool success, OperatorLock?, string? error, string? holderUsername, string? holderDisplayName)` — trả về nhiều thông tin trong một call mà không cần class wrapper riêng. Deconstruct ở caller: `var (ok, lockObj, err, holderName, _) = lockService.TryAcquireLock(...)`.
-
----
-
-## 8. LAYER 6 — VIEWMODELS
-
-### ViewModels/BrowseServerViewModel.cs
-
-```csharp
-public class BrowseServerViewModel : ObservableObject
-{
-    private readonly PlcConnection _connection;
-    private readonly PlcDevice _device;
-
-    public BrowseServerViewModel(PlcConnection connection)
-    {
-        _connection = connection ?? throw new ArgumentNullException(nameof(connection));
-        _device = connection.Device;  // convenience reference
-        
-        // Initialize commands
-        RefreshCommand        = new AsyncRelayCommand(RefreshAsync);
-        AddSelectedTagCommand = new RelayCommand(AddSelectedTag, () => CanAddSelectedTag);
-        // ...
-        
-        _ = LoadRootNodesAsync();  // fire and forget — bắt đầu load ngay
-    }
-```
-
-`_ = LoadRootNodesAsync()` trong constructor — dấu `_` discard kết quả Task. Không `await` vì constructor không async. Task chạy ngầm; khi hoàn thành, `RootNodes` được populate và UI tự cập nhật qua binding.
-
-**LoadRootNodesAsync() — load OPC UA root folders:**
-
-```csharp
-    private async Task LoadRootNodesAsync()
-    {
-        IsBusy = true;
-
-        var rootFolders = new[]
-        {
-            ("i=85", "Objects"),  // Objects folder — chứa device data
-            ("i=86", "Types"),    // Types — kiểu dữ liệu OPC UA
-            ("i=87", "Views")     // Views — tùy chỉnh UI của server
-        };
-
-        foreach (var (nodeIdStr, fallbackName) in rootFolders)
-        {
-            var info = await _connection.GetNodeInfoAsync(nodeIdStr);
-            var folderNode = new BrowseNodeItem
-            {
-                NodeId      = nodeIdStr,
-                DisplayName = info?.DisplayName ?? fallbackName,  // fallback nếu null
-                HasChildren = true
-            };
-            folderNode.OnExpandRequested += OnNodeExpandRequested;  // lazy load khi expand
-            folderNode.AddLoadingPlaceholder();  // thêm "Loading..." item vào tree
-
-            if (nodeIdStr == "i=85")
-            {
-                await LoadChildrenAsync(folderNode);  // eager load Objects
-                folderNode.IsExpanded = true;
-            }
-
-            RootNodes.Add(folderNode);
-        }
-    }
-```
-
-`i=85, i=86, i=87` là NodeIds chuẩn của OPC UA — mọi OPC UA server đều có chúng. `i=` prefix nghĩa là `IdentifierType=Numeric`.
-
-Chỉ eager-load `i=85` (Objects) vì đó là nơi chứa data PLC — người dùng quan tâm nhất. `Types` và `Views` load on-demand khi expand.
-
-**Lazy loading qua event:**
-
-```csharp
-    private async void OnNodeExpandRequested(BrowseNodeItem node)
-    {
-        if (node.ChildrenLoaded) return;  // đã load rồi thì thôi
-        await LoadChildrenAsync(node);
-    }
-```
-
-`async void` — event handler không thể return Task. Exception trong async void propagates lên App global handler.
-
-`ChildrenLoaded` flag tránh load lại nhiều lần khi user expand/collapse nhiều lần.
-
-**AddSelectedTag() — thêm tag vào danh sách:**
-
-```csharp
-    private void AddSelectedTag()
-    {
-        if (SelectedNode == null || !SelectedNode.CanAddAsTag) return;
-
-        var subscriptionGroup = _device.SubscriptionGroups.FirstOrDefault(g => g.IsEnabled);
-        if (subscriptionGroup == null)
-        {
-            StatusMessage = "Không có subscription group nào khả dụng";
-            return;
-        }
-
-        if (_device.Tags.Any(t => t.NodeId == SelectedNode.NodeId))
-        {
-            StatusMessage = $"Tag '{SelectedNode.DisplayName}' đã tồn tại";
-            return;
-        }
-
-        var tag = SelectedNode.ToTagItem(_device.Id, subscriptionGroup.Id);
-        _device.Tags.Add(tag);       // thêm vào PlcDevice model
-        SelectedTags.Add(tag);       // thêm vào collection hiển thị trong window
-
-        StatusMessage = $"Đã thêm tag: {tag.Name}";
-    }
-```
-
-`_device.Tags.Add(tag)` — add trực tiếp vào `PlcDevice.Tags` (ObservableCollection). Sau khi BrowseServerWindow đóng, MainViewModel có thể truy cập `browseWindow.AddedTags` để biết những tag nào được thêm trong session này.
-
-`SelectedTags` là collection riêng chỉ chứa tags được thêm trong session browse hiện tại — dùng để hiển thị trong panel "Tags đã thêm" và để `BrowseServerWindow.AddedTags` property.
-
----
-
-### ViewModels/MainViewModel.cs
-
-**Constructor — wiring commands:**
-
-```csharp
-    public MainViewModel(IConfigurationService configService, IDataCache dataCache,
-        IPlcManager plcManager, UserService userService, ILogger logger)
-    {
-        // Store all dependencies
-        _configService = configService;
-        _plcManager    = plcManager;
-        // ...
-
-        // Subscribe to PlcManager events
-        _plcManager.ConnectionStateChanged += OnPlcConnectionStateChanged;
-        _plcManager.TagValueChanged        += OnTagValueChanged;
-        _plcManager.ErrorOccurred          += OnPlcErrorOccurred;
-
-        // LogCount phải update khi collection thay đổi
-        LogEntries.CollectionChanged += (_, _) => OnPropertyChanged(nameof(LogCount));
-
-        // Wire all commands
-        AddPlcCommand          = new RelayCommand(AddPlc);
-        ConnectSelectedCommand = new AsyncRelayCommand(ConnectSelectedAsync, () => HasSelectedPlc);
-        SaveConfigCommand      = new AsyncRelayCommand(SaveConfigurationAsync, () => HasUnsavedChanges);
-        BrowseServerCommand    = new AsyncRelayCommand(BrowseServerAsync, () => HasSelectedPlc);
-        // ...
-    }
-```
-
-**Tại sao `LogCount` cần `CollectionChanged`?**
-
-`LogCount` là property computed: `public int LogCount => LogEntries.Count`. Khi `LogEntries.Add()` được gọi, `ObservableCollection` fire `CollectionChanged` — nhưng WPF binding chỉ update controls binding vào `LogEntries` trực tiếp (ListView, ItemsControl), không update `LogCount` vì WPF không biết `LogCount` phụ thuộc vào `LogEntries.Count`. Ta phải manually raise `PropertyChanged` cho `LogCount` mỗi khi collection thay đổi.
-
-**OnPlcConnectionStateChanged — thread marshalling:**
-
-```csharp
-    private void OnPlcConnectionStateChanged(object? sender, ConnectionStateChangedEventArgs e)
-    {
-        System.Windows.Application.Current?.Dispatcher.InvokeAsync(() =>
-        {
-            ConnectedPlcCount = _plcManager.ConnectedCount;
-            IsConnected = ConnectedPlcCount > 0;
-            OnPropertyChanged(nameof(ConnectionStatusText));
-            StatusMessage = $"{e.PlcName}: {e.NewState}";
-
-            var plc = PlcDevices.FirstOrDefault(p => p.Id == e.PlcId);
-            if (plc != null) plc.ConnectionState = e.NewState;
-        });
-    }
-```
-
-Event này đến từ OPC UA session thread — bắt buộc dispatch về UI thread. `Dispatcher.InvokeAsync` (async, non-blocking) thay vì `Dispatcher.Invoke` (sync, blocking). Blocking có thể gây deadlock nếu UI thread đang chờ background thread.
-
-**AddPlc() — luồng đầy đủ:**
-
-```csharp
-    private void AddPlc()
-    {
-        var dialog = new Views.AddPlcDialog { Owner = Application.Current.MainWindow };
-        if (dialog.ShowDialog() != true || dialog.Result == null) return;
-
-        var newPlc = dialog.Result;
-
-        // 1. Thêm vào UI list ngay (optimistic update)
-        PlcDevices.Add(newPlc);
-        _configService.CurrentConfiguration.PlcDevices.Add(newPlc);
-        _configService.MarkAsModified();
-
-        // 2. Tạo PlcConnection object (không connect)
-        _ = _plcManager.AddPlcAsync(newPlc);
-
-        // 3. Auto-connect nếu user chọn
-        if (dialog.ConnectAfterAdd)
-        {
-            _ = Task.Run(async () =>
-            {
-                try
-                {
-                    var ok = await _plcManager.ConnectAsync(newPlc.Id);
-                    Application.Current?.Dispatcher.InvokeAsync(() =>
-                    {
-                        if (ok)
-                        {
-                            StatusMessage = $"Connected to {newPlc.Name}. Đang mở Browse Server...";
-                            OpenBrowseServerForNewPlc(newPlc);
-                        }
-                        else
-                        {
-                            StatusMessage = $"Failed to connect to {newPlc.Name}";
-                        }
-                    });
-                }
-                catch (Exception ex)
-                {
-                    _logger.Error(ex, "Connection error for {Name}", newPlc.Name);
-                    Application.Current?.Dispatcher.InvokeAsync(() =>
-                        StatusMessage = $"Connection error: {ex.Message}");
-                }
-            });
-        }
-    }
-```
-
-`Task.Run()` — đẩy `ConnectAsync` ra background thread vì nó network I/O, có thể mất vài giây. Nếu chạy trên UI thread, window sẽ freeze.
-
-Sau khi connect xong, `Dispatcher.InvokeAsync` trở về UI thread để mở BrowseServerWindow (ShowDialog phải chạy trên UI thread).
-
-**OpenBrowseServerForNewPlc() — type check:**
-
-```csharp
-    private void OpenBrowseServerForNewPlc(PlcDevice plc)
-    {
-        var connection = _plcManager.GetConnection(plc.Id);
-        if (connection is not Services.OpcUa.PlcConnection plcConnection)
-        {
-            // Không phải OPC UA — Siemens S7 / Modbus không có Browse Server
-            StatusMessage = $"Connected to {plc.Name}";
-            return;
-        }
-
-        SelectedPlc = plc;
-        var browseWindow = new Views.BrowseServerWindow(plcConnection)
-        {
-            Owner = Application.Current.MainWindow
-        };
-
-        var result = browseWindow.ShowDialog();
-
-        if (result == true && browseWindow.AddedTags.Any())
-        {
-            OnPropertyChanged(nameof(SelectedPlcTags));
-            OnPropertyChanged(nameof(TotalTagCount));
-            StatusMessage = $"Đã thêm {browseWindow.AddedTags.Count} tags từ {plc.Name}";
-        }
-    }
-```
-
-`connection is not Services.OpcUa.PlcConnection plcConnection` — C# pattern matching. Nếu `connection` không phải `PlcConnection`, trả về sớm. Nếu là, `plcConnection` variable được set. Chỉ OPC UA có Browse Server.
-
----
-
-## 9. LAYER 7 — APP STARTUP (App.xaml.cs)
-
-### OnStartup() — trình tự khởi động
-
-```csharp
-protected override void OnStartup(StartupEventArgs e)
-{
-    base.OnStartup(e);
-
-    // BƯỚC 1: Ngăn app tắt khi LoginWindow đóng
-    ShutdownMode = ShutdownMode.OnExplicitShutdown;
-```
-
-WPF mặc định: khi cửa sổ đầu tiên đóng → app tắt. Nhưng LoginWindow đóng sau khi login → MainWindow mở. Nếu dùng default, app sẽ tắt ngay khi LoginWindow đóng. `OnExplicitShutdown` cho phép ta kiểm soát hoàn toàn.
-
-```csharp
-    // BƯỚC 2: Serilog lần đầu (chưa có UI sink)
-    Log.Logger = new LoggerConfiguration()
-        .MinimumLevel.Debug()
-        .WriteTo.Console()
-        .WriteTo.File("Logs/app-.log", rollingInterval: RollingInterval.Day, retainedFileCountLimit: 7)
-        .CreateLogger();
-```
-
-Chưa thêm UiSink vì `_mainViewModel.LogEntries` chưa tồn tại. `RollingInterval.Day` = mỗi ngày một file mới. `retainedFileCountLimit: 7` = giữ 7 ngày rồi xóa — không để disk đầy.
-
-```csharp
-    // BƯỚC 3: Ba global exception handlers
-    DispatcherUnhandledException += App_DispatcherUnhandledException;
-    AppDomain.CurrentDomain.UnhandledException += AppDomain_UnhandledException;
-    TaskScheduler.UnobservedTaskException += TaskScheduler_UnobservedTaskException;
-```
-
-| Handler | Thread | Có thể prevent crash? | Khi nào fire? |
-|---------|--------|----------------------|---------------|
-| Dispatcher | UI thread | Có (e.Handled=true) | Exception không được catch trong event handler, command |
-| AppDomain | Any | Không (e.IsTerminating) | Exception trong background thread |
-| TaskScheduler | Any | Có (e.SetObserved()) | Task throw exception không được awaited |
-
-```csharp
-    // BƯỚC 4: DI setup
-    var services = new ServiceCollection();
-    ConfigureServices(services);
-    _serviceProvider = services.BuildServiceProvider();
-
-    // BƯỚC 5: Login
-    var userService = _serviceProvider.GetRequiredService<UserService>();
-    var loginWindow = new LoginWindow(userService);
-    var loginResult = loginWindow.ShowDialog();  // blocks cho đến khi window đóng
-
-    if (loginResult != true || loginWindow.LoggedInUser == null)
-    {
-        Shutdown(0);   // user cancel login → tắt app
-        return;
-    }
-
-    _loggedInUser = loginWindow.LoggedInUser;
-```
-
-`ShowDialog()` trả về `bool?`. `true` = DialogResult=true (login success). `false` = DialogResult=false. `null` = window đóng bằng X hoặc Alt+F4.
-
-```csharp
-    // BƯỚC 6: Tạo MainWindow và MainViewModel từ DI
-    var mainWindow = _serviceProvider.GetRequiredService<MainWindow>();
-    _mainViewModel = _serviceProvider.GetRequiredService<MainViewModel>();
-    _mainViewModel.SetLoggedInUser(_loggedInUser);
-
-    // BƯỚC 7: Thêm UiSink vào Serilog
-    Log.Logger = new LoggerConfiguration()
-        // ... same as before ...
-        .WriteTo.UiSink(_mainViewModel.LogEntries, maxEntries: 500)  // NEW
-        .CreateLogger();
-```
-
-Serilog được recreate hoàn toàn — không phải add sink vào instance cũ. Đây là thiết kế của Serilog: immutable logger, phải recreate khi muốn thêm sink.
-
-Từ đây trở đi, mọi `Log.Information(...)` trong toàn bộ app (kể cả PlcConnection, PlcManager, ...) sẽ xuất hiện trên UI panel — vì chúng dùng `Log.Logger` static.
-
-```csharp
-    // BƯỚC 8: Switch shutdown mode
-    MainWindow = mainWindow;
-    ShutdownMode = ShutdownMode.OnMainWindowClose;  // bình thường từ đây
-    mainWindow.Show();
-
-    // BƯỚC 9: Initialize async (fire and forget)
-    _ = InitializeViewModelAsync(_mainViewModel);
-}
-```
-
-`mainWindow.Show()` trước `_ = InitializeViewModelAsync()` — MainWindow hiển thị ngay. Trong lúc load config (có thể mất 1-2 giây), user thấy UI (tuy empty). Nếu `await InitializeViewModelAsync()` trước Show(), user thấy màn hình trắng trong 2 giây.
-
-```csharp
-private async Task InitializeViewModelAsync(MainViewModel viewModel)
-{
-    await Task.Delay(100);      // đợi 100ms để UI render xong trước
-    await viewModel.InitializeAsync();
-    await StartApiServerAsync();
-}
-```
-
-`Task.Delay(100)` — nhỏ nhưng quan trọng. Cho phép WPF message loop xử lý pending render messages. Không có delay, `InitializeAsync` có thể bắt đầu trước khi MainWindow fully rendered.
-
-**ConfigureServices — chi tiết DI:**
-
-```csharp
-// Singleton logger — nhưng PlcConnection/PlcManager không dùng cái này
-services.AddSingleton<ILogger>(Log.Logger);
-
-// Load ApiSettings từ file trước khi register
-_apiSettings = LoadApiSettings();
-services.AddSingleton(_apiSettings);
-
-// Transient MainWindow — mỗi lần resolve tạo instance mới
-// (trong thực tế chỉ tạo 1 lần)
-services.AddTransient<MainWindow>();
-
-// Singleton MainViewModel — tạo 1 lần, sống suốt vòng đời app
-services.AddSingleton<MainViewModel>();
-```
-
-**OnExit() — cleanup có thứ tự:**
-
-```csharp
-protected override void OnExit(ExitEventArgs e)
-{
-    // 1. Stop API server (có thể mất vài giây)
-    _apiHostService?.StopAsync().GetAwaiter().GetResult();  // sync wait
-    _apiHostService?.Dispose();
-
-    // 2. Disconnect và dispose tất cả PLC connections
-    var plcManager = _serviceProvider?.GetService<IPlcManager>();
-    plcManager?.Dispose();
-
-    // 3. Flush log buffer ra file
-    Log.CloseAndFlush();
-
-    base.OnExit(e);
-}
-```
-
-`.GetAwaiter().GetResult()` là cách call async method từ sync context. Tránh dùng `.Wait()` vì có thể deadlock trong một số context. `.GetAwaiter().GetResult()` cũng đúng semantics hơn: nếu task throw exception, nó re-throw synchronously thay vì wrap trong `AggregateException`.
-
-`Log.CloseAndFlush()` phải là dòng cuối — đảm bảo không mất log nào. Nếu call trước, các logs từ các Dispose() calls sau sẽ bị mất.
-
----
-
-## 10. LAYER 8 — VIEWS
-
-### Views/LoginWindow.xaml.cs
-
-```csharp
-public LoginWindow(UserService userService)
-{
-    InitializeComponent();
-    _userService = userService;
-
-    LoadSavedCredentials();
-
-    // Chromeless window — phải tự xử lý drag
-    MouseLeftButtonDown += (_, e) =>
-    {
-        if (e.ButtonState == MouseButtonState.Pressed) DragMove();
-    };
-
-    Loaded += (_, _) =>
-    {
-        // Focus vào đúng field sau khi load
-        if (string.IsNullOrEmpty(UserBox.Text)) UserBox.Focus();
-        else PasswordBox.Focus();
-    };
-}
-```
-
-`Loaded` event thay vì `MouseLeftButtonDown` làm focus — `Loaded` fires sau khi controls đã render và có thể nhận focus. Nếu `Focus()` trong constructor, control chưa visible nên sẽ không có tác dụng.
-
-**Password show/hide pattern:**
-
-```csharp
-private void ShowPwdBtn_Changed(object sender, RoutedEventArgs e)
-{
-    bool show = ShowPwdBtn.IsChecked == true;
-    if (show)
-    {
-        PasswordTextBox.Text = PasswordBox.Password;  // copy sang TextBox
-        PasswordBox.Visibility = Visibility.Collapsed;
-        PasswordTextBox.Visibility = Visibility.Visible;
-        PasswordTextBox.CaretIndex = PasswordTextBox.Text.Length;  // cursor cuối
-    }
-    else
-    {
-        PasswordBox.Password = PasswordTextBox.Text;  // copy sang PasswordBox
-        PasswordTextBox.Visibility = Visibility.Collapsed;
-        PasswordBox.Visibility = Visibility.Visible;
-    }
-}
-```
-
-**Tại sao không chỉ dùng `PasswordBox.Password` binding?** `PasswordBox.Password` không thể bind two-way qua XAML vì security — password không được lưu dưới dạng `string` (DependencyProperty) trong WPF để tránh bị inspect từ memory dump. Ta phải dùng code-behind.
-
-**SignIn_Click:**
-
-```csharp
-private void SignIn_Click(object sender, RoutedEventArgs e)
-{
-    HideError();
-    var username = UserBox.Text?.Trim() ?? string.Empty;
-    var password = GetPassword();
-
-    if (string.IsNullOrWhiteSpace(username)) { ShowError("Vui lòng nhập tên đăng nhập."); return; }
-    if (string.IsNullOrEmpty(password)) { ShowError("Vui lòng nhập mật khẩu."); return; }
-
-    LoginButton.IsEnabled = false;  // prevent double-click
-
-    try
-    {
-        LoggedInUser = _userService.ValidateCredentials(username, password);
-
-        if (LoggedInUser != null)
-        {
-            if (RememberMeCheckBox.IsChecked == true) SaveCredentials(username);
-            else ClearSavedCredentials();
-
-            DialogResult = true;  // signal thành công cho ShowDialog() caller
-            Close();
-        }
-        else
-        {
-            ShowError("Tên đăng nhập hoặc mật khẩu không đúng.");
-            ClearPassword();
-            PasswordBox.Focus();
-        }
-    }
-    catch (Exception ex)
-    {
-        Logger.Error(ex, "Login error");
-        ShowError($"Đăng nhập thất bại: {ex.Message}");
-    }
-    finally
-    {
-        LoginButton.IsEnabled = true;  // always re-enable
-    }
-}
-```
-
-`username.Trim()` — xóa whitespace đầu/cuối. User thường copy-paste username có trailing space. `ClearPassword()` sau login thất bại — không để password còn trong ô sau khi nhập sai.
-
-**SavedCredentials — không bao giờ lưu password:**
-
-```csharp
-public class SavedCredentials
-{
-    public string Username { get; set; } = string.Empty;
-    // Không có Password field
-}
-```
-
-Lưu username thôi — user chỉ cần nhập password mỗi lần (security tradeoff). Lưu password thậm chí encrypted vẫn là bad practice cho desktop app.
-
----
-
-### Views/MainWindow.xaml — Context Menu ngoài visual tree
-
-**Vấn đề:** `ContextMenu` là `Popup` — nó không nằm trong visual tree của `ListBox`. Khi XAML binding `{Binding ConnectSelectedCommand}`, WPF traverse visual tree lên tìm DataContext nhưng dừng lại ở visual tree boundary (Popup wall).
-
-**Giải pháp: Tag + PlacementTarget:**
-
-```xml
-<!-- Trong ListBox.ItemContainerStyle -->
-<Setter Property="Tag"
-        Value="{Binding DataContext, RelativeSource={RelativeSource AncestorType=ListBox}}"/>
-<EventSetter Event="PreviewMouseRightButtonDown" Handler="PlcItem_RightClick"/>
-<Setter Property="ContextMenu">
-    <Setter.Value>
-        <ContextMenu DataContext="{Binding PlacementTarget.Tag,
-                                          RelativeSource={RelativeSource Self}}">
-            <MenuItem Header="⚡ Kết nối"    Command="{Binding ConnectSelectedCommand}"/>
-            <MenuItem Header="⏸ Ngắt kết nối" Command="{Binding DisconnectSelectedCommand}"/>
-            <Separator/>
-            <MenuItem Header="⎇ Browse Server" Command="{Binding BrowseServerCommand}"/>
-            <Separator/>
-            <MenuItem Header="✏ Sửa"  Command="{Binding EditPlcCommand}"/>
-            <MenuItem Header="🗑 Xóa" Command="{Binding DeletePlcCommand}"/>
-        </ContextMenu>
-    </Setter.Value>
-</Setter>
-```
-
-1. `Tag = MainViewModel` — `ListBoxItem.Tag` lưu reference đến MainViewModel (lấy từ ListBox.DataContext)
-2. `ContextMenu.PlacementTarget` = ListBoxItem mà menu được hiển thị từ đó
-3. `PlacementTarget.Tag` = MainViewModel đã lưu ở bước 1
-4. Commands trong MenuItem bind vào MainViewModel
-
-**PreviewMouseRightButtonDown để auto-select:**
-
-```csharp
-private void PlcItem_RightClick(object sender, MouseButtonEventArgs e)
-{
-    if (sender is ListBoxItem item)
-        item.IsSelected = true;   // select item trước khi hiển thị ContextMenu
-}
-```
-
-WPF không auto-select ListBoxItem khi right-click (chỉ left-click mới select). Nếu không có handler này, user right-click PLC2 nhưng PLC1 vẫn selected → ContextMenu commands tác động lên PLC1 sai.
-
-`PreviewMouseRightButtonDown` thay vì `MouseRightButtonDown` — `Preview` events (tunnel từ root xuống) fire trước regular events (bubble từ element lên). Đảm bảo item được select trước khi ContextMenu nhận sự kiện.
-
----
-
-### Views/BrowseServerWindow.xaml.cs
-
-```csharp
-public partial class BrowseServerWindow : Window
-{
-    private readonly BrowseServerViewModel _viewModel;
-
-    public BrowseServerWindow(PlcConnection connection)
-    {
-        InitializeComponent();
-        _viewModel = new BrowseServerViewModel(connection);
-        DataContext = _viewModel;
-    }
-
-    // Expose tags được thêm cho caller (MainViewModel)
-    public IReadOnlyList<TagItem> AddedTags => _viewModel.SelectedTags.ToList();
-
-    private void TreeView_SelectedItemChanged(object sender, RoutedPropertyChangedEventArgs<object> e)
-    {
-        if (e.NewValue is BrowseNodeItem node)
-            _viewModel.SelectedNode = node;
-    }
-```
-
-`TreeView_SelectedItemChanged` — TreeView có riêng event `SelectedItemChanged` với `RoutedPropertyChangedEventArgs<object>`. `e.NewValue as BrowseNodeItem` safe-cast — null nếu không đúng type (placeholder items).
-
-```csharp
-    private void CloseButton_Click(object sender, RoutedEventArgs e)
-    {
-        DialogResult = _viewModel.SelectedTags.Any();  // true nếu có tag nào được thêm
-        Close();
-    }
-
-    protected override void OnMouseDoubleClick(MouseButtonEventArgs e)
-    {
-        base.OnMouseDoubleClick(e);
-        if (_viewModel.SelectedNode?.CanAddAsTag == true)
-            _viewModel.AddSelectedTagCommand.Execute(null);
-    }
-}
-```
-
-`OnMouseDoubleClick` override — double click trên TreeView node nào có `CanAddAsTag=true` thì add ngay, nhanh hơn phải click nút "Thêm tag". UX improvement.
-
----
-
-## 11. CÁC BUG ĐÃ FIX
-
-### Bug 1: NodeId.Parse vs new NodeId
-
-**Vấn đề:** `new NodeId("i=85")` tạo NodeId sai kiểu.
-
-```
-new NodeId("i=85")  →  Type=String, Identifier="i=85"  ← SAI
-NodeId.Parse("i=85") →  Type=Numeric, Identifier=85    ← ĐÚNG
-```
-
-OPC UA server từ chối String NodeId cho nodes chuẩn (Objects, Types, Views folders). Kết quả: `BrowseAsync()` trả về empty list không có lỗi — khó debug.
-
-**Fix:** Đổi `new NodeId(nodeId)` → `NodeId.Parse(nodeId)` trong `BrowseAsync()` và `GetNodeInfoAsync()`.
-
-### Bug 2: BrowseServerViewModel gọi trực tiếp OPC UA SDK
-
-**Vấn đề:** BrowseServerViewModel trước đây inject `Session` trực tiếp và gọi `_session.Browse()`, `_session.ReadNode()`. Điều này:
-- Bypass service layer (PlcConnection)
-- Không có error handling, logging
-- PlcConnection có thể đang reconnect → session thay đổi mà ViewModel không biết
-
-**Fix:** Đổi constructor nhận `PlcConnection` thay vì `Session`. Dùng `_connection.BrowseAsync()`, `_connection.GetNodeInfoAsync()`, `_connection.ReadTagAsync()`.
-
-### Bug 3: ContextMenu binding thất bại
-
-**Vấn đề:** `ContextMenu` là Popup nằm ngoài visual tree. `RelativeSource AncestorType=Window` hoặc `AncestorType=ListBox` không traverse qua visual tree boundary → binding fail silently (command = null → exception hoặc không làm gì).
-
-**Fix:** Tag pattern — lưu ViewModel vào `Tag` property của `ListBoxItem`, ContextMenu bind vào `PlacementTarget.Tag`.
-
----
-
-## 12. PATTERNS VÀ QUYẾT ĐỊNH KIẾN TRÚC
-
-### Pattern 1: MVVM với WPF Binding
-
-**Vì sao dùng MVVM thay vì code-behind thuần?**
-
-```
-Code-behind thuần:
-  Button.Click → fetch data → update TextBox.Text trực tiếp
-  → logic trộn lẫn với UI, khó test, khó maintain
-
-MVVM:
-  Button → Command → ViewModel method → update property → Binding → TextBox tự update
-  → logic tách biệt, có thể unit test ViewModel mà không cần UI
-```
-
-### Pattern 2: ObservableCollection cho Live Updates
-
-```csharp
-public ObservableCollection<PlcDevice> PlcDevices { get; } = new();
-public ObservableCollection<LogEntry> LogEntries { get; } = new();
-```
-
-`ObservableCollection<T>` implements `INotifyCollectionChanged` — khi `Add()` hoặc `Remove()`, ListBox/DataGrid tự cập nhật mà không cần reassign `ItemsSource`. `List<T>` không có mechanism này.
-
-### Pattern 3: Fire-and-Forget với `_ =`
-
-```csharp
-_ = Task.Run(async () => { ... });           // background work
-_ = InitializeViewModelAsync(_mainViewModel); // startup task
-_ = LoadRootNodesAsync();                    // ViewModel init
-```
-
-Dấu `_` (discard) tắt warning "CS4014: Because this call is not awaited...". Không phải ignore exception — vẫn cần handle trong task body. Dùng khi: tác vụ phụ không ảnh hưởng luồng chính, hoặc không cần chờ kết quả.
-
-### Pattern 4: `private static ILogger Logger => Log.Logger`
-
-Dùng cho các class được tạo trước khi UiSink được add (PlcConnection, PlcManager). Static property thay vì field — mỗi lần gọi lấy logger hiện tại, không phải instance cũ đã captured.
-
-### Pattern 5: Atomic file write (temp + rename)
-
-```csharp
-File.WriteAllText(tempPath, json);  // write vào .tmp
-File.Delete(targetPath);
-File.Move(tempPath, targetPath);    // rename — atomic trên OS level
-```
-
-Tránh corrupt file khi app crash giữa write. Dùng cho lock_state.json và có thể áp dụng cho config file.
-
-### Pattern 6: Double-check locking
-
-```csharp
-if (_reconnectHandler == null)           // check ngoài lock (fast path)
-{
-    lock (_lock)
-    {
-        if (_reconnectHandler == null)   // check lại trong lock (safe)
-        {
-            _reconnectHandler = new SessionReconnectHandler(...);
-        }
-    }
-}
-```
-
-Tối ưu performance: kiểm tra không lock trước (99% cases). Chỉ lock và kiểm tra lại khi `null`. Tránh overhead của lock khi không cần.
-
-### Pattern 7: CancellationToken trên async methods
-
-```csharp
-public async Task<bool> ConnectAsync(CancellationToken cancellationToken = default)
-```
-
-`default` = `CancellationToken.None` — không cancellable nếu caller không truyền token. Dùng khi: user click Cancel trong lúc đang connect → cancel operation. Propagate token xuống `Session.Create()`, `Task.Delay()`, v.v.
-
-### Pattern 8: IReadOnlyList return type
-
-```csharp
-public async Task<IReadOnlyList<BrowseNode>> BrowseAsync(...) { ... }
-```
-
-Trả về `IReadOnlyList<T>` thay vì `List<T>` — caller không thể `.Add()` hay `.Remove()` vào list trả về. Tránh side effects. Caller phải tạo copy riêng nếu muốn modify.
-
----
-
-## TỔNG KẾT
-
-Dự án OPC UA Communication Engine được xây dựng theo kiến trúc phân lớp rõ ràng:
-
-| Lớp | Trách nhiệm | Files chính |
-|-----|-------------|-------------|
-| Enums | Kiểu dữ liệu liệt kê | Enums/*.cs |
-| Models | Data transfer + binding | Models/*.cs |
-| Interfaces | Contracts giữa layers | Interfaces/*.cs |
-| Helpers | Utilities tái sử dụng | Helpers/*.cs |
-| Services | Business logic + I/O | Services/**/*.cs |
-| ViewModels | UI state + commands | ViewModels/*.cs |
-| Views | XAML + event handlers | Views/*.xaml.cs |
-| App | DI wiring + startup | App.xaml.cs |
-
-**Nguyên tắc cốt lõi:**
-1. **Dependency flows one way** — View → ViewModel → Service → Model. Không bao giờ ngược lại.
-2. **UI thread safety** — Mọi thay đổi UI phải qua `Dispatcher`. `ObservableObject` tự handle.
-3. **Fail gracefully** — Self-healing configs, BCrypt try/catch, connection retry với exponential backoff.
-4. **Separation of concerns** — PlcConnection chỉ biết OPC UA. PlcManager chỉ biết quản lý connections. ViewModel chỉ biết UI state.
-5. **Logs everywhere** — Serilog với structured logging ở mọi critical path, UI sink cho operator.
-
----
-
-*Tài liệu này được tạo tự động từ source code của dự án OPCUACommDriver.*  
-*Ngày: 2026-06-19*
+*[Phần tiếp theo — Chapters 5-15 — sẽ bao gồm: Helpers (RelayCommand, AsyncRelayCommand, Converters), Services/Auth, Services, OPC UA Layer chi tiết, Protocol implementations, API Layer (ASP.NET Core embedded), ViewModels, App.xaml.cs startup flow, Views/XAML patterns, Known Bugs và Fixes, và Build Order Guide]*
 
 ---
 
