@@ -32,6 +32,18 @@ Tài liệu này được viết dành cho **lập trình viên junior** muốn 
 14. [Bugs và Fixes - Các lỗi thường gặp](#chương-14-bugs-và-fixes---các-lỗi-thường-gặp)
 15. [Build Order Guide - Thứ tự xây dựng dự án](#chương-15-build-order-guide---thứ-tự-xây-dựng-dự-án)
 
+### Phần Phụ Lục - Kiến thức nền tảng (đọc khi đã "mất gốc")
+
+- [Phụ lục A: C# nền tảng cho dự án này](#phụ-lục-a-c-nền-tảng-cho-dự-án-này)
+- [Phụ lục B: WPF và XAML nền tảng](#phụ-lục-b-wpf-và-xaml-nền-tảng)
+- [Phụ lục C: MVVM - hiểu thật kỹ](#phụ-lục-c-mvvm---hiểu-thật-kỹ)
+- [Phụ lục D: OPC UA - khái niệm cốt lõi](#phụ-lục-d-opc-ua---khái-niệm-cốt-lõi)
+- [Phụ lục E: Dependency Injection và vòng đời object](#phụ-lục-e-dependency-injection-và-vòng-đời-object)
+- [Phụ lục F: async/await và lập trình bất đồng bộ](#phụ-lục-f-asyncawait-và-lập-trình-bất-đồng-bộ)
+- [Phụ lục G: Cấu trúc dự án và file .csproj](#phụ-lục-g-cấu-trúc-dự-án-và-file-csproj)
+- [Phụ lục H: Dựng lại dự án từ con số 0 (checklist)](#phụ-lục-h-dựng-lại-dự-án-từ-con-số-0-checklist)
+- [Phụ lục I: Bảng thuật ngữ (Glossary)](#phụ-lục-i-bảng-thuật-ngữ-glossary)
+
 ---
 
 ## Chương 1: Tổng quan kiến trúc
@@ -3266,3 +3278,714 @@ Kiến trúc phân lớp rõ ràng:
 
 Mỗi layer chỉ communicate với layer liền kề - loose coupling, dễ test và maintain.
 
+
+
+---
+
+# PHẦN PHỤ LỤC - KIẾN THỨC NỀN TẢNG
+
+> Phần này được viết riêng cho trường hợp bạn đã lâu không lập trình và cảm thấy "mất gốc". Nó **không thay thế** các chương ở trên mà **bổ sung** phần kiến thức nền — để khi đọc lại từng dòng code ở Chương 1–15 bạn không bị hổng. Hãy đọc phụ lục này **trước**, rồi quay lại các chương chi tiết.
+
+---
+
+## Phụ lục A: C# nền tảng cho dự án này
+
+Bạn không cần biết toàn bộ C#. Bạn chỉ cần nắm chắc những thứ project này thực sự dùng. Dưới đây là đúng những thứ đó.
+
+### A.1. Namespace, class, và file
+
+```csharp
+namespace OpcUaCommunicationEngine.Models;  // "địa chỉ" logic của code
+
+public class PlcDevice          // class = bản thiết kế (blueprint) cho object
+{
+    // nội dung class ở đây
+}
+```
+
+- **namespace**: nhóm các class lại theo chức năng, tránh trùng tên. `OpcUaCommunicationEngine.Models` nghĩa là class này thuộc nhóm "Models" của ứng dụng.
+- **class**: khuôn mẫu. Từ một class bạn tạo ra nhiều **object** (thể hiện cụ thể) bằng `new PlcDevice()`.
+- Dấu `;` sau namespace (thay vì `{ }`) là cú pháp **file-scoped namespace** của C# 10+ — cả file thuộc namespace đó, đỡ phải thụt lề.
+
+### A.2. Field vs Property — phân biệt CỰC KỲ quan trọng
+
+Đây là chỗ người mới hay lẫn. Project này dùng cả hai khắp nơi.
+
+```csharp
+public class Example
+{
+    private int _count;              // FIELD: biến lưu trữ thật sự, thường private, đặt tên _camelCase
+
+    public int Count                 // PROPERTY: "cổng" có kiểm soát để đọc/ghi field
+    {
+        get { return _count; }       // chạy khi ai đó ĐỌC Count
+        set { _count = value; }      // chạy khi ai đó GHI Count (value = giá trị được gán)
+    }
+
+    public string Name { get; set; } // AUTO-PROPERTY: compiler tự tạo field ẩn bên trong
+
+    public string Url => $"http://{Name}";  // EXPRESSION-BODIED property: chỉ đọc, tính toán mỗi lần gọi
+}
+```
+
+Tại sao quan trọng với project này? Trong file `PlcConnection.cs` có dòng:
+
+```csharp
+private static ILogger Logger => Log.Logger;   // PROPERTY (có =>), KHÔNG phải field
+```
+
+Nếu viết thành field `private static ILogger Logger = Log.Logger;` thì giá trị được "chụp" **một lần duy nhất** lúc khởi tạo. Nhưng `App.xaml.cs` thay `Log.Logger` mới **sau khi đăng nhập** (để thêm UI sink). Vì đây là **property** `=> Log.Logger`, mỗi lần dùng `Logger` nó đọc lại `Log.Logger` mới nhất → log mới hiện được lên UI. Đây là một quyết định thiết kế tinh tế, và nó dựa hoàn toàn vào việc hiểu field khác property.
+
+### A.3. Access modifiers (mức truy cập)
+
+| Từ khóa | Ai dùng được |
+|---------|--------------|
+| `public` | Mọi nơi |
+| `private` | Chỉ trong cùng class |
+| `protected` | Class này và class con (kế thừa) |
+| `internal` | Trong cùng project (assembly) |
+| `private static` | Chỉ trong class, và dùng chung cho mọi object (không gắn với 1 instance) |
+
+`static` nghĩa là "thuộc về class chứ không thuộc về object cụ thể". `Log.Logger` là static vì cả app chỉ có một logger.
+
+### A.4. Constructor (hàm khởi tạo)
+
+```csharp
+public class UserService
+{
+    private readonly string _usersFilePath;
+
+    public UserService(AuthSettings settings)   // constructor: trùng tên class, không có kiểu trả về
+    {
+        _usersFilePath = settings.UsersFilePath; // chạy ngay khi new UserService(...)
+        _storage = LoadOrCreateStorage();
+    }
+}
+```
+
+- Constructor chạy **một lần** khi object được tạo bằng `new`.
+- `readonly` = gán một lần trong constructor rồi không đổi được nữa → an toàn hơn.
+- Việc nhận `AuthSettings settings` qua constructor chính là **Dependency Injection** (xem Phụ lục E).
+
+### A.5. Interface và abstract class
+
+```csharp
+public interface IPlcConnection      // INTERFACE: chỉ là "hợp đồng", không có code thân hàm
+{
+    bool IsConnected { get; }
+    Task<bool> ConnectAsync(CancellationToken ct = default);
+}
+
+public class PlcConnection : IPlcConnection   // class này CAM KẾT thực hiện đủ hợp đồng
+{
+    public bool IsConnected { get; private set; }
+    public async Task<bool> ConnectAsync(CancellationToken ct = default) { /* code thật */ }
+}
+```
+
+- **Interface** = danh sách những thứ một class PHẢI có, nhưng không nói LÀM thế nào. Tên thường bắt đầu bằng `I`.
+- Lợi ích: chỗ khác chỉ cần biết `IPlcConnection` là đủ, không quan tâm đó là OPC UA hay Siemens hay Modbus. Đây là chìa khóa để `PlcManager` quản lý nhiều loại PLC bằng cùng một kiểu (xem Chương 4 và 8).
+- **abstract class** giống interface nhưng có thể chứa sẵn một phần code dùng chung. `ObservableObject` trong project là abstract class (xem Chương 3).
+
+### A.6. Generics (kiểu tổng quát)
+
+```csharp
+List<string> names;                  // List chứa string
+List<PlcDevice> devices;             // List chứa PlcDevice
+ObservableCollection<TagItem> tags;  // Collection chứa TagItem
+Task<bool> result;                   // Task trả về bool
+ConcurrentDictionary<string, TagValue> cache;  // Dictionary: key string, value TagValue
+```
+
+`<T>` là "chỗ trống điền kiểu vào sau". Một `List<T>` viết một lần, dùng cho mọi kiểu. Project dùng generics dày đặc: collections, Task, RelayCommand&lt;T&gt;...
+
+### A.7. Nullable — dấu `?`, `!`, `??`, `?.`
+
+Đây là thứ C# hiện đại bắt buộc phải hiểu, nếu không sẽ đọc code không nổi.
+
+```csharp
+string name;        // KHÔNG được null (non-nullable reference type)
+string? error;      // CÓ THỂ null (dấu ? sau kiểu)
+
+int? lockMinutes;   // int bình thường không null được; int? thì null được
+
+error?.Length       // ?. : nếu error null thì trả null luôn, không crash (null-conditional)
+error ?? "none"     // ?? : nếu error null thì dùng "none" (null-coalescing)
+error!.Length       // ! : "tôi chắc chắn không null, compiler đừng cảnh báo" (null-forgiving)
+```
+
+Ví dụ thật từ project: `LockDurationMinutes` là `int?` với quy ước **null = mặc định, 0 = không giới hạn** — nhờ nullable mới phân biệt được "chưa đặt" với "đặt bằng 0".
+
+### A.8. Delegate, Action, Func, và event
+
+Phần này khó với người mới nhưng project dùng rất nhiều (mọi command, mọi event).
+
+```csharp
+Action doSomething;            // con trỏ tới hàm KHÔNG tham số, KHÔNG trả về
+Action<string> log;           // hàm nhận 1 string, không trả về
+Func<bool> canRun;            // hàm không tham số, trả về bool
+Func<int, int, int> add;      // hàm nhận 2 int, trả về int
+
+// event: cơ chế "ai quan tâm thì đăng ký, khi có chuyện tôi gọi tất cả"
+public event EventHandler<PlcConnectionStateChangedEventArgs>? StateChanged;
+
+StateChanged?.Invoke(this, args);   // phát sự kiện; ?. để khỏi crash nếu chưa ai đăng ký
+```
+
+Hiểu nôm na: **event** giống như "danh sách số điện thoại". Ai muốn được báo tin thì `+=` (đăng ký), khi có chuyện thì class gọi `Invoke` để "gọi điện" cho tất cả. `PlcManager` subscribe event của từng `PlcConnection` rồi re-fire lên cho ViewModel — đó là **event aggregation** (Chương 8).
+
+```csharp
+connection.StateChanged += OnStateChanged;   // đăng ký
+connection.StateChanged -= OnStateChanged;   // hủy đăng ký (QUAN TRỌNG: quên -= sẽ rò rỉ bộ nhớ)
+```
+
+### A.9. Lambda expression
+
+```csharp
+() => DoWork()                       // hàm không tham số
+x => x * 2                           // nhận x, trả x*2
+(a, b) => a + b                      // nhận a,b trả tổng
+u => u.Username == "admin"           // dùng trong LINQ để lọc
+```
+
+`=>` đọc là "thì làm" / "ánh xạ tới". Lambda là cách viết hàm ngắn gọn ngay tại chỗ.
+
+### A.10. LINQ — truy vấn collection
+
+```csharp
+users.FirstOrDefault(u => u.Username == name)   // phần tử đầu thỏa điều kiện, hoặc null
+users.Where(u => u.IsActive)                    // lọc ra các phần tử thỏa điều kiện
+users.Any(u => u.Role == UserRole.Admin)        // có ít nhất 1 admin không? -> bool
+users.Select(p => p.EndpointUrl)                // biến List<Plc> thành List<string url>
+devices.ToList()                                // chuyển sang List để giữ bản sao
+```
+
+LINQ giúp xử lý danh sách bằng câu ngắn gọn thay vì viết vòng `for`. Project dùng LINQ ở khắp UserService, PlcManager, ViewModels.
+
+### A.11. async/await, Task, CancellationToken
+
+Quan trọng đến mức có hẳn Phụ lục F riêng. Tóm tắt nhanh:
+
+```csharp
+public async Task<bool> ConnectAsync(CancellationToken ct = default)
+{
+    await Task.Delay(100);   // "chờ" mà không khóa luồng
+    return true;
+}
+```
+
+- `async` đánh dấu hàm có thể "tạm dừng và quay lại".
+- `await` = "chờ việc này xong rồi đi tiếp, nhưng đừng đóng băng giao diện".
+- `Task` = lời hứa "sẽ có kết quả sau". `Task<bool>` = sẽ có một bool sau.
+- `CancellationToken` = "cái nút hủy" để ngừng việc dài giữa chừng.
+
+### A.12. using / IDisposable
+
+```csharp
+using (var stream = new FileStream(...))   // tự động gọi Dispose() khi ra khỏi khối
+{
+    // dùng stream
+}   // <- stream.Dispose() được gọi tự động ở đây
+
+public class OperatorLockService : IDisposable   // class nắm tài nguyên cần dọn dẹp
+{
+    public void Dispose() { /* đóng file watcher, timer... */ }
+}
+```
+
+`IDisposable` + `Dispose()` là cách .NET "dọn rác thủ công" cho thứ GC không tự lo được: file, kết nối mạng, timer, OPC UA session. Project implement `IDisposable` ở `PlcConnection`, `OperatorLockService`, `ApiHostService`...
+
+### A.13. Attribute
+
+```csharp
+[JsonIgnore]                 // bảo Newtonsoft.Json ĐỪNG lưu property này ra file
+public TagQuality Quality { get; set; }
+
+public void OnChanged([CallerMemberName] string? name = null) { }  // tự điền tên property gọi nó
+```
+
+Attribute là "ghi chú có ý nghĩa" gắn lên code, được thư viện/khung đọc và xử lý. `[JsonIgnore]` dùng để **không serialize các giá trị runtime** (Value, Quality, Timestamp) — chỉ lưu cấu hình, không lưu dữ liệu tạm.
+
+---
+
+## Phụ lục B: WPF và XAML nền tảng
+
+### B.1. XAML là gì và quan hệ với code-behind
+
+WPF tách giao diện làm 2 file song sinh:
+
+```
+MainWindow.xaml       <- mô tả GIAO DIỆN bằng XML (nút, ô, layout)
+MainWindow.xaml.cs    <- "code-behind": code C# xử lý sự kiện của cửa sổ đó
+```
+
+XAML là XML mô tả cây giao diện. Ví dụ:
+
+```xml
+<Button Content="Lưu" Click="Save_Click" Width="80"/>
+```
+
+tương đương C#:
+
+```csharp
+var btn = new Button { Content = "Lưu", Width = 80 };
+btn.Click += Save_Click;
+```
+
+XAML chỉ là cách viết khai báo (declarative) cho cùng việc đó, gọn và dễ nhìn hơn.
+
+### B.2. Layout cơ bản
+
+- **Grid**: chia ô theo hàng/cột (giống bảng Excel). Dùng nhiều nhất.
+  ```xml
+  <Grid>
+      <Grid.RowDefinitions>
+          <RowDefinition Height="Auto"/>  <!-- cao vừa đủ nội dung -->
+          <RowDefinition Height="*"/>     <!-- chiếm hết phần còn lại -->
+      </Grid.RowDefinitions>
+      <TextBlock Grid.Row="0" Text="Tiêu đề"/>
+      <ListBox  Grid.Row="1"/>
+  </Grid>
+  ```
+- **StackPanel**: xếp con theo chiều dọc (`Vertical`) hoặc ngang (`Horizontal`).
+- **Border**: khung bo góc, đổ bóng — dùng để tạo "thẻ" (card) đẹp như trong các dialog.
+
+### B.3. Data Binding — TRÁI TIM của WPF
+
+Đây là khái niệm phải hiểu nhất. Binding = "buộc" một thuộc tính UI vào một property trong code, để **tự động đồng bộ**.
+
+```xml
+<TextBlock Text="{Binding PlcName}"/>
+```
+
+Nghĩa là: "Text của ô này = giá trị property `PlcName` trong DataContext". Khi `PlcName` đổi, ô tự cập nhật — **không cần viết code gán tay**.
+
+Điều kiện để binding tự cập nhật: property phải báo "tôi vừa đổi" qua `INotifyPropertyChanged` (xem B.5).
+
+### B.4. DataContext
+
+`DataContext` là "nguồn dữ liệu" mà binding tìm tới. Trong project:
+
+```csharp
+mainWindow.DataContext = _mainViewModel;   // App.xaml.cs
+```
+
+Sau dòng này, mọi `{Binding XXX}` trong `MainWindow.xaml` sẽ tìm property `XXX` trong `MainViewModel`. Đây là chỗ **View gặp ViewModel**.
+
+### B.5. INotifyPropertyChanged và ObservableObject
+
+```csharp
+public abstract class ObservableObject : INotifyPropertyChanged
+{
+    public event PropertyChangedEventHandler? PropertyChanged;
+
+    protected void OnPropertyChanged([CallerMemberName] string? name = null)
+        => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
+
+    protected bool SetProperty<T>(ref T field, T value, [CallerMemberName] string? name = null)
+    {
+        if (Equals(field, value)) return false;   // không đổi thì thôi
+        field = value;
+        OnPropertyChanged(name);                  // báo UI cập nhật
+        return true;
+    }
+}
+```
+
+Cơ chế: khi property đổi → gọi `OnPropertyChanged` → phát event `PropertyChanged` → WPF nghe được → cập nhật mọi ô đang bind tới property đó. **Không có cái này, binding chỉ hiển thị giá trị ban đầu rồi đứng yên.**
+
+`[CallerMemberName]` tự điền tên property gọi nó, nên không phải gõ tay tên (tránh gõ sai → bug âm thầm).
+
+### B.6. ObservableCollection
+
+```csharp
+public ObservableCollection<PlcDevice> PlcDevices { get; } = new();
+```
+
+Khác `List<T>` ở chỗ: khi **thêm/xóa** phần tử, nó tự báo cho UI → ListBox/DataGrid tự thêm/xóa dòng. `List<T>` thì không, UI sẽ không biết. Vì vậy mọi danh sách hiển thị trên UI đều dùng `ObservableCollection`.
+
+### B.7. Command và ICommand
+
+Thay vì viết `Button.Click` trong code-behind, MVVM bind nút vào một **Command** trong ViewModel:
+
+```xml
+<Button Content="Thêm PLC" Command="{Binding AddPlcCommand}"/>
+```
+
+```csharp
+public ICommand AddPlcCommand { get; }
+// trong constructor:
+AddPlcCommand = new RelayCommand(_ => AddPlc(), _ => CanAddPlc());
+```
+
+`RelayCommand` (Chương 5) gói một hàm thường thành `ICommand`. `CanExecute` quyết định nút có **sáng/mờ** hay không. Đây là cách MVVM tách "việc nhấn nút" ra khỏi code giao diện.
+
+### B.8. Converter
+
+Khi dữ liệu và hiển thị không cùng kiểu, dùng converter để "phiên dịch":
+
+```xml
+<Border Visibility="{Binding IsConnected, Converter={StaticResource BoolToVis}}"/>
+```
+
+`BooleanToVisibilityConverter` đổi `true/false` → `Visible/Collapsed`. Project có nhiều converter tự viết để đổi trạng thái → màu, → icon, → text.
+
+### B.9. Styles, Resources, StaticResource
+
+```xml
+<Window.Resources>
+    <Style x:Key="PrimaryButton" TargetType="Button"> ... </Style>
+</Window.Resources>
+
+<Button Style="{StaticResource PrimaryButton}"/>
+```
+
+- **Resource**: thứ khai báo một lần, tái sử dụng nhiều nơi (style, màu, brush, converter).
+- **StaticResource**: tra cứu **một lần lúc tải**. **DynamicResource**: tra cứu lại khi đổi (cho theme động).
+- Project gom toàn bộ màu thương hiệu (navy `#1B2C7E`, vàng `#F5C61C`), font, style nút vào file resource dùng chung → giao diện đồng nhất.
+
+### B.10. Dispatcher và UI thread — nguồn gốc nhiều bug
+
+**Quy tắc sắt: chỉ UI thread mới được chạm vào UI.** Nhưng dữ liệu PLC về từ **background thread** (luồng nền của OPC UA). Nếu background thread đụng thẳng vào UI → app **crash**.
+
+```csharp
+Application.Current.Dispatcher.InvokeAsync(() =>
+{
+    LogEntries.Add(entry);   // an toàn vì chạy trên UI thread
+});
+```
+
+`Dispatcher` là "hàng đợi việc của UI thread". `InvokeAsync` = "nhờ UI thread làm hộ việc này". `ObservableObject.OnPropertyChanged` và `UiLogSink` đều tự động marshal về UI thread qua Dispatcher (Chương 3, 7).
+
+---
+
+## Phụ lục C: MVVM - hiểu thật kỹ
+
+MVVM (Model - View - ViewModel) là kiến trúc xương sống của toàn bộ phần giao diện.
+
+```
+   VIEW (XAML)              VIEWMODEL (C#)              MODEL (C#)
+  ┌──────────────┐   binding   ┌──────────────┐  dùng   ┌──────────────┐
+  │ MainWindow   │ <─────────> │ MainViewModel│ ──────> │ PlcDevice    │
+  │ - nút, ô     │  command    │ - properties │         │ TagItem      │
+  │ - KHÔNG có   │ ──────────> │ - commands   │         │ User         │
+  │   logic      │             │ - gọi service│         │ (dữ liệu thô)│
+  └──────────────┘             └──────────────┘         └──────────────┘
+```
+
+- **Model**: dữ liệu thuần (PlcDevice, TagItem, User). Không biết gì về giao diện.
+- **View**: giao diện (XAML). **Không chứa logic nghiệp vụ**, chỉ hiển thị và bắt thao tác.
+- **ViewModel**: cầu nối. Giữ trạng thái để View bind vào (properties), giữ hành động để View gọi (commands), và gọi xuống Service/Manager để làm việc thật.
+
+**Vì sao tách như vậy?**
+1. **Test được**: ViewModel là C# thuần, test không cần mở cửa sổ.
+2. **Đổi giao diện không đụng logic**: vẽ lại View mà ViewModel giữ nguyên.
+3. **Code-behind mỏng**: file `.xaml.cs` gần như trống, mọi thứ nằm ở ViewModel.
+
+**Luồng một thao tác điển hình** (nhấn "Thêm PLC"):
+1. User nhấn nút → `Command="{Binding AddPlcCommand}"` kích hoạt.
+2. `AddPlcCommand` gọi method `AddPlc()` trong ViewModel.
+3. ViewModel gọi `PlcManager.AddPlcAsync(...)` (Service layer).
+4. Manager tạo `PlcConnection`, kết nối, phát event.
+5. ViewModel nghe event, cập nhật `ObservableCollection` và property trạng thái.
+6. Nhờ `INotifyPropertyChanged`, UI tự cập nhật. **Không một dòng code nào "vẽ" lại UI thủ công.**
+
+---
+
+## Phụ lục D: OPC UA - khái niệm cốt lõi
+
+Để hiểu `PlcConnection.cs` bạn phải nắm các khái niệm OPC UA sau.
+
+### D.1. OPC UA là gì
+
+OPC UA (Unified Architecture) là **chuẩn giao tiếp công nghiệp** cho phép máy tính nói chuyện với PLC/thiết bị của nhiều hãng theo cùng một ngôn ngữ. Mô hình **Client–Server**: PLC (hoặc gateway) chạy **Server**; ứng dụng của chúng ta là **Client**.
+
+### D.2. Address Space, Node, và NodeId
+
+Server phơi bày dữ liệu dưới dạng **cây node** (Address Space):
+
+```
+Root
+ ├── Objects   (i=85)   <- nơi chứa dữ liệu thật
+ ├── Types     (i=86)
+ └── Views     (i=87)
+```
+
+- **Node**: một điểm trên cây (một biến, một thư mục, một kiểu...).
+- **NodeId**: "địa chỉ" duy nhất của node. Có nhiều dạng: `i=85` (numeric), `ns=2;s=Temperature` (string trong namespace 2)...
+
+**BUG KINH ĐIỂN (Chương 14):**
+
+```csharp
+new NodeId("i=85")     // SAI: tạo NodeId kiểu STRING với nội dung "i=85"
+NodeId.Parse("i=85")   // ĐÚNG: phân tích ra NodeId kiểu NUMERIC = 85
+```
+
+Server hiểu `Parse` nhưng từ chối cái kia với lỗi `BadNodeIdUnknown`. Phải hiểu NodeId mới thấy được lỗi này.
+
+### D.3. Browse
+
+**Browse** = "duyệt cây": hỏi server "node này có những con nào?". `BrowseServerWindow` dùng browse để hiển thị cây tag, lazy-load từng nhánh khi người dùng mở rộng (Chương 13).
+
+### D.4. Session, Subscription, MonitoredItem
+
+```
+Session                    <- 1 phiên kết nối Client-Server (như 1 lần đăng nhập)
+ └── Subscription          <- 1 nhóm theo dõi, có chu kỳ publish riêng
+      ├── MonitoredItem    <- 1 tag được theo dõi
+      └── MonitoredItem
+```
+
+- **Session**: phiên làm việc. Mất mạng → session đứt → cần reconnect.
+- **Subscription**: đăng ký nhận thay đổi. Thay vì hỏi liên tục (polling), bạn nói "có gì đổi thì báo tôi".
+- **MonitoredItem**: từng tag cụ thể trong subscription. Khi giá trị đổi vượt ngưỡng, server **đẩy** về client → event `TagValueChanged`.
+
+Mô hình **đẩy** (push) này hiệu quả hơn hỏi liên tục, đặc biệt với hàng trăm tag.
+
+### D.5. Reconnect 2 lớp
+
+Project chống mất kết nối bằng 2 lớp (Chương 8):
+1. **SessionReconnectHandler** (SDK lo sẵn): tự nối lại khi rớt mạng thoáng qua.
+2. **AutoReconnectLoopAsync** (tự viết): khi rớt lâu, vòng lặp thử lại với **exponential backoff** (chờ 2s, 4s, 8s, 16s... tăng dần) để không spam server.
+
+Sau khi nối lại có **settling period 2000ms**: bỏ qua các event KeepAlive cũ còn "lởn vởn" để tránh hiểu nhầm trạng thái.
+
+### D.6. Security
+
+OPC UA có **SecurityPolicy** (thuật toán mã hóa) và **SecurityMode** (None / Sign / SignAndEncrypt) cùng **certificate** (chứng chỉ để hai bên tin nhau). `SelectBestEndpoint` chọn endpoint an toàn nhất mà cả hai cùng hỗ trợ (Chương 8).
+
+---
+
+## Phụ lục E: Dependency Injection và vòng đời object
+
+### E.1. Vấn đề DI giải quyết
+
+Không có DI, class tự tạo thứ nó cần:
+
+```csharp
+public class MainViewModel
+{
+    private PlcManager _manager = new PlcManager(new ConfigurationService(), ...);  // ràng buộc cứng
+}
+```
+
+Cách này khó test, khó thay thế, khó tái dùng. **Dependency Injection** đảo ngược: class chỉ **khai báo** thứ nó cần qua constructor, có người khác **đưa vào**.
+
+```csharp
+public class MainViewModel
+{
+    private readonly IPlcManager _manager;
+    public MainViewModel(IPlcManager manager)   // "tôi cần 1 IPlcManager, ai đó đưa cho tôi"
+    {
+        _manager = manager;
+    }
+}
+```
+
+### E.2. Container và đăng ký service
+
+`App.xaml.cs` dựng một **container** (kho) khai báo "khi cần kiểu X, hãy đưa object Y":
+
+```csharp
+var services = new ServiceCollection();
+services.AddSingleton<IPlcManager, PlcManager>();      // 1 instance dùng chung cả app
+services.AddSingleton<UserService>();
+services.AddSingleton<MainViewModel>();
+services.AddTransient<MainWindow>();                   // mỗi lần xin là 1 instance mới
+_serviceProvider = services.BuildServiceProvider();
+
+var vm = _serviceProvider.GetRequiredService<MainViewModel>();  // container tự lắp ráp mọi dependency
+```
+
+Container tự nhìn constructor, thấy `MainViewModel` cần `IPlcManager`, nó tự tạo/đưa vào — **đệ quy** cho cả chuỗi phụ thuộc.
+
+### E.3. Lifetime — vòng đời
+
+| Lifetime | Ý nghĩa | Dùng khi |
+|----------|---------|----------|
+| **Singleton** | 1 instance cho cả app | Service giữ trạng thái dùng chung (PlcManager, UserService) |
+| **Transient** | Mỗi lần xin là 1 cái mới | Cửa sổ, dialog |
+| **Scoped** | 1 instance/phạm vi (mỗi request HTTP) | Controller trong API |
+
+Hiểu lifetime giúp tránh bug "tại sao dữ liệu bị chia sẻ ngoài ý muốn" hoặc "tại sao mỗi lần lại mất state".
+
+---
+
+## Phụ lục F: async/await và lập trình bất đồng bộ
+
+### F.1. Vì sao cần async
+
+Nếu kết nối PLC (mất vài giây) chạy trên UI thread theo kiểu **đồng bộ**, giao diện **đơ cứng** suốt thời gian đó. `async/await` cho phép "chờ" mà UI vẫn mượt.
+
+```csharp
+public async Task<bool> ConnectAsync(CancellationToken ct = default)
+{
+    UpdateState(Connecting);
+    var session = await Session.CreateAsync(...);   // chờ ~vài giây, UI KHÔNG đơ
+    UpdateState(Connected);
+    return true;
+}
+```
+
+### F.2. Hiểu Task, async, await
+
+- `Task` = "lời hứa có kết quả sau". `Task<bool>` = sẽ có bool. `Task` không kèm kiểu = chỉ "sẽ xong, không trả gì".
+- `async` = đánh dấu hàm chứa `await`, cho phép tạm dừng-quay lại.
+- `await` = "chờ Task này xong rồi đi tiếp; trong lúc chờ, trả luồng lại cho người khác dùng".
+
+### F.3. Các "bẫy" async trong project
+
+**1. `async void` chỉ dùng cho event handler.** Lý do: `async void` không await được, lỗi không bắt được. Nhưng `ICommand.Execute` bắt buộc trả `void`, nên `AsyncRelayCommand.Execute` phải là `async void` — và phải bọc `try/finally` để không nuốt lỗi (Chương 5).
+
+**2. Re-entry guard.** `AsyncRelayCommand` dùng cờ `_isExecuting` để chặn double-click khi tác vụ async đang chạy.
+
+**3. Fire-and-forget có chủ đích.**
+```csharp
+_ = InitializeViewModelAsync(_mainViewModel);  // App.xaml.cs: cố ý KHÔNG await
+```
+Dấu `_ =` nghĩa "tôi biết mình không await". Mục đích: cho `mainWindow.Show()` chạy trước để UI hiện ngay, rồi mới khởi tạo nền (Chương 12).
+
+**4. CancellationToken.** Truyền `ct` xuống các tầng để có thể hủy tác vụ dài (đóng app giữa lúc đang kết nối).
+
+### F.4. ConcurrentDictionary và thread-safety
+
+Khi nhiều luồng cùng đọc/ghi một collection, `Dictionary` thường sẽ hỏng dữ liệu. `ConcurrentDictionary` an toàn cho đa luồng — dùng cho `DataCacheService` (REST API thread ghi/đọc song song) và quản lý connections trong `PlcManager`.
+
+Ngoài ra project còn dùng `lock (_lock) { ... }` (ví dụ `UserService`) để đảm bảo một khối code chỉ một luồng vào tại một thời điểm.
+
+---
+
+## Phụ lục G: Cấu trúc dự án và file .csproj
+
+### G.1. Sơ đồ thư mục
+
+```
+OPCUACommDriver/
+├── App.xaml / App.xaml.cs          <- điểm khởi động, DI, logging
+├── OPCUACommDriver.csproj          <- file dự án: target framework, NuGet packages
+├── Enums/                          <- các kiểu liệt kê
+├── Models/                         <- lớp dữ liệu (PlcDevice, TagItem, User, ObservableObject)
+├── Interfaces/                     <- IPlcConnection, IPlcManager...
+├── Helpers/                        <- RelayCommand, Converters
+├── Services/
+│   ├── Auth/                       <- UserService, AuthService, OperatorLockService
+│   ├── OpcUa/                      <- PlcConnection, PlcManager
+│   ├── Protocols/                  <- Siemens, Mitsubishi, Modbus
+│   ├── ConfigurationService.cs
+│   ├── DataCacheService.cs
+│   └── UiLogSink.cs
+├── Api/                            <- ApiHostService, Controllers, Hubs (ASP.NET Core nhúng)
+├── ViewModels/                     <- MainViewModel, BrowseServerViewModel
+├── Views/                          <- MainWindow, LoginWindow, các Dialog (.xaml + .xaml.cs)
+├── Configurations/                 <- file JSON lưu cấu hình & lock_state
+└── Logs/                           <- file log theo ngày
+```
+
+### G.2. File .csproj — "bản kê khai" của dự án
+
+```xml
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>        <!-- ứng dụng cửa sổ Windows -->
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>                  <!-- bật WPF -->
+    <Nullable>enable</Nullable>            <!-- bật nullable reference types (dấu ?) -->
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="OPCFoundation.NetStandard.Opc.Ua" Version="1.5.374.126"/>
+    <PackageReference Include="Serilog" .../>
+    <PackageReference Include="BCrypt.Net-Next" .../>
+    <PackageReference Include="Newtonsoft.Json" .../>
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" .../>
+    <!-- ASP.NET Core, JWT, SignalR... -->
+  </ItemGroup>
+</Project>
+```
+
+`<PackageReference>` là khai báo NuGet package. Khi build, NuGet tải các thư viện này về.
+
+### G.3. Các package chính và vai trò
+
+| Package | Vai trò trong dự án |
+|---------|---------------------|
+| OPCFoundation.NetStandard.Opc.Ua | Bộ SDK OPC UA: Session, Subscription, Browse... |
+| Serilog (+ sinks) | Ghi log ra console, file, và UI |
+| BCrypt.Net-Next | Băm mật khẩu (workFactor=11) |
+| Newtonsoft.Json | Đọc/ghi file cấu hình JSON |
+| Microsoft.Extensions.DependencyInjection | Container DI |
+| Microsoft.AspNetCore.* | API REST + SignalR nhúng trong WPF |
+| JwtBearer | Xác thực JWT cho API |
+
+---
+
+## Phụ lục H: Dựng lại dự án từ con số 0 (checklist)
+
+Đây là thứ tự thực tế để xây lại app, theo đúng chiều phụ thuộc (thứ ít phụ thuộc làm trước). Khớp với Chương 15.
+
+1. **Tạo project WPF .NET 8.** `dotnet new wpf`, sửa `.csproj` thành `net8.0-windows`, bật `Nullable`. Cài các NuGet ở Phụ lục G.3.
+2. **Enums.** Tạo toàn bộ enum (UserRole, PlcConnectionState, TagQuality, ProtocolType...). Không phụ thuộc gì → làm đầu tiên.
+3. **Models nền tảng.** `ObservableObject` (base cho binding), rồi `User`, `PlcDevice`, `TagItem`. Nhớ `[JsonIgnore]` cho giá trị runtime.
+4. **Interfaces.** `IPlcConnection`, `IPlcManager` — định nghĩa hợp đồng trước khi viết phần thân.
+5. **Helpers.** `RelayCommand`, `AsyncRelayCommand`, `RelayCommand<T>`, các Converter.
+6. **Services hạ tầng.** `ConfigurationService` (JSON), `UiLogSink` (Serilog→UI), `DataCacheService`.
+7. **Services/Auth.** `UserService` (BCrypt, tự tạo admin/admin123), `AuthService` (JWT), `OperatorLockService` (file lock + watcher).
+8. **OPC UA core.** `PlcConnection` (chú ý `NodeId.Parse`, reconnect 2 lớp, Logger là property), rồi `PlcManager` (ConcurrentDictionary, event aggregation).
+9. **Protocols khác** (tùy chọn): Siemens, Mitsubishi, Modbus — implement cùng `IPlcConnection`.
+10. **API layer.** `ApiHostService` nhúng ASP.NET Core, các Controller, SignalR Hub.
+11. **ViewModels.** `MainViewModel` (wire mọi command + event), `BrowseServerViewModel`.
+12. **Views.** `LoginWindow` trước, rồi `MainWindow`, `BrowseServerWindow`, các Dialog. Đặt resource (màu, style) dùng chung.
+13. **App.xaml.cs.** Ghép tất cả: DI, logging 2 pha, login→main flow, fire-and-forget init, khởi động API. **Làm cuối cùng** vì nó phụ thuộc mọi thứ.
+
+**Mẹo:** build và chạy được sau mỗi bước lớn (sau 6, sau 8, sau 12). Đừng viết hết rồi mới chạy — sẽ ngập trong lỗi.
+
+---
+
+## Phụ lục I: Bảng thuật ngữ (Glossary)
+
+| Thuật ngữ | Nghĩa ngắn gọn |
+|-----------|----------------|
+| **WPF** | Windows Presentation Foundation — khung làm app desktop Windows |
+| **XAML** | Ngôn ngữ XML mô tả giao diện WPF |
+| **Code-behind** | File `.xaml.cs` đi kèm file XAML |
+| **MVVM** | Model–View–ViewModel: kiến trúc tách giao diện và logic |
+| **Binding** | "Buộc" thuộc tính UI vào property code để tự đồng bộ |
+| **DataContext** | Nguồn dữ liệu mà binding tra cứu |
+| **INotifyPropertyChanged** | Cơ chế báo "property đã đổi" cho UI cập nhật |
+| **ObservableCollection** | Danh sách tự báo UI khi thêm/xóa phần tử |
+| **ICommand / RelayCommand** | Đối tượng đại diện cho một hành động nút bấm trong MVVM |
+| **Converter** | Bộ "phiên dịch" giá trị giữa code và UI |
+| **Dispatcher** | Hàng đợi việc của UI thread |
+| **UI thread** | Luồng duy nhất được phép chạm vào giao diện |
+| **DI / Dependency Injection** | Đưa dependency vào qua constructor thay vì tự tạo |
+| **Container / ServiceProvider** | Kho đăng ký và cấp phát object cho DI |
+| **Singleton / Transient / Scoped** | Các vòng đời object trong DI |
+| **async / await** | Cú pháp lập trình bất đồng bộ |
+| **Task** | "Lời hứa" sẽ có kết quả trong tương lai |
+| **CancellationToken** | "Nút hủy" tác vụ dài |
+| **ConcurrentDictionary** | Dictionary an toàn cho đa luồng |
+| **IDisposable / Dispose** | Cơ chế dọn dẹp tài nguyên thủ công |
+| **Generic `<T>`** | Kiểu tổng quát, điền kiểu cụ thể sau |
+| **Nullable `?`** | Cho phép giá trị null; đi kèm `??`, `?.`, `!` |
+| **Delegate / Action / Func** | Con trỏ tới hàm |
+| **Event** | Cơ chế "đăng ký – nhận thông báo" |
+| **Lambda `=>`** | Cách viết hàm ngắn gọn tại chỗ |
+| **LINQ** | Bộ truy vấn collection (Where, Select, FirstOrDefault...) |
+| **Attribute `[...]`** | Ghi chú có ý nghĩa gắn lên code |
+| **OPC UA** | Chuẩn giao tiếp công nghiệp Client–Server |
+| **NodeId** | Địa chỉ duy nhất của một node trên OPC UA server |
+| **Browse** | Duyệt cây node của server |
+| **Session** | Phiên kết nối OPC UA |
+| **Subscription** | Đăng ký nhận thay đổi giá trị |
+| **MonitoredItem** | Một tag được theo dõi trong subscription |
+| **Exponential backoff** | Chiến lược thử lại với thời gian chờ tăng dần |
+| **JWT** | JSON Web Token — vé xác thực cho API |
+| **BCrypt** | Thuật toán băm mật khẩu chậm có chủ đích |
+| **Serilog** | Thư viện logging có cấu trúc |
+| **PLC** | Programmable Logic Controller — bộ điều khiển trong nhà máy |
+| **Tag** | Một biến/điểm dữ liệu trong PLC |
+| **NuGet** | Trình quản lý gói thư viện của .NET |
+| **.csproj** | File mô tả dự án .NET |
+
+---
+
+> **Lời khuyên cuối:** Khi đọc lại một file code bất kỳ, hãy tự hỏi 3 câu: (1) File này thuộc **lớp nào** (Model/Service/ViewModel/View)? (2) Nó **phụ thuộc** vào gì và **ai phụ thuộc** vào nó? (3) Dữ liệu **đi vào và đi ra** bằng đường nào (binding, event, hay gọi method)? Trả lời được 3 câu này là bạn đã "lấy lại gốc".
